@@ -4,7 +4,7 @@ import {
   User, Mail, Calendar, Edit2, Lock, Shield, 
   Smartphone, Monitor, LogOut, Trash2, Camera,
   FileText, AlertTriangle, CheckCircle, Activity,
-  Bell, Users, Send
+  Bell, Users, Send, Clock
 } from 'lucide-react';
 import { auth } from '../services/auth';
 import { dashboardService, type DashboardStats } from '../services/dashboard';

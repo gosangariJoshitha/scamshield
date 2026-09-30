@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { FileText, Image as ImageIcon, File, Mic, Trash2, Search, Lock, Mail, Link as LinkIcon, MessageSquare, Briefcase, Phone, Smartphone } from 'lucide-react';
+import { FileText, Image as ImageIcon, File, Mic, Trash2, Search, Lock, Mail, Link as LinkIcon, MessageSquare, Briefcase, Phone, Smartphone, AlertTriangle } from 'lucide-react';
 import { api } from '../services/api';
 
 export default function Analyze() {
@@ -16,7 +16,7 @@ export default function Analyze() {
     try {
       // currently backend only supports text analysis easily, but we pass what we have
       // In a real scenario for images/pdfs we'd use FormData
-      const res = await api.post('/analysis/run', { content: text || "Uploaded file content placeholder" });
+      const res = await api.post('/analysis/text', { content: text || "Uploaded file content placeholder" });
       navigate('/results', { state: { result: res.data, from: '/analyze' } });
     } catch (err) {
       console.error(err);

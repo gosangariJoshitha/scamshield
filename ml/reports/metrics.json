@@ -1,0 +1,291 @@
+{
+    "accuracy": 0.9966666666666667,
+    "scam_precision": 1.0,
+    "scam_recall": 0.9933333333333333,
+    "scam_f1": 0.9966555183946488,
+    "classification_report": {
+        "genuine": {
+            "precision": 0.9933774834437086,
+            "recall": 1.0,
+            "f1-score": 0.9966777408637874,
+            "support": 150.0
+        },
+        "scam": {
+            "precision": 1.0,
+            "recall": 0.9933333333333333,
+            "f1-score": 0.9966555183946488,
+            "support": 150.0
+        },
+        "accuracy": 0.9966666666666667,
+        "macro avg": {
+            "precision": 0.9966887417218543,
+            "recall": 0.9966666666666666,
+            "f1-score": 0.9966666296292181,
+            "support": 300.0
+        },
+        "weighted avg": {
+            "precision": 0.9966887417218542,
+            "recall": 0.9966666666666667,
+            "f1-score": 0.996666629629218,
+            "support": 300.0
+        }
+    },
+    "language_evaluation": [
+        {
+            "language": "en",
+            "samples": 224,
+            "accuracy": 0.9955357142857143,
+            "precision": 1.0,
+            "recall": 0.9910714285714286,
+            "f1": 0.9955156950672646
+        },
+        {
+            "language": "hi",
+            "samples": 38,
+            "accuracy": 1.0,
+            "precision": 1.0,
+            "recall": 1.0,
+            "f1": 1.0
+        },
+        {
+            "language": "te",
+            "samples": 38,
+            "accuracy": 1.0,
+            "precision": 1.0,
+            "recall": 1.0,
+            "f1": 1.0
+        }
+    ],
+    "category_evaluation": [
+        {
+            "category": "romance_scam",
+            "samples": 6,
+            "accuracy": 1.0
+        },
+        {
+            "category": "bank_kyc",
+            "samples": 16,
+            "accuracy": 1.0
+        },
+        {
+            "category": "delivery",
+            "samples": 21,
+            "accuracy": 1.0
+        },
+        {
+            "category": "job_scam",
+            "samples": 23,
+            "accuracy": 1.0
+        },
+        {
+            "category": "personal",
+            "samples": 7,
+            "accuracy": 1.0
+        },
+        {
+            "category": "appointment",
+            "samples": 17,
+            "accuracy": 1.0
+        },
+        {
+            "category": "upi_qr",
+            "samples": 7,
+            "accuracy": 1.0
+        },
+        {
+            "category": "ecommerce",
+            "samples": 6,
+            "accuracy": 1.0
+        },
+        {
+            "category": "healthcare",
+            "samples": 9,
+            "accuracy": 1.0
+        },
+        {
+            "category": "telecom_genuine",
+            "samples": 10,
+            "accuracy": 1.0
+        },
+        {
+            "category": "tech_support",
+            "samples": 2,
+            "accuracy": 1.0
+        },
+        {
+            "category": "insurance_scam",
+            "samples": 4,
+            "accuracy": 1.0
+        },
+        {
+            "category": "transaction",
+            "samples": 15,
+            "accuracy": 1.0
+        },
+        {
+            "category": "charity_scam",
+            "samples": 5,
+            "accuracy": 1.0
+        },
+        {
+            "category": "loan_scam",
+            "samples": 13,
+            "accuracy": 1.0
+        },
+        {
+            "category": "phishing",
+            "samples": 7,
+            "accuracy": 0.8571428571428571
+        },
+        {
+            "category": "lottery",
+            "samples": 9,
+            "accuracy": 1.0
+        },
+        {
+            "category": "rental_scam",
+            "samples": 4,
+            "accuracy": 1.0
+        },
+        {
+            "category": "otp",
+            "samples": 17,
+            "accuracy": 1.0
+        },
+        {
+            "category": "subscription",
+            "samples": 12,
+            "accuracy": 1.0
+        },
+        {
+            "category": "investment_scam",
+            "samples": 8,
+            "accuracy": 1.0
+        },
+        {
+            "category": "service_update",
+            "samples": 1,
+            "accuracy": 1.0
+        },
+        {
+            "category": "fake_captcha_job",
+            "samples": 6,
+            "accuracy": 1.0
+        },
+        {
+            "category": "utility_scam",
+            "samples": 2,
+            "accuracy": 1.0
+        },
+        {
+            "category": "education",
+            "samples": 7,
+            "accuracy": 1.0
+        },
+        {
+            "category": "utility_genuine",
+            "samples": 8,
+            "accuracy": 1.0
+        },
+        {
+            "category": "finance_genuine",
+            "samples": 2,
+            "accuracy": 1.0
+        },
+        {
+            "category": "travel",
+            "samples": 5,
+            "accuracy": 1.0
+        },
+        {
+            "category": "fake_refund",
+            "samples": 5,
+            "accuracy": 1.0
+        },
+        {
+            "category": "event",
+            "samples": 5,
+            "accuracy": 1.0
+        },
+        {
+            "category": "fake_loan_app",
+            "samples": 1,
+            "accuracy": 1.0
+        },
+        {
+            "category": "refund_scam",
+            "samples": 4,
+            "accuracy": 1.0
+        },
+        {
+            "category": "customer_support",
+            "samples": 5,
+            "accuracy": 1.0
+        },
+        {
+            "category": "banking_genuine",
+            "samples": 4,
+            "accuracy": 1.0
+        },
+        {
+            "category": "job_genuine",
+            "samples": 5,
+            "accuracy": 1.0
+        },
+        {
+            "category": "accidental_transfer",
+            "samples": 1,
+            "accuracy": 1.0
+        },
+        {
+            "category": "telecom_threat",
+            "samples": 3,
+            "accuracy": 1.0
+        },
+        {
+            "category": "college_announcement",
+            "samples": 3,
+            "accuracy": 1.0
+        },
+        {
+            "category": "matrimonial_investment",
+            "samples": 2,
+            "accuracy": 1.0
+        },
+        {
+            "category": "vishing",
+            "samples": 1,
+            "accuracy": 1.0
+        },
+        {
+            "category": "work",
+            "samples": 3,
+            "accuracy": 1.0
+        },
+        {
+            "category": "whatsapp_web_renting",
+            "samples": 1,
+            "accuracy": 1.0
+        },
+        {
+            "category": "cyber_slavery",
+            "samples": 1,
+            "accuracy": 1.0
+        },
+        {
+            "category": "impersonation",
+            "samples": 3,
+            "accuracy": 1.0
+        },
+        {
+            "category": "support_genuine",
+            "samples": 2,
+            "accuracy": 1.0
+        },
+        {
+            "category": "delivery_scam",
+            "samples": 2,
+            "accuracy": 1.0
+        }
+    ]
+}
