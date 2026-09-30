@@ -1,601 +1,458 @@
 import { Link } from 'react-router-dom';
 import { 
   MessageSquare, MessageCircle, Mail, Image, FileText, Mic, ShieldAlert, 
-  ShieldCheck, ArrowRight, FileSearch, CheckCircle, UploadCloud, Cpu, Eye, Network, AlertTriangle, FileLock2, Search
+  ShieldCheck, ArrowRight, CheckCircle, UploadCloud, Network, 
+  AlertTriangle, Search, Lock, Database, Check, BrainCircuit, Sparkles, Zap, Link as LinkIcon
 } from 'lucide-react';
 
 export default function Landing() {
   return (
-    <div className="flex-1 bg-[#0a0f1c] text-white flex flex-col relative overflow-x-hidden">
-      {/* Background gradients */}
-      <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[1000px] h-[800px] bg-blue-900/20 rounded-full blur-[120px] pointer-events-none"></div>
+    <div className="flex-1 bg-card text-text-main flex flex-col font-sans">
       
+      {/* Background soft styling */}
+      <div className="absolute top-0 left-0 w-full h-[800px] bg-gradient-to-b from-blue-50/50 to-transparent pointer-events-none"></div>
+
       {/* Hero Section */}
-      <section id="home" className="max-w-7xl mx-auto px-8 w-full flex flex-col lg:flex-row items-center pt-20 pb-24 relative z-10 min-h-[90vh]">
-        <div className="lg:w-1/2 pr-8 mb-16 lg:mb-0">
-          <h1 className="text-5xl lg:text-7xl font-bold mb-6 leading-tight">
-            Don't Just Detect Scams.<br/>
-            <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-blue-600">Understand Them.</span>
+      <section id="home" className="max-w-7xl mx-auto px-6 lg:px-8 w-full flex flex-col lg:flex-row items-center pt-16 pb-20 relative z-10 min-h-[85vh]">
+        <div className="lg:w-1/2 pr-0 lg:pr-12 mb-16 lg:mb-0">
+          
+          {/* AI Badge */}
+          <div className="inline-flex items-center space-x-2 bg-blue-50 border border-blue-100 rounded-full px-4 py-1.5 mb-8">
+            <Zap className="w-4 h-4 text-primary" fill="currentColor" />
+            <span className="text-xs font-bold text-primary uppercase tracking-wider">AI-Powered Scam Protection</span>
+          </div>
+
+          <h1 className="text-[3.5rem] lg:text-[4.5rem] font-bold mb-6 leading-[1.05] text-[#0F172A] tracking-tight">
+            Don't Just<br />Detect Scams.<br />
+            <span className="text-primary">Understand Them.</span>
           </h1>
-          <p className="text-lg text-slate-300 mb-10 max-w-xl leading-relaxed">
+          <p className="text-lg text-text-muted mb-10 max-w-lg leading-relaxed font-medium">
             Analyze suspicious messages, screenshots, PDFs and audio — and understand exactly why something looks risky.
           </p>
-          <div className="flex space-x-4">
-            <Link to="/signup" className="bg-blue-600 hover:bg-blue-500 text-white font-bold py-3 px-8 rounded-xl shadow-lg shadow-blue-500/30 transition-all flex items-center space-x-2">
+          <div className="flex flex-col sm:flex-row space-y-4 sm:space-y-0 sm:space-x-4 mb-12">
+            <Link to="/analyze" className="bg-primary hover:bg-primary-hover text-white font-bold py-3.5 px-8 rounded-xl shadow-lg shadow-primary/30 transition-all flex items-center justify-center space-x-2">
               <span>Analyze Something</span>
               <ArrowRight className="w-5 h-5" />
             </Link>
-            <a href="#how-it-works" className="border border-slate-700 hover:border-slate-500 hover:bg-slate-800 text-white font-bold py-3 px-8 rounded-xl transition-all">
+            <a href="#how-it-works" className="bg-card border-2 border-primary text-primary hover:bg-blue-50 font-bold py-3.5 px-8 rounded-xl transition-all flex items-center justify-center">
               See How It Works
             </a>
           </div>
+
+          {/* Mini Features */}
+          <div className="flex items-center space-x-8">
+            <div className="flex items-start space-x-3">
+              <div className="bg-blue-50 rounded-full p-2 text-primary mt-0.5">
+                <Zap className="w-5 h-5" fill="currentColor" />
+              </div>
+              <div>
+                <div className="text-sm font-bold text-text-main">Real-time Analysis</div>
+                <div className="text-xs text-text-muted">Fast and accurate</div>
+              </div>
+            </div>
+            <div className="flex items-start space-x-3">
+              <div className="bg-blue-50 rounded-full p-2 text-primary mt-0.5">
+                <ShieldCheck className="w-5 h-5" />
+              </div>
+              <div>
+                <div className="text-sm font-bold text-text-main">Privacy First</div>
+                <div className="text-xs text-text-muted">Your data stays safe</div>
+              </div>
+            </div>
+            <div className="flex items-start space-x-3">
+              <div className="bg-blue-50 rounded-full p-2 text-primary mt-0.5">
+                <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
+              </div>
+              <div>
+                <div className="text-sm font-bold text-text-main">Trusted by Users</div>
+                <div className="text-xs text-text-muted">For a safer community</div>
+              </div>
+            </div>
+          </div>
+
         </div>
         
-        {/* Right side Interactive Analysis Visualization */}
-        <div className="lg:w-1/2 flex justify-center relative w-full">
-          <div className="w-full max-w-md relative">
-            <div className="absolute inset-0 bg-blue-600/10 blur-3xl rounded-full"></div>
-            
-            {/* Suspicious Message Card */}
-            <div className="bg-[#111827] border border-slate-700 rounded-2xl p-5 mb-4 shadow-xl relative z-10">
+        {/* Right side Illustration Area */}
+        <div className="lg:w-1/2 flex justify-center relative w-full h-full min-h-[500px]">
+          {/* We will just create a clean CSS-based representation of the UI graphic */}
+          <div className="absolute inset-0 bg-blue-50 rounded-3xl -rotate-3 border border-blue-100 scale-95"></div>
+          
+          <div className="relative w-full max-w-[480px] bg-card rounded-3xl shadow-2xl border border-border-light p-8 transform rotate-1 z-10">
+            {/* Suspicious Message Area */}
+            <div className="bg-card border border-border-light rounded-2xl p-5 mb-5 shadow-sm relative">
               <div className="flex items-center space-x-2 mb-3">
-                <AlertTriangle className="w-4 h-4 text-orange-400" />
-                <span className="text-xs font-bold text-orange-400 uppercase tracking-wider">Suspicious Message</span>
+                <AlertTriangle className="w-4 h-4 text-red-500" fill="currentColor" />
+                <span className="text-xs font-bold text-red-500 tracking-wider">SUSPICIOUS MESSAGE</span>
               </div>
-              <p className="text-sm text-slate-300 leading-relaxed mb-4">
+              <p className="text-sm text-slate-700 leading-relaxed mb-4 font-medium">
                 Your KYC has expired. Verify your account within 30 minutes or it will be permanently blocked.
               </p>
-              <div className="bg-slate-900 px-3 py-2 rounded border border-slate-800 font-mono text-xs text-blue-400 truncate">
-                https://verify-bank.example.com
+              <div className="bg-blue-50/50 px-3 py-2.5 rounded-lg border border-blue-100/50 text-xs text-blue-600 truncate flex justify-between items-center">
+                <span>https://verify-bank.example.com</span>
+                <LinkIcon className="w-3.5 h-3.5 text-blue-400" />
               </div>
             </div>
 
-            <div className="flex justify-center my-3 relative z-10">
-               <div className="bg-blue-900/50 border border-blue-500/30 px-4 py-1.5 rounded-full flex flex-col items-center shadow-lg shadow-blue-900/20">
-                 <div className="flex items-center space-x-2">
-                   <Cpu className="w-4 h-4 text-blue-400" />
-                   <span className="text-xs font-bold text-blue-200 uppercase tracking-wider">ScamShield AI</span>
+            <div className="flex justify-center -my-3 relative z-20">
+               <div className="bg-card px-5 py-2 rounded-full flex flex-col items-center shadow-md border border-border-light">
+                 <div className="flex items-center space-x-1.5">
+                   <ShieldCheck className="w-4 h-4 text-primary" fill="currentColor" />
+                   <span className="text-[11px] font-bold text-text-main uppercase tracking-widest">ScamShield AI</span>
                  </div>
-                 <span className="text-[10px] text-blue-300/70 mt-0.5">Example Analysis</span>
+                 <span className="text-[9px] font-semibold text-primary mt-0.5">Example Analysis</span>
                </div>
             </div>
 
             {/* Analysis Result Card */}
-            <div className="bg-gradient-to-b from-[#1a111a] to-[#0a0f1c] border border-red-900/50 rounded-2xl p-6 shadow-2xl relative z-10">
-              <div className="flex justify-between items-start mb-6 border-b border-red-900/30 pb-4">
+            <div className="bg-card border border-border-light rounded-2xl p-6 mt-1 shadow-sm relative">
+              <div className="flex justify-between items-start mb-6 border-b border-border-light pb-5">
                 <div>
-                  <div className="text-4xl font-bold text-red-500 mb-1">87<span className="text-sm text-slate-500">/100</span></div>
-                  <div className="text-xs font-bold text-red-600 bg-red-500/10 px-2 py-1 rounded inline-block uppercase tracking-wider">High Risk</div>
+                  <div className="text-5xl font-bold text-red-500 mb-2 leading-none">87<span className="text-lg font-bold text-slate-400">/100</span></div>
+                  <div className="text-[10px] font-bold text-red-500 bg-red-50 px-2.5 py-1 rounded-full inline-block uppercase tracking-wider border border-red-100">High Risk</div>
                 </div>
-                <div className="text-right">
-                   <div className="text-sm font-bold text-slate-200">Bank KYC Scam</div>
+                <div className="text-right flex items-center justify-end h-full mt-2">
+                   <div className="text-sm font-bold text-text-main">Bank KYC Scam</div>
                 </div>
               </div>
               
-              <div className="space-y-2 mb-6">
-                <div className="flex items-center space-x-2 text-xs text-slate-300">
-                  <CheckCircle className="w-3.5 h-3.5 text-red-400 shrink-0" />
+              <div className="space-y-3.5 mb-6 pl-1">
+                <div className="flex items-center space-x-3 text-sm font-medium text-slate-700">
+                  <div className="w-4 h-4 rounded-full bg-red-500 text-white flex items-center justify-center text-[10px] font-bold shrink-0">&gt;</div>
                   <span>Urgency detected</span>
                 </div>
-                <div className="flex items-center space-x-2 text-xs text-slate-300">
-                  <CheckCircle className="w-3.5 h-3.5 text-red-400 shrink-0" />
+                <div className="flex items-center space-x-3 text-sm font-medium text-slate-700">
+                  <div className="w-4 h-4 rounded-full bg-red-500 text-white flex items-center justify-center text-[10px] font-bold shrink-0">&gt;</div>
                   <span>Account threat</span>
                 </div>
-                <div className="flex items-center space-x-2 text-xs text-slate-300">
-                  <CheckCircle className="w-3.5 h-3.5 text-red-400 shrink-0" />
+                <div className="flex items-center space-x-3 text-sm font-medium text-slate-700">
+                  <div className="w-4 h-4 rounded-full bg-red-500 text-white flex items-center justify-center text-[10px] font-bold shrink-0">&gt;</div>
                   <span>KYC request</span>
                 </div>
-                <div className="flex items-center space-x-2 text-xs text-slate-300">
-                  <CheckCircle className="w-3.5 h-3.5 text-red-400 shrink-0" />
+                <div className="flex items-center space-x-3 text-sm font-medium text-slate-700">
+                  <div className="w-4 h-4 rounded-full bg-red-500 text-white flex items-center justify-center text-[10px] font-bold shrink-0">&gt;</div>
                   <span>Suspicious URL</span>
                 </div>
               </div>
 
-              <div className="bg-red-500/10 border border-red-500/20 rounded-lg p-3 flex items-start space-x-3">
-                <ShieldAlert className="w-4 h-4 text-red-400 shrink-0 mt-0.5" />
-                <span className="text-xs text-red-200 font-medium">Don't click the link. Verify directly through the official bank app.</span>
+              <div className="bg-red-50 border-l-2 border-red-500 p-4 flex items-start space-x-3">
+                <ShieldAlert className="w-5 h-5 text-red-500 shrink-0 mt-0.5" />
+                <span className="text-xs text-red-700 font-bold leading-relaxed pr-2">Don't click the link. Verify directly through the official bank app.</span>
               </div>
+            </div>
+            
+            {/* Floating Icons representing channels */}
+            <div className="absolute -right-16 top-1/2 -translate-y-1/2 flex flex-col space-y-4">
+               <div className="w-12 h-12 bg-card rounded-xl shadow-lg border border-border-light flex items-center justify-center text-green-500"><MessageCircle className="w-6 h-6" /></div>
+               <div className="w-12 h-12 bg-primary rounded-xl shadow-lg shadow-primary/20 flex items-center justify-center text-white"><MessageSquare className="w-6 h-6" fill="currentColor" /></div>
+               <div className="w-12 h-12 bg-card rounded-xl shadow-lg border border-border-light flex items-center justify-center text-red-500"><Mail className="w-6 h-6" /></div>
+               <div className="w-12 h-12 bg-card rounded-xl shadow-lg border border-border-light flex items-center justify-center text-orange-500"><FileText className="w-6 h-6" /></div>
             </div>
           </div>
         </div>
       </section>
 
       {/* Supported Inputs Section */}
-      <section className="py-16 bg-[#0d1326] relative z-10 border-t border-slate-800/50">
-        <div className="max-w-7xl mx-auto px-8">
+      <section className="py-24 bg-background/50">
+        <div className="max-w-7xl mx-auto px-6 lg:px-8">
           <div className="text-center mb-12">
-            <h2 className="text-2xl lg:text-3xl font-bold mb-4">Whatever the message looks like, ScamShield can read it.</h2>
+            <h2 className="text-3xl font-bold text-[#0F172A] mb-4">Whatever the message looks like, ScamShield can read it.</h2>
+            <p className="text-text-muted font-medium">Paste, upload or forward content from any platform.</p>
           </div>
           
           <div className="flex flex-wrap justify-center gap-4 lg:gap-6 max-w-5xl mx-auto">
-            <div className="flex items-center space-x-3 bg-[#111827] px-6 py-4 rounded-xl border border-slate-800 w-36 justify-center">
-              <MessageSquare className="w-5 h-5 text-blue-400" />
-              <span className="text-sm font-bold text-slate-300">SMS</span>
-            </div>
-            <div className="flex items-center space-x-3 bg-[#111827] px-6 py-4 rounded-xl border border-slate-800 w-36 justify-center">
-              <MessageCircle className="w-5 h-5 text-green-400" />
-              <span className="text-sm font-bold text-slate-300">WhatsApp</span>
-            </div>
-            <div className="flex items-center space-x-3 bg-[#111827] px-6 py-4 rounded-xl border border-slate-800 w-36 justify-center">
-              <Mail className="w-5 h-5 text-red-400" />
-              <span className="text-sm font-bold text-slate-300">Email</span>
-            </div>
-            <div className="flex items-center space-x-3 bg-[#111827] px-6 py-4 rounded-xl border border-slate-800 w-36 justify-center">
-              <Image className="w-5 h-5 text-purple-400" />
-              <span className="text-sm font-bold text-slate-300">Image</span>
-            </div>
-            <div className="flex items-center space-x-3 bg-[#111827] px-6 py-4 rounded-xl border border-slate-800 w-36 justify-center">
-              <FileText className="w-5 h-5 text-orange-400" />
-              <span className="text-sm font-bold text-slate-300">PDF</span>
-            </div>
-            <div className="flex items-center space-x-3 bg-[#111827] px-6 py-4 rounded-xl border border-slate-800 w-36 justify-center">
-              <Mic className="w-5 h-5 text-pink-400" />
-              <span className="text-sm font-bold text-slate-300">Audio</span>
-            </div>
+            {[
+              { icon: MessageSquare, label: 'SMS', color: 'text-blue-500', bg: 'bg-blue-50' },
+              { icon: MessageCircle, label: 'WhatsApp', color: 'text-green-500', bg: 'bg-green-50' },
+              { icon: Mail, label: 'Email', color: 'text-red-500', bg: 'bg-red-50' },
+              { icon: Image, label: 'Image', color: 'text-purple-500', bg: 'bg-purple-50' },
+              { icon: FileText, label: 'PDF', color: 'text-orange-500', bg: 'bg-orange-50' },
+              { icon: Mic, label: 'Audio', color: 'text-cyan-500', bg: 'bg-cyan-50' }
+            ].map((item, idx) => (
+              <div key={idx} className="flex flex-col items-center justify-center bg-card px-6 py-6 rounded-3xl border border-border-light w-36 shadow-sm hover:shadow-md transition-shadow group">
+                <div className={`w-14 h-14 ${item.bg} rounded-2xl flex items-center justify-center mb-4 transition-transform group-hover:scale-105`}>
+                  <item.icon className={`w-7 h-7 ${item.color}`} />
+                </div>
+                <span className="text-sm font-bold text-text-main">{item.label}</span>
+              </div>
+            ))}
           </div>
         </div>
       </section>
 
       {/* Detection Is Only the Beginning */}
-      <section className="py-24 relative z-10 border-t border-slate-800/50">
-        <div className="max-w-7xl mx-auto px-8">
-          <div className="text-center mb-16">
-            <h2 className="text-3xl lg:text-4xl font-bold mb-4">Detection Is Only the Beginning.</h2>
-            <p className="text-slate-400 max-w-2xl mx-auto">Unlike traditional classifiers, our pipeline extracts, detects, and reasons.</p>
-          </div>
-
-          <div className="flex flex-col lg:flex-row items-stretch justify-center gap-8 max-w-5xl mx-auto">
-            {/* Traditional */}
-            <div className="lg:w-1/3 bg-[#111827] border border-slate-800 p-8 rounded-2xl flex flex-col items-center">
-              <h3 className="text-sm font-bold text-slate-500 uppercase tracking-wider mb-8">Traditional Detection</h3>
-              <div className="bg-slate-800 border border-slate-700 px-6 py-3 rounded-lg text-sm w-full text-center text-slate-300 mb-4">Message</div>
-              <ArrowRight className="w-5 h-5 text-slate-600 rotate-90 mb-4" />
-              <div className="flex justify-between w-full space-x-2">
-                <div className="bg-red-900/30 border border-red-500/30 text-red-400 px-4 py-2 rounded text-xs text-center w-1/2">SCAM</div>
-                <div className="bg-green-900/30 border border-green-500/30 text-green-400 px-4 py-2 rounded text-xs text-center w-1/2">NOT SCAM</div>
-              </div>
-            </div>
-
-            {/* ScamShield */}
-            <div className="lg:w-2/3 bg-gradient-to-b from-[#111827] to-blue-900/10 border border-blue-500/20 p-8 rounded-2xl flex flex-col items-center shadow-[0_0_30px_rgba(37,99,235,0.05)]">
-              <h3 className="text-sm font-bold text-blue-400 uppercase tracking-wider mb-8">ScamShield Pipeline</h3>
-              
-              <div className="w-full grid grid-cols-2 sm:grid-cols-3 md:grid-cols-7 gap-2 text-center text-xs font-bold text-slate-300 items-center">
-                 <div className="bg-slate-800 border border-slate-700 py-2 rounded shadow-md">Message</div>
-                 <ArrowRight className="w-4 h-4 text-slate-600 mx-auto hidden md:block" />
-                 <div className="bg-slate-800 border border-slate-700 py-2 rounded shadow-md">Extract</div>
-                 <ArrowRight className="w-4 h-4 text-slate-600 mx-auto hidden md:block" />
-                 <div className="bg-slate-800 border border-slate-700 py-2 rounded shadow-md">Detect</div>
-                 <ArrowRight className="w-4 h-4 text-slate-600 mx-auto hidden md:block" />
-                 <div className="bg-slate-800 border border-slate-700 py-2 rounded shadow-md">Retrieve Evidence</div>
-                 <ArrowRight className="w-4 h-4 text-slate-600 mx-auto hidden md:block" />
-                 <div className="bg-slate-800 border border-slate-700 py-2 rounded shadow-md">Explain</div>
-                 <ArrowRight className="w-4 h-4 text-slate-600 mx-auto hidden md:block" />
-                 <div className="bg-red-900/30 border border-red-500/30 text-red-400 py-2 rounded shadow-md">Risk Score</div>
-                 <ArrowRight className="w-4 h-4 text-slate-600 mx-auto hidden md:block" />
-                 <div className="bg-blue-600 border border-blue-500 text-white py-2 rounded shadow-md">Safe Action</div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* How it Works Section */}
-      <section id="how-it-works" className="py-24 bg-[#0d1326] relative z-10 border-t border-slate-800/50">
-        <div className="max-w-7xl mx-auto px-8">
-          <div className="text-center mb-16">
-            <h2 className="text-3xl lg:text-4xl font-bold mb-4">From Suspicion to Understanding</h2>
-            <p className="text-slate-400 max-w-2xl mx-auto">See how our AI pipeline analyzes and explains suspicious content.</p>
+      <section id="how-it-works" className="py-24 bg-card relative">
+        <div className="max-w-7xl mx-auto px-6 lg:px-8">
+          <div className="text-center mb-20">
+            <h2 className="text-3xl font-bold text-[#0F172A] mb-4">Detection Is Only the Beginning.</h2>
+            <p className="text-text-muted font-medium max-w-2xl mx-auto">Unlike traditional classifiers, our pipeline extracts, detects, and reasons.</p>
           </div>
           
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-6 relative">
-            <div className="hidden lg:block absolute top-10 left-12 right-12 h-0.5 bg-slate-800 z-0"></div>
+          <div className="flex flex-col lg:flex-row items-center justify-between max-w-6xl mx-auto relative gap-y-12">
             
-            <div className="relative z-10 flex flex-col items-center text-center">
-              <div className="w-20 h-20 bg-[#111827] border border-slate-700 rounded-full flex items-center justify-center mb-4">
-                <span className="text-xs font-bold text-slate-500 absolute top-2">01</span>
-                <UploadCloud className="w-6 h-6 text-blue-400 mt-2" />
+            {/* Render pipeline items */}
+            {[
+              { num: '01', title: 'INPUT', desc: 'Paste or upload\nsuspicious content', icon: UploadCloud },
+              { num: '02', title: 'EXTRACT', desc: 'Text • OCR • PDF • Audio', icon: FileText },
+              { num: '03', title: 'DETECT', desc: 'ML identifies suspicious\npatterns', icon: Search },
+              { num: '04', title: 'VERIFY', desc: 'RAG retrieves relevant\nscam evidence', icon: Network },
+              { num: '05', title: 'EXPLAIN', desc: 'LLM explains the\nindicators and reasoning', icon: BrainCircuit },
+              { num: '06', title: 'PROTECT', desc: 'Risk Engine recommends\na safe action', icon: ShieldCheck }
+            ].map((step, idx, arr) => (
+              <div key={idx} className="relative flex flex-col items-center text-center z-10 w-40 shrink-0 group cursor-pointer">
+                <div className="w-20 h-20 bg-blue-50 border border-blue-100 rounded-full flex items-center justify-center mb-6 relative group-hover:scale-110 group-hover:shadow-md group-hover:border-primary/50 transition-all duration-300">
+                  <div className="absolute -top-3 bg-blue-100 text-primary font-bold text-[10px] px-2.5 py-0.5 rounded-full border border-white group-hover:bg-primary group-hover:text-white transition-colors duration-300">
+                    {step.num}
+                  </div>
+                  <step.icon className={`w-8 h-8 text-primary ${idx === 5 ? 'fill-current text-primary' : ''}`} />
+                </div>
+                <h3 className="text-sm font-bold text-text-main mb-2 uppercase tracking-wide">{step.title}</h3>
+                <p className="text-text-muted text-[11px] font-medium leading-relaxed whitespace-pre-line">{step.desc}</p>
+                
+                {/* Arrow connecting to next step */}
+                {idx < arr.length - 1 && (
+                  <div className="hidden lg:block absolute top-10 left-32 w-16">
+                    <svg width="100%" height="24" viewBox="0 0 64 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                      <path d="M0 12H60M60 12L50 2M60 12L50 22" stroke="#94a3b8" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                    </svg>
+                  </div>
+                )}
               </div>
-              <h3 className="text-sm font-bold mb-2">INPUT</h3>
-              <p className="text-slate-500 text-xs">Paste or upload suspicious content</p>
-            </div>
+            ))}
+          </div>
+        </div>
+      </section>
 
-            <div className="relative z-10 flex flex-col items-center text-center">
-              <div className="w-20 h-20 bg-[#111827] border border-slate-700 rounded-full flex items-center justify-center mb-4">
-                <span className="text-xs font-bold text-slate-500 absolute top-2">02</span>
-                <FileSearch className="w-6 h-6 text-blue-400 mt-2" />
-              </div>
-              <h3 className="text-sm font-bold mb-2">EXTRACT</h3>
-              <p className="text-slate-500 text-xs">Text • OCR • PDF • Audio</p>
+      {/* A Score Isn't Enough. Show Me Why. */}
+      <section className="py-24 bg-background/50">
+        <div className="max-w-7xl mx-auto px-6 lg:px-8">
+          <div className="flex flex-col md:flex-row md:items-end justify-between mb-12 gap-4">
+            <div>
+              <h2 className="text-3xl font-bold text-[#0F172A] mb-4">A Score Isn't Enough. Show Me Why.</h2>
+              <p className="text-text-muted font-medium max-w-2xl">We highlight exactly what makes a message dangerous so you can make informed decisions.</p>
             </div>
-
-            <div className="relative z-10 flex flex-col items-center text-center">
-              <div className="w-20 h-20 bg-[#111827] border border-slate-700 rounded-full flex items-center justify-center mb-4">
-                <span className="text-xs font-bold text-slate-500 absolute top-2">03</span>
-                <Search className="w-6 h-6 text-blue-400 mt-2" />
+          </div>
+          
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div className="bg-card border border-border-light rounded-3xl p-6 shadow-sm hover:shadow-lg hover:border-primary/30 hover:-translate-y-1 transition-all duration-300 cursor-pointer">
+              <p className="text-text-secondary font-medium mb-6 leading-relaxed">
+                "Your parcel could not be delivered. Pay ₹49 to reschedule at evri-post.com"
+              </p>
+              <div className="flex items-center justify-between mt-auto">
+                <div className="flex items-center space-x-2">
+                  <div className="bg-red-100 p-1.5 rounded-full"><AlertTriangle className="w-4 h-4 text-red-500" /></div>
+                  <span className="text-sm font-bold text-red-500">Delivery Scam</span>
+                </div>
+                <span className="bg-red-50 border border-red-100 text-red-500 text-[11px] font-bold px-2.5 py-1 rounded-full uppercase">High Risk</span>
               </div>
-              <h3 className="text-sm font-bold mb-2">DETECT</h3>
-              <p className="text-slate-500 text-xs">ML identifies suspicious patterns</p>
             </div>
-
-            <div className="relative z-10 flex flex-col items-center text-center">
-              <div className="w-20 h-20 bg-[#111827] border border-slate-700 rounded-full flex items-center justify-center mb-4">
-                <span className="text-xs font-bold text-slate-500 absolute top-2">04</span>
-                <Network className="w-6 h-6 text-blue-400 mt-2" />
+            
+            <div className="bg-card border border-border-light rounded-3xl p-6 shadow-sm hover:shadow-lg hover:border-primary/30 hover:-translate-y-1 transition-all duration-300 cursor-pointer">
+              <p className="text-text-secondary font-medium mb-6 leading-relaxed">
+                "Your OTP for login is 483921. Do not share this code with anyone."
+              </p>
+              <div className="flex items-center justify-between mt-auto">
+                <div className="flex items-center space-x-2">
+                  <div className="bg-green-100 p-1.5 rounded-full"><CheckCircle className="w-4 h-4 text-green-500" /></div>
+                  <span className="text-sm font-bold text-green-600">Potentially Genuine</span>
+                </div>
+                <span className="bg-green-50 border border-green-100 text-green-600 text-[11px] font-bold px-2.5 py-1 rounded-full uppercase">Low Risk</span>
               </div>
-              <h3 className="text-sm font-bold mb-2">VERIFY</h3>
-              <p className="text-slate-500 text-xs">RAG retrieves relevant scam evidence</p>
             </div>
-
-            <div className="relative z-10 flex flex-col items-center text-center">
-              <div className="w-20 h-20 bg-[#111827] border border-slate-700 rounded-full flex items-center justify-center mb-4">
-                <span className="text-xs font-bold text-slate-500 absolute top-2">05</span>
-                <Eye className="w-6 h-6 text-blue-400 mt-2" />
+            
+            <div className="bg-card border border-border-light rounded-3xl p-6 shadow-sm hover:shadow-lg hover:border-primary/30 hover:-translate-y-1 transition-all duration-300 cursor-pointer">
+              <p className="text-text-secondary font-medium mb-6 leading-relaxed">
+                "Congratulations! You won ₹25 lakh. Pay ₹999 processing fee to claim."
+              </p>
+              <div className="flex items-center justify-between mt-auto">
+                <div className="flex items-center space-x-2">
+                  <div className="bg-red-100 p-1.5 rounded-full"><AlertTriangle className="w-4 h-4 text-red-500" /></div>
+                  <span className="text-sm font-bold text-red-500">Lottery Scam</span>
+                </div>
+                <span className="bg-red-50 border border-red-100 text-red-500 text-[11px] font-bold px-2.5 py-1 rounded-full uppercase">High Risk</span>
               </div>
-              <h3 className="text-sm font-bold mb-2">EXPLAIN</h3>
-              <p className="text-slate-500 text-xs">LLM explains the indicators and reasoning</p>
-            </div>
-
-            <div className="relative z-10 flex flex-col items-center text-center">
-              <div className="w-20 h-20 bg-[#111827] border border-blue-500/50 shadow-[0_0_15px_rgba(37,99,235,0.2)] rounded-full flex items-center justify-center mb-4">
-                <span className="text-xs font-bold text-blue-300 absolute top-2">06</span>
-                <ShieldCheck className="w-6 h-6 text-blue-400 mt-2" />
-              </div>
-              <h3 className="text-sm font-bold text-blue-400 mb-2">PROTECT</h3>
-              <p className="text-slate-400 text-xs">Risk Engine recommends a safe action</p>
             </div>
           </div>
         </div>
       </section>
 
-      {/* Explainability Demo Section */}
-      <section className="py-24 relative z-10 border-t border-slate-800/50">
-        <div className="max-w-7xl mx-auto px-8">
-          <div className="text-center mb-16">
-            <h2 className="text-3xl lg:text-4xl font-bold mb-4">A Score Isn't Enough. Show Me Why.</h2>
-            <p className="text-slate-400 max-w-2xl mx-auto">We highlight exactly what makes a message dangerous so you can make informed decisions.</p>
+      {/* Core Features */}
+      <section id="features" className="py-24 bg-card">
+        <div className="max-w-7xl mx-auto px-6 lg:px-8">
+          <div className="mb-12">
+            <h2 className="text-3xl font-bold text-[#0F172A] mb-3">Core Features</h2>
+            <p className="text-text-muted font-medium">Built with cutting-edge technology to keep you secure.</p>
           </div>
 
-          <div className="flex flex-col lg:flex-row gap-8 items-stretch">
-            {/* Left: Score Box */}
-            <div className="lg:w-1/3 bg-[#111827] border border-slate-800 rounded-2xl p-8 flex flex-col justify-center items-center text-center relative overflow-hidden">
-              <div className="absolute top-0 right-0 w-32 h-32 bg-red-500/10 blur-3xl rounded-full"></div>
-              <div className="text-7xl font-bold text-red-500 mb-2">87</div>
-              <div className="text-sm font-bold text-red-400 tracking-widest uppercase mb-6">High Risk</div>
-              <div className="text-xl font-bold text-white mb-2">Bank KYC Scam</div>
-              <p className="text-sm text-slate-400">ML prediction: <strong className="text-slate-200">91% scam probability</strong></p>
-            </div>
-
-            {/* Right: Explanations */}
-            <div className="lg:w-2/3 bg-[#111827] border border-slate-800 rounded-2xl p-8 flex flex-col justify-between">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div className="bg-card border border-border-light rounded-2xl p-6 shadow-sm flex space-x-4 hover:shadow-lg hover:border-primary/30 hover:-translate-y-1 transition-all duration-300 cursor-pointer">
+              <div className="w-12 h-12 bg-blue-50 rounded-xl flex items-center justify-center shrink-0">
+                <FileText className="w-6 h-6 text-primary" />
+              </div>
               <div>
-                <h3 className="text-sm font-bold text-slate-500 tracking-wider uppercase mb-6 border-b border-slate-800 pb-2">Why was this flagged?</h3>
-                <div className="grid sm:grid-cols-2 gap-6 mb-8">
-                  <div>
-                    <div className="flex items-center space-x-2 mb-1">
-                      <span className="text-xs font-mono text-red-400 bg-red-400/10 px-1.5 py-0.5 rounded">01</span>
-                      <h4 className="font-bold text-slate-200 text-sm">Urgency</h4>
-                    </div>
-                    <p className="text-xs text-slate-400 ml-8">"within 30 minutes"</p>
-                  </div>
-                  <div>
-                    <div className="flex items-center space-x-2 mb-1">
-                      <span className="text-xs font-mono text-red-400 bg-red-400/10 px-1.5 py-0.5 rounded">02</span>
-                      <h4 className="font-bold text-slate-200 text-sm">Impersonation</h4>
-                    </div>
-                    <p className="text-xs text-slate-400 ml-8">Claims to represent a bank</p>
-                  </div>
-                  <div>
-                    <div className="flex items-center space-x-2 mb-1">
-                      <span className="text-xs font-mono text-red-400 bg-red-400/10 px-1.5 py-0.5 rounded">03</span>
-                      <h4 className="font-bold text-slate-200 text-sm">Sensitive Request</h4>
-                    </div>
-                    <p className="text-xs text-slate-400 ml-8">Requests KYC verification</p>
-                  </div>
-                  <div>
-                    <div className="flex items-center space-x-2 mb-1">
-                      <span className="text-xs font-mono text-red-400 bg-red-400/10 px-1.5 py-0.5 rounded">04</span>
-                      <h4 className="font-bold text-slate-200 text-sm">Suspicious Link</h4>
-                    </div>
-                    <p className="text-xs text-slate-400 ml-8">Domain doesn't match institution</p>
-                  </div>
-                </div>
+                <h3 className="font-bold text-text-main mb-2">Multi-Channel Detection</h3>
+                <p className="text-sm text-text-muted font-medium leading-relaxed">
+                  Analyze messages, screenshots, PDFs and audio through a unified pipeline using advanced OCR and speech processing.
+                </p>
               </div>
+            </div>
 
-              <div className="grid sm:grid-cols-2 gap-6">
-                <div>
-                  <h3 className="text-xs font-bold text-slate-500 tracking-wider uppercase mb-3">Supporting Evidence</h3>
-                  <div className="space-y-2">
-                    <div className="flex justify-between items-center text-xs">
-                      <span className="text-slate-300">Bank KYC Scam</span>
-                      <span className="text-blue-400 font-mono">92% similar</span>
-                    </div>
-                    <div className="flex justify-between items-center text-xs">
-                      <span className="text-slate-300">Phishing Pattern</span>
-                      <span className="text-blue-400 font-mono">86% similar</span>
-                    </div>
-                  </div>
-                </div>
-                <div className="bg-blue-900/20 border border-blue-500/30 rounded-xl p-4">
-                   <div className="flex items-center space-x-2 mb-2">
-                     <ShieldCheck className="w-4 h-4 text-blue-400" />
-                     <h4 className="text-xs font-bold text-blue-300 uppercase tracking-wider">Recommended Action</h4>
-                   </div>
-                   <p className="text-xs text-blue-100/70 leading-relaxed">
-                     Do not click the link. Verify directly through the official bank application.
-                   </p>
-                </div>
+            <div className="bg-card border border-border-light rounded-2xl p-6 shadow-sm flex space-x-4 hover:shadow-lg hover:border-primary/30 hover:-translate-y-1 transition-all duration-300 cursor-pointer">
+              <div className="w-12 h-12 bg-blue-50 rounded-xl flex items-center justify-center shrink-0">
+                <BrainCircuit className="w-6 h-6 text-primary" />
+              </div>
+              <div>
+                <h3 className="font-bold text-text-main mb-2">Explainable AI (XAI)</h3>
+                <p className="text-sm text-text-muted font-medium leading-relaxed">
+                  See the indicators and reasoning behind a risk score so you can understand the actual threat.
+                </p>
               </div>
             </div>
-          </div>
-        </div>
-      </section>
 
-      {/* Features Section */}
-      <section id="features" className="py-24 bg-[#0d1326] relative z-10 border-t border-slate-800/50">
-        <div className="max-w-7xl mx-auto px-8">
-          <div className="text-center mb-16">
-            <h2 className="text-3xl lg:text-4xl font-bold mb-4">Core Features</h2>
-            <p className="text-slate-400 max-w-2xl mx-auto">Built with cutting-edge technology to keep you secure.</p>
-          </div>
-          
-          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-            <div className="bg-[#111827] border border-slate-800 p-8 rounded-2xl hover:border-blue-500/50 hover:-translate-y-1 transition-all group">
-              <div className="w-12 h-12 bg-blue-900/30 group-hover:bg-blue-600/20 rounded-xl flex items-center justify-center mb-6 transition-colors">
-                <Network className="w-6 h-6 text-blue-400" />
+            <div className="bg-card border border-border-light rounded-2xl p-6 shadow-sm flex space-x-4 hover:shadow-lg hover:border-primary/30 hover:-translate-y-1 transition-all duration-300 cursor-pointer">
+              <div className="w-12 h-12 bg-blue-50 rounded-xl flex items-center justify-center shrink-0">
+                <svg className="w-6 h-6 text-primary" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 20V10"/><path d="M12 20V4"/><path d="M6 20v-6"/></svg>
               </div>
-              <h3 className="text-xl font-bold mb-3">Multi-Channel Detection</h3>
-              <p className="text-slate-400 text-sm leading-relaxed">Analyze messages, screenshots, PDFs and audio through a unified pipeline using advanced OCR and speech processing.</p>
-            </div>
-            
-            <div className="bg-[#111827] border border-slate-800 p-8 rounded-2xl hover:border-blue-500/50 hover:-translate-y-1 transition-all group">
-              <div className="w-12 h-12 bg-blue-900/30 group-hover:bg-blue-600/20 rounded-xl flex items-center justify-center mb-6 transition-colors">
-                <Eye className="w-6 h-6 text-blue-400" />
+              <div>
+                <h3 className="font-bold text-text-main mb-2">Evidence-Based Risk Analysis</h3>
+                <p className="text-sm text-text-muted font-medium leading-relaxed">
+                  Combines model predictions, known scam patterns and detected indicators to build an explainable risk assessment.
+                </p>
               </div>
-              <h3 className="text-xl font-bold mb-3">Explainable AI (XAI)</h3>
-              <p className="text-slate-400 text-sm leading-relaxed">See the indicators and reasoning behind a suspicious classification so you can understand the actual threat.</p>
-            </div>
-            
-            <div className="bg-[#111827] border border-slate-800 p-8 rounded-2xl hover:border-blue-500/50 hover:-translate-y-1 transition-all group">
-              <div className="w-12 h-12 bg-blue-900/30 group-hover:bg-blue-600/20 rounded-xl flex items-center justify-center mb-6 transition-colors">
-                <FileSearch className="w-6 h-6 text-blue-400" />
-              </div>
-              <h3 className="text-xl font-bold mb-3">Evidence-Based Risk Analysis</h3>
-              <p className="text-slate-400 text-sm leading-relaxed">ScamShield combines model predictions, known scam patterns and detected indicators to build an explainable risk assessment.</p>
             </div>
           </div>
         </div>
       </section>
 
       {/* What We Detect */}
-      <section className="py-24 relative z-10 border-t border-slate-800/50">
-        <div className="max-w-7xl mx-auto px-8">
-          <div className="text-center mb-16">
-            <h2 className="text-3xl lg:text-4xl font-bold mb-4">What We Detect</h2>
-            <p className="text-slate-400 max-w-2xl mx-auto">Our models are trained to recognize a wide variety of evolving threat vectors.</p>
+      <section className="py-24 bg-background/50">
+        <div className="max-w-7xl mx-auto px-6 lg:px-8">
+          <div className="flex flex-col md:flex-row md:items-end justify-between mb-12 gap-4">
+            <div>
+              <h2 className="text-3xl font-bold text-[#0F172A] mb-3">What We Detect</h2>
+              <p className="text-text-muted font-medium max-w-2xl">Our models are trained to recognize a wide variety of evolving threat vectors.</p>
+            </div>
           </div>
 
-          <div className="flex flex-wrap justify-center gap-4 max-w-4xl mx-auto">
-            <div className="bg-[#111827] border border-slate-800 px-6 py-3 rounded-full text-sm font-bold text-slate-300">Bank & KYC</div>
-            <div className="bg-[#111827] border border-slate-800 px-6 py-3 rounded-full text-sm font-bold text-slate-300">OTP / UPI</div>
-            <div className="bg-[#111827] border border-slate-800 px-6 py-3 rounded-full text-sm font-bold text-slate-300">Phishing</div>
-            <div className="bg-[#111827] border border-slate-800 px-6 py-3 rounded-full text-sm font-bold text-slate-300">Job Scams</div>
-            <div className="bg-[#111827] border border-slate-800 px-6 py-3 rounded-full text-sm font-bold text-slate-300">Investment</div>
-            <div className="bg-[#111827] border border-slate-800 px-6 py-3 rounded-full text-sm font-bold text-slate-300">Courier Scams</div>
-            <div className="bg-[#111827] border border-slate-800 px-6 py-3 rounded-full text-sm font-bold text-slate-300">Digital Arrest</div>
-            <div className="bg-[#111827] border border-slate-800 px-6 py-3 rounded-full text-sm font-bold text-slate-300">Customer Support</div>
-            <div className="bg-[#111827] border border-slate-800 px-6 py-3 rounded-full text-sm font-bold text-slate-300">Account Takeover</div>
-            <div className="bg-[#111827] border border-slate-800 px-6 py-3 rounded-full text-sm font-bold text-slate-300">SIM Swap</div>
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+            {[
+              { icon: <svg className="w-5 h-5 text-blue-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M3 21h18"/><path d="M3 10h18"/><path d="M5 6l7-3 7 3"/><path d="M4 10v11"/><path d="M20 10v11"/><path d="M8 14v3"/><path d="M12 14v3"/><path d="M16 14v3"/></svg>, text: "Bank & KYC", bg: "bg-blue-50" },
+              { icon: <ShieldCheck className="w-5 h-5 text-green-500" />, text: "OTP / UPI", bg: "bg-green-50" },
+              { icon: <Mail className="w-5 h-5 text-red-500" />, text: "Phishing", bg: "bg-red-50" },
+              { icon: <svg className="w-5 h-5 text-indigo-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="2" y="7" width="20" height="14" rx="2" ry="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg>, text: "Job Scams", bg: "bg-indigo-50" },
+              { icon: <svg className="w-5 h-5 text-emerald-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/></svg>, text: "Investment", bg: "bg-emerald-50" },
+              { icon: <svg className="w-5 h-5 text-orange-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>, text: "Courier Scams", bg: "bg-orange-50" },
+              { icon: <svg className="w-5 h-5 text-purple-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4"/></svg>, text: "Digital Arrest", bg: "bg-purple-50" },
+              { icon: <svg className="w-5 h-5 text-cyan-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M15.05 5A5 5 0 0 1 19 8.95M15.05 1A9 9 0 0 1 23 8.94m-1 7.98v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></svg>, text: "Customer Support", bg: "bg-cyan-50" },
+              { icon: <svg className="w-5 h-5 text-blue-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>, text: "Account Takeover", bg: "bg-blue-100" },
+              { icon: <svg className="w-5 h-5 text-amber-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="4" y="4" width="16" height="16" rx="2" ry="2"/><rect x="9" y="9" width="6" height="6"/><line x1="9" y1="1" x2="9" y2="4"/><line x1="15" y1="1" x2="15" y2="4"/><line x1="9" y1="20" x2="9" y2="23"/><line x1="15" y1="20" x2="15" y2="23"/><line x1="20" y1="9" x2="23" y2="9"/><line x1="20" y1="14" x2="23" y2="14"/><line x1="1" y1="9" x2="4" y2="9"/><line x1="1" y1="14" x2="4" y2="14"/></svg>, text: "SIM Swap", bg: "bg-amber-50" }
+            ].map((item, i) => (
+              <div key={i} className="bg-card border border-border-light px-4 py-3 rounded-2xl flex items-center space-x-3 shadow-sm hover:shadow-lg hover:border-primary/30 hover:-translate-y-1 transition-all duration-300 cursor-pointer">
+                <div className={`p-1.5 rounded-lg ${item.bg}`}>
+                  {item.icon}
+                </div>
+                <span className="font-bold text-text-main text-sm whitespace-nowrap">{item.text}</span>
+              </div>
+            ))}
           </div>
-          <p className="text-center text-slate-500 text-sm mt-8">And more evolving scam patterns.</p>
         </div>
       </section>
 
-      {/* Context Matters More Than Keywords Section */}
-      <section className="py-24 bg-[#0d1326] relative z-10 border-t border-slate-800/50">
-         <div className="max-w-7xl mx-auto px-8">
-          <div className="text-center mb-16">
-            <h2 className="text-3xl lg:text-4xl font-bold mb-4">Context Matters More Than Keywords.</h2>
-            <p className="text-slate-400 max-w-2xl mx-auto">ScamShield considers the message context, detected indicators and supporting evidence instead of relying on a single keyword.</p>
-          </div>
-
-          <div className="grid md:grid-cols-3 gap-6">
-            <div className="bg-[#111827] border border-slate-800 p-6 rounded-2xl flex flex-col h-full">
-              <div className="bg-slate-900 border border-slate-700 p-4 rounded-xl mb-4 text-sm text-slate-300 italic flex-grow">
-                "Your parcel could not be delivered. Pay ₹49 to reschedule at evri-post.com"
-              </div>
-              <div className="flex items-center space-x-2 mt-auto">
-                <div className="w-2 h-2 bg-red-500 rounded-full"></div>
-                <span className="font-bold text-red-400 text-sm">Delivery Scam</span>
-              </div>
-            </div>
-
-            <div className="bg-[#111827] border border-slate-800 p-6 rounded-2xl flex flex-col h-full">
-              <div className="bg-slate-900 border border-slate-700 p-4 rounded-xl mb-4 text-sm text-slate-300 italic flex-grow">
-                "Your OTP for login is 483921. Do not share this code with anyone."
-              </div>
-              <div className="flex items-center space-x-2 mt-auto">
-                <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-                <span className="font-bold text-green-400 text-sm">Potentially Genuine</span>
-              </div>
-            </div>
-
-            <div className="bg-[#111827] border border-slate-800 p-6 rounded-2xl flex flex-col h-full">
-              <div className="bg-slate-900 border border-slate-700 p-4 rounded-xl mb-4 text-sm text-slate-300 italic flex-grow">
-                "Congratulations! You won ₹25 lakh. Pay ₹999 processing fee to claim."
-              </div>
-              <div className="flex items-center space-x-2 mt-auto">
-                <div className="w-2 h-2 bg-red-500 rounded-full"></div>
-                <span className="font-bold text-red-400 text-sm">Lottery Scam</span>
-              </div>
-            </div>
-          </div>
-         </div>
-      </section>
-
-
-      {/* Security Section */}
-      <section id="security" className="py-24 bg-[#0d1326] relative z-10 border-t border-slate-800/50">
-        <div className="max-w-7xl mx-auto px-8 flex flex-col md:flex-row items-center">
-          <div className="md:w-1/2 pr-12 mb-12 md:mb-0">
-            <h2 className="text-3xl lg:text-4xl font-bold mb-6">Your Privacy is our Priority</h2>
-            <p className="text-slate-400 mb-8 leading-relaxed">
+      {/* Your Privacy is our Priority */}
+      <section id="security" className="py-24 bg-card">
+        <div className="max-w-7xl mx-auto px-6 lg:px-8 flex flex-col md:flex-row items-center justify-between gap-12">
+          
+          <div className="md:w-1/2">
+            <h2 className="text-3xl lg:text-4xl font-bold text-[#0F172A] mb-6">Your Privacy is our Priority</h2>
+            <p className="text-text-muted font-medium text-lg leading-relaxed mb-10 max-w-lg">
               We understand that the messages you analyze might contain sensitive or personal information. ScamShield is built from the ground up with a privacy-first architecture.
             </p>
-            <ul className="space-y-4 mb-8">
-              <li className="flex items-start space-x-3">
-                <CheckCircle className="w-5 h-5 text-blue-400 shrink-0 mt-0.5" />
-                <span className="text-slate-300"><strong>Privacy-Aware Processing</strong></span>
-              </li>
-              <li className="flex items-start space-x-3">
-                <CheckCircle className="w-5 h-5 text-blue-400 shrink-0 mt-0.5" />
-                <span className="text-slate-300"><strong>Protected Communication</strong></span>
-              </li>
-              <li className="flex items-start space-x-3">
-                <CheckCircle className="w-5 h-5 text-blue-400 shrink-0 mt-0.5" />
-                <span className="text-slate-300"><strong>Secure Authentication</strong></span>
-              </li>
-            </ul>
             
-            <div className="grid grid-cols-2 gap-4">
-              <div className="flex items-center space-x-2 text-xs text-slate-400 font-mono bg-slate-900/50 p-2 rounded border border-slate-800">
-                <ShieldCheck className="w-3.5 h-3.5 text-blue-500" />
-                <span>JWT Authentication</span>
-              </div>
-              <div className="flex items-center space-x-2 text-xs text-slate-400 font-mono bg-slate-900/50 p-2 rounded border border-slate-800">
-                <ShieldCheck className="w-3.5 h-3.5 text-blue-500" />
-                <span>PostgreSQL</span>
-              </div>
-              <div className="flex items-center space-x-2 text-xs text-slate-400 font-mono bg-slate-900/50 p-2 rounded border border-slate-800">
-                <ShieldCheck className="w-3.5 h-3.5 text-blue-500" />
-                <span>No secrets in frontend</span>
-              </div>
-              <div className="flex items-center space-x-2 text-xs text-slate-400 font-mono bg-slate-900/50 p-2 rounded border border-slate-800">
-                <ShieldCheck className="w-3.5 h-3.5 text-blue-500" />
-                <span>Controlled file processing</span>
-              </div>
+            <div className="space-y-4 mb-10">
+              {["Privacy-Aware Processing", "Protected Communication", "Secure Authentication"].map((item, i) => (
+                <div key={i} className="flex items-center space-x-3">
+                  <div className="bg-primary rounded-full p-1 shadow-md shadow-primary/20">
+                    <Check className="w-4 h-4 text-white" />
+                  </div>
+                  <span className="font-bold text-text-main">{item}</span>
+                </div>
+              ))}
             </div>
-          </div>
-          <div className="md:w-1/2 flex justify-center">
-            <div className="w-64 h-64 bg-gradient-to-br from-blue-900/40 to-transparent rounded-full flex items-center justify-center border border-blue-500/20 shadow-[0_0_80px_rgba(37,99,235,0.15)] relative">
-              <div className="absolute inset-4 border border-blue-400/30 rounded-full border-dashed animate-[spin_20s_linear_infinite]"></div>
-              <FileLock2 className="w-24 h-24 text-blue-400" />
+            
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+               <div className="border border-border-light bg-card p-5 rounded-2xl shadow-sm flex items-start space-x-4 hover:shadow-md hover:border-primary/30 hover:-translate-y-1 transition-all duration-300 cursor-pointer">
+                  <div className="bg-blue-50 p-2.5 rounded-xl shrink-0"><Lock className="w-6 h-6 text-primary" /></div>
+                  <div>
+                    <div className="text-sm font-bold text-text-main mb-1">JWT Authentication</div>
+                    <div className="text-xs text-text-muted font-medium leading-relaxed">Secure and standardized authentication.</div>
+                  </div>
+               </div>
+               <div className="border border-border-light bg-card p-5 rounded-2xl shadow-sm flex items-start space-x-4 hover:shadow-md hover:border-primary/30 hover:-translate-y-1 transition-all duration-300 cursor-pointer">
+                  <div className="bg-blue-50 p-2.5 rounded-xl shrink-0"><Database className="w-6 h-6 text-primary" /></div>
+                  <div>
+                    <div className="text-sm font-bold text-text-main mb-1">PostgreSQL</div>
+                    <div className="text-xs text-text-muted font-medium leading-relaxed">Reliable and secure data storage.</div>
+                  </div>
+               </div>
+               <div className="border border-border-light bg-card p-5 rounded-2xl shadow-sm flex items-start space-x-4 hover:shadow-md hover:border-primary/30 hover:-translate-y-1 transition-all duration-300 cursor-pointer">
+                  <div className="bg-blue-50 p-2.5 rounded-xl shrink-0"><svg className="w-6 h-6 text-primary" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg></div>
+                  <div>
+                    <div className="text-sm font-bold text-text-main mb-1">No secrets in frontend</div>
+                    <div className="text-xs text-text-muted font-medium leading-relaxed">Your data stays protected.</div>
+                  </div>
+               </div>
+               <div className="border border-border-light bg-card p-5 rounded-2xl shadow-sm flex items-start space-x-4 hover:shadow-md hover:border-primary/30 hover:-translate-y-1 transition-all duration-300 cursor-pointer">
+                  <div className="bg-blue-50 p-2.5 rounded-xl shrink-0"><FileText className="w-6 h-6 text-primary" /></div>
+                  <div>
+                    <div className="text-sm font-bold text-text-main mb-1">Controlled file processing</div>
+                    <div className="text-xs text-text-muted font-medium leading-relaxed">Files are processed securely and temporarily.</div>
+                  </div>
+               </div>
             </div>
-          </div>
-        </div>
-      </section>
-
-      {/* Live Call Guardian Section */}
-      <section className="py-24 relative z-10 border-t border-slate-800/50 overflow-hidden">
-        <div className="absolute top-1/2 right-0 w-96 h-96 bg-slate-800/20 blur-[100px] pointer-events-none"></div>
-        <div className="max-w-7xl mx-auto px-8 text-center">
-          <div className="inline-block bg-slate-800/50 border border-slate-700 px-4 py-1.5 rounded-full text-xs font-bold text-slate-400 mb-6 tracking-widest uppercase">
-            Coming Next
-          </div>
-          <h2 className="text-3xl lg:text-4xl font-bold mb-6 text-slate-300">Live Call Guardian</h2>
-          <h3 className="text-lg text-slate-500 mb-12">Your next layer of protection.<br/>Analyze suspicious calls in real time with on-device audio processing and AI-assisted risk detection.</h3>
-          
-          <div className="flex flex-col md:flex-row items-center justify-center space-y-4 md:space-y-0 md:space-x-4 max-w-4xl mx-auto mb-12 opacity-80 pointer-events-none">
-             <div className="bg-[#111827] border border-slate-700 px-6 py-3 rounded-xl text-sm font-bold text-slate-300 w-full md:w-auto shadow-md">Incoming Call</div>
-             <ArrowRight className="w-4 h-4 text-slate-600 hidden md:block" />
-             <div className="bg-[#111827] border border-slate-700 px-6 py-3 rounded-xl text-sm font-bold text-slate-300 w-full md:w-auto shadow-md">Audio</div>
-             <ArrowRight className="w-4 h-4 text-slate-600 hidden md:block" />
-             <div className="bg-blue-900/20 border border-blue-500/30 px-6 py-3 rounded-xl text-sm font-bold text-blue-300 w-full md:w-auto shadow-md">Speech Analysis</div>
-             <ArrowRight className="w-4 h-4 text-slate-600 hidden md:block" />
-             <div className="bg-[#111827] border border-slate-700 px-6 py-3 rounded-xl text-sm font-bold text-slate-300 w-full md:w-auto shadow-md">Scam Signals</div>
-             <ArrowRight className="w-4 h-4 text-slate-600 hidden md:block" />
-             <div className="bg-purple-900/30 border border-purple-500/50 px-6 py-3 rounded-xl text-sm font-bold text-purple-300 w-full md:w-auto shadow-[0_0_15px_rgba(168,85,247,0.2)]">Risk Alert</div>
           </div>
           
-          <div className="inline-block bg-[#111827] border border-slate-800 px-6 py-2 rounded-lg text-sm font-medium text-slate-500">
-            Android App — Coming Soon
-          </div>
-        </div>
-      </section>
-
-      {/* About Section */}
-      <section id="about" className="py-24 bg-[#0d1326] relative z-10 border-t border-slate-800/50">
-        <div className="max-w-7xl mx-auto px-8 text-center">
-          <h2 className="text-3xl lg:text-4xl font-bold mb-6">Built to Make Digital Safety Understandable</h2>
-          <p className="text-slate-400 max-w-2xl mx-auto mb-16 leading-relaxed">
-            ScamShield is an explainable AI-driven framework designed to help users understand suspicious digital content before they act on it.
-          </p>
-
-          <div className="grid md:grid-cols-3 gap-8 max-w-5xl mx-auto text-left">
-            <div className="bg-[#111827] border border-slate-800 p-6 rounded-xl">
-              <h3 className="font-bold text-blue-400 mb-2">AI-Powered</h3>
-              <p className="text-slate-400 text-sm">ML + RAG + LLM reasoning working together.</p>
-            </div>
-            <div className="bg-[#111827] border border-slate-800 p-6 rounded-xl">
-              <h3 className="font-bold text-blue-400 mb-2">Explainable</h3>
-              <p className="text-slate-400 text-sm">Evidence, indicators, and reasoning clearly displayed.</p>
-            </div>
-            <div className="bg-[#111827] border border-slate-800 p-6 rounded-xl">
-              <h3 className="font-bold text-blue-400 mb-2">User-Centered</h3>
-              <p className="text-slate-400 text-sm">Clear safe actions instead of technical jargon.</p>
+          {/* Privacy Illustration */}
+          <div className="md:w-1/2 flex justify-center relative">
+            <div className="w-[400px] h-[400px] rounded-full border border-border-light bg-background/50 flex items-center justify-center relative">
+               <div className="w-[250px] h-[250px] rounded-full bg-card shadow-xl flex items-center justify-center border border-slate-50 z-10">
+                 <ShieldCheck className="w-24 h-24 text-primary" fill="currentColor" />
+               </div>
+               
+               {/* Connected floating elements */}
+               <div className="absolute top-10 right-20 w-12 h-12 bg-card rounded-full shadow-md flex items-center justify-center text-blue-500"><Database className="w-5 h-5" /></div>
+               <div className="absolute bottom-20 right-10 w-12 h-12 bg-card rounded-full shadow-md flex items-center justify-center text-blue-500"><FileText className="w-5 h-5" /></div>
+               <div className="absolute bottom-16 left-16 w-12 h-12 bg-card rounded-full shadow-md flex items-center justify-center text-blue-500"><Mail className="w-5 h-5" /></div>
+               <div className="absolute top-20 left-12 w-12 h-12 bg-card rounded-full shadow-md flex items-center justify-center text-blue-500"><Lock className="w-5 h-5" /></div>
+               
+               {/* Decorative connecting lines (SVG representation) */}
+               <svg className="absolute inset-0 w-full h-full text-blue-100 -z-10" viewBox="0 0 400 400" fill="none">
+                 <circle cx="200" cy="200" r="140" stroke="currentColor" strokeWidth="2" strokeDasharray="4 4" />
+               </svg>
             </div>
           </div>
+          
         </div>
       </section>
 
       {/* Final CTA */}
-      <section className="py-24 relative z-10 border-t border-slate-800/50 bg-gradient-to-b from-[#0a0f1c] to-blue-900/10">
-        <div className="max-w-4xl mx-auto px-8 text-center">
-          <h2 className="text-4xl lg:text-5xl font-bold mb-6">Not sure if it's a scam?</h2>
-          <p className="text-xl text-blue-300 mb-10">Let ScamShield explain it.</p>
-          <p className="text-slate-400 mb-10">Analyze a suspicious message, screenshot, PDF or audio.</p>
-          <Link to="/signup" className="inline-flex items-center space-x-2 bg-blue-600 hover:bg-blue-500 text-white font-bold py-4 px-10 rounded-xl shadow-[0_0_30px_rgba(37,99,235,0.3)] transition-all hover:scale-105">
-            <span>Analyze Something</span>
-            <ArrowRight className="w-5 h-5" />
-          </Link>
+      <section id="about" className="py-24 bg-card relative">
+        <div className="max-w-5xl mx-auto px-6">
+          <div className="bg-background/80 rounded-[2rem] border border-border-light p-12 flex flex-col md:flex-row items-center justify-between shadow-sm">
+            <div className="mb-8 md:mb-0 md:pr-12">
+              <h2 className="text-3xl font-bold text-[#0F172A] mb-3">Not sure if it's a scam?</h2>
+              <p className="text-text-muted text-base font-medium max-w-sm">Analyze suspicious messages, screenshots, PDFs or audio and get instant insights.</p>
+            </div>
+            
+            <div className="flex flex-col items-center">
+              <Link to="/signup" className="bg-primary hover:bg-primary-hover text-white font-bold py-4 px-8 rounded-xl shadow-lg shadow-primary/30 transition-all flex items-center space-x-2 text-lg mb-3">
+                <Sparkles className="w-5 h-5" />
+                <span>Get Started for Free</span>
+                <ArrowRight className="w-5 h-5 ml-1" />
+              </Link>
+            </div>
+          </div>
         </div>
       </section>
-
-      {/* Footer */}
-      <footer className="bg-[#0a0f1c] pt-16 pb-8 relative z-10 border-t border-slate-800">
-        <div className="max-w-7xl mx-auto px-8">
-          <div className="grid md:grid-cols-2 gap-12 mb-16">
-            <div>
-              <div className="flex items-center space-x-2 mb-4">
-                <ShieldCheck className="w-8 h-8 text-blue-500" />
-                <span className="text-2xl font-bold tracking-wider">ScamShield</span>
-              </div>
-              <p className="text-slate-400 leading-relaxed max-w-sm text-sm">
-                Explainable AI-driven framework for real-time scam detection and risk verification.
-              </p>
-            </div>
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-8 md:justify-items-end">
-              <div className="flex flex-col">
-                <h3 className="font-bold text-sm mb-4 text-slate-200 uppercase tracking-wider">Product</h3>
-                <nav className="flex flex-col space-y-3 text-slate-400 text-sm">
-                  <Link to="/signup" className="hover:text-blue-400 transition">Analyze</Link>
-                  <Link to="/signup" className="hover:text-blue-400 transition">History</Link>
-                  <Link to="/signup" className="hover:text-blue-400 transition">Community</Link>
-                </nav>
-              </div>
-              <div className="flex flex-col">
-                <h3 className="font-bold text-sm mb-4 text-slate-200 uppercase tracking-wider">Resources</h3>
-                <nav className="flex flex-col space-y-3 text-slate-400 text-sm">
-                  <a href="#how-it-works" className="hover:text-blue-400 transition">How it Works</a>
-                  <a href="#security" className="hover:text-blue-400 transition">Security</a>
-                  <a href="#about" className="hover:text-blue-400 transition">About</a>
-                </nav>
-              </div>
-              <div className="flex flex-col">
-                <h3 className="font-bold text-sm mb-4 text-slate-200 uppercase tracking-wider">Account</h3>
-                <nav className="flex flex-col space-y-3 text-slate-400 text-sm">
-                  <Link to="/login" className="hover:text-blue-400 transition">Login</Link>
-                  <Link to="/signup" className="hover:text-blue-400 transition">Create Account</Link>
-                </nav>
-              </div>
-            </div>
-          </div>
-          <div className="border-t border-slate-800 pt-8 flex flex-col md:flex-row justify-between items-center text-sm text-slate-500">
-            <p>© {new Date().getFullYear()} ScamShield Project. All rights reserved.</p>
-            <p className="mt-2 md:mt-0">Milestone 1 Implementation</p>
-          </div>
-        </div>
-      </footer>
+      
     </div>
   );
 }

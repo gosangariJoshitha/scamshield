@@ -1,10 +1,15 @@
 import re
 
-def calculate_risk(ml_probability: float, text: str, classification: str, severity: str = None, priority: str = None):
+def calculate_risk(ml_probability: float, text: str, classification: str, severity: str = None, priority: str = None, llm_indicators: list = None, retrieved_evidence: list = None):
     """
     Calculates the application-level risk score.
     This is deterministic and transparent.
     """
+    if llm_indicators is None:
+        llm_indicators = []
+    if retrieved_evidence is None:
+        retrieved_evidence = []
+        
     # 1. Base Score
     base_score = ml_probability * 100
     adjustments = 0
@@ -12,6 +17,11 @@ def calculate_risk(ml_probability: float, text: str, classification: str, severi
     
     text_lower = text.lower()
     
+    # Process LLM Indicators
+    for ind in llm_indicators:
+        if isinstance(ind, str):
+            adjustments += 2
+            
     # 2. Adjustments based on textual indicators
     # We apply specific bumps if we detect known high-risk patterns.
     # Note: These shouldn't wildly overpower the ML model, just slightly tune the final application score.
@@ -32,7 +42,20 @@ def calculate_risk(ml_probability: float, text: str, classification: str, severi
         adjustments += 5
         risk_factors.append("Sensitive identity document (KYC/PAN) mentioned")
         
-    # 3. Optional Severity/Priority Adjustments (if provided from dataset/UI)
+    # 3. KB / RAG Dataset Adjustments
+    if retrieved_evidence:
+        highest_similarity = max([ev.get('similarity_score', 0) for ev in retrieved_evidence], default=0)
+        if highest_similarity > 0.85:
+            adjustments += 15
+            risk_factors.append("Very high similarity to known scam pattern in knowledge base")
+        elif highest_similarity > 0.70:
+            adjustments += 10
+            risk_factors.append("High similarity to known scam pattern in knowledge base")
+        elif highest_similarity > 0.50:
+            adjustments += 5
+            risk_factors.append("Moderate similarity to known scam pattern in knowledge base")
+            
+    # 4. Optional Severity/Priority Adjustments (if provided from dataset/UI)
     if severity == 'Critical':
         adjustments += 10
         risk_factors.append("High severity reported")

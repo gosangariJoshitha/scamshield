@@ -49,12 +49,15 @@ export default function Dashboard() {
     return <ErrorState message={error} onRetry={() => window.location.reload()} />;
   }
 
+  const highRiskCount = stats?.high_risk || 0;
+  const mediumLowRiskCount = Math.max(0, (stats?.scams_detected || 0) - highRiskCount);
+  const safeCount = stats?.safe_messages || 0;
+
   // Risk Distribution Data
   const pieData = [
-    { name: 'High Risk', value: stats?.high_risk || 0, color: '#ef4444' }, // red-500
-    { name: 'Medium Risk', value: (stats?.total_analyses || 0) - ((stats?.high_risk || 0) + (stats?.safe_messages || 0) + (stats?.scams_detected || 0)), color: '#f97316' }, // orange-500
-    { name: 'Low Risk', value: stats?.scams_detected || 0, color: '#eab308' }, // yellow-500 (this is just an approximation for visual matching)
-    { name: 'Safe / Genuine', value: stats?.safe_messages || 0, color: '#22c55e' } // green-500
+    { name: 'High Risk', value: highRiskCount, color: '#DC2626' }, // red-500
+    { name: 'Medium/Low Risk', value: mediumLowRiskCount, color: '#F59E0B' }, // orange-500
+    { name: 'Safe / Genuine', value: safeCount, color: '#16A34A' } // green-500
   ].filter(d => d.value > 0);
 
   // If all 0, show a dummy ring
@@ -66,14 +69,14 @@ export default function Dashboard() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-8 gap-4">
         <div>
-          <h1 className="text-3xl font-bold text-slate-800 mb-2 flex items-center">
+          <h1 className="text-3xl font-bold text-text-main mb-2 flex items-center">
             {getGreeting()}, {firstName}! <span className="ml-2">👋</span>
           </h1>
-          <p className="text-slate-500 text-sm">Stay alert. Let ScamShield help you understand suspicious content before you act.</p>
+          <p className="text-text-muted text-base">Stay alert. Let ScamShield help you understand suspicious content before you act.</p>
         </div>
         <button 
           onClick={() => navigate('/analyze')}
-          className="flex items-center space-x-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2.5 px-6 rounded-xl shadow-md shadow-blue-600/20 transition-all shrink-0"
+          className="flex items-center space-x-2 bg-primary hover:bg-primary-hover text-white font-bold py-2.5 px-6 rounded-xl shadow-md shadow-primary/20 transition-all shrink-0"
         >
           <Plus className="w-5 h-5" />
           <span>New Analysis</span>
@@ -82,71 +85,71 @@ export default function Dashboard() {
 
       {/* KPI Cards */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-200 flex items-start space-x-4">
-          <div className="w-12 h-12 bg-blue-50 text-blue-600 rounded-2xl flex items-center justify-center shrink-0">
+        <div className="bg-card p-5 rounded-2xl shadow-sm border border-border-light flex items-start space-x-4">
+          <div className="w-12 h-12 bg-primary/10 text-primary rounded-2xl flex items-center justify-center shrink-0">
             <FileText className="w-6 h-6" />
           </div>
           <div className="flex-1">
-            <div className="text-[10px] text-slate-500 font-bold uppercase tracking-wider mb-1">Total Analyses</div>
+            <div className="text-[10px] text-text-muted font-bold uppercase tracking-wider mb-1">Total Analyses</div>
             <div className="flex items-end justify-between">
-              <div className="text-2xl font-bold text-slate-800">{loading ? '-' : stats?.total_analyses || 0}</div>
-              <div className="text-[10px] text-green-600 font-bold flex flex-col items-end">
+              <div className="text-2xl font-bold text-text-main">{loading ? '-' : stats?.total_analyses || 0}</div>
+              <div className="text-[10px] text-success font-bold flex flex-col items-end">
                 <span>↑ +3</span>
-                <span className="text-slate-400 font-normal">this week</span>
+                <span className="text-text-muted font-normal">this week</span>
               </div>
             </div>
-            <div className="text-xs text-slate-500 mt-2">All analyzed content</div>
+            <div className="text-sm text-text-muted mt-2">All analyzed content</div>
           </div>
         </div>
 
-        <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-200 flex items-start space-x-4">
-          <div className="w-12 h-12 bg-red-50 text-red-500 rounded-2xl flex items-center justify-center shrink-0">
+        <div className="bg-card p-5 rounded-2xl shadow-sm border border-border-light flex items-start space-x-4">
+          <div className="w-12 h-12 bg-danger/10 text-danger rounded-2xl flex items-center justify-center shrink-0">
             <AlertTriangle className="w-6 h-6" />
           </div>
           <div className="flex-1">
-            <div className="text-[10px] text-slate-500 font-bold uppercase tracking-wider mb-1">Scams Detected</div>
+            <div className="text-[10px] text-text-muted font-bold uppercase tracking-wider mb-1">Scams Detected</div>
             <div className="flex items-end justify-between">
-              <div className="text-2xl font-bold text-slate-800">{loading ? '-' : stats?.scams_detected || 0}</div>
-              <div className="text-[10px] text-green-600 font-bold flex flex-col items-end">
+              <div className="text-2xl font-bold text-text-main">{loading ? '-' : stats?.scams_detected || 0}</div>
+              <div className="text-[10px] text-success font-bold flex flex-col items-end">
                 <span>↑ +2</span>
-                <span className="text-slate-400 font-normal">this week</span>
+                <span className="text-text-muted font-normal">this week</span>
               </div>
             </div>
-            <div className="text-xs text-slate-500 mt-2">Potential threats identified</div>
+            <div className="text-sm text-text-muted mt-2">Potential threats identified</div>
           </div>
         </div>
 
-        <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-200 flex items-start space-x-4">
-          <div className="w-12 h-12 bg-green-50 text-green-500 rounded-2xl flex items-center justify-center shrink-0">
+        <div className="bg-card p-5 rounded-2xl shadow-sm border border-border-light flex items-start space-x-4">
+          <div className="w-12 h-12 bg-success/10 text-success rounded-2xl flex items-center justify-center shrink-0">
             <CheckCircle className="w-6 h-6" />
           </div>
           <div className="flex-1">
-            <div className="text-[10px] text-slate-500 font-bold uppercase tracking-wider mb-1">Safe Messages</div>
+            <div className="text-[10px] text-text-muted font-bold uppercase tracking-wider mb-1">Safe Messages</div>
             <div className="flex items-end justify-between">
-              <div className="text-2xl font-bold text-slate-800">{loading ? '-' : stats?.safe_messages || 0}</div>
-              <div className="text-[10px] text-green-600 font-bold flex flex-col items-end">
+              <div className="text-2xl font-bold text-text-main">{loading ? '-' : stats?.safe_messages || 0}</div>
+              <div className="text-[10px] text-success font-bold flex flex-col items-end">
                 <span>↑ +1</span>
-                <span className="text-slate-400 font-normal">this week</span>
+                <span className="text-text-muted font-normal">this week</span>
               </div>
             </div>
-            <div className="text-xs text-slate-500 mt-2">Classified as genuine</div>
+            <div className="text-sm text-text-muted mt-2">Classified as genuine</div>
           </div>
         </div>
 
-        <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-200 flex items-start space-x-4">
-          <div className="w-12 h-12 bg-orange-50 text-orange-500 rounded-2xl flex items-center justify-center shrink-0">
+        <div className="bg-card p-5 rounded-2xl shadow-sm border border-border-light flex items-start space-x-4">
+          <div className="w-12 h-12 bg-warning/10 text-warning rounded-2xl flex items-center justify-center shrink-0">
             <ShieldAlert className="w-6 h-6" />
           </div>
           <div className="flex-1">
-            <div className="text-[10px] text-slate-500 font-bold uppercase tracking-wider mb-1">High Risk</div>
+            <div className="text-[10px] text-text-muted font-bold uppercase tracking-wider mb-1">High Risk</div>
             <div className="flex items-end justify-between">
-              <div className="text-2xl font-bold text-slate-800">{loading ? '-' : stats?.high_risk || 0}</div>
-              <div className="text-[10px] text-green-600 font-bold flex flex-col items-end">
+              <div className="text-2xl font-bold text-text-main">{loading ? '-' : stats?.high_risk || 0}</div>
+              <div className="text-[10px] text-success font-bold flex flex-col items-end">
                 <span>↑ +1</span>
-                <span className="text-slate-400 font-normal">this week</span>
+                <span className="text-text-muted font-normal">this week</span>
               </div>
             </div>
-            <div className="text-xs text-slate-500 mt-2">Requires attention</div>
+            <div className="text-sm text-text-muted mt-2">Requires attention</div>
           </div>
         </div>
       </div>
@@ -157,9 +160,9 @@ export default function Dashboard() {
         {/* Left Column */}
         <div className="lg:col-span-5 space-y-6">
           {/* Risk Distribution */}
-          <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 h-80 flex flex-col">
-            <h3 className="font-bold text-slate-800 text-lg">Risk Distribution</h3>
-            <p className="text-xs text-slate-500 mb-6">Overview of risk levels in your analyses</p>
+          <div className="bg-card rounded-2xl shadow-sm border border-border-light p-6 h-80 flex flex-col">
+            <h3 className="font-bold text-text-main text-lg">Risk Distribution</h3>
+            <p className="text-sm text-text-muted mb-6">Overview of risk levels in your analyses</p>
             
             <div className="flex-1 flex items-center justify-between">
               <div className="w-40 h-40 relative">
@@ -181,8 +184,8 @@ export default function Dashboard() {
                   </PieChart>
                 </ResponsiveContainer>
                 <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-                  <span className="text-2xl font-bold text-slate-800">{stats?.total_analyses || 0}</span>
-                  <span className="text-xs text-slate-500">Total</span>
+                  <span className="text-2xl font-bold text-text-main">{stats?.total_analyses || 0}</span>
+                  <span className="text-sm text-text-muted">Total</span>
                 </div>
               </div>
               
@@ -191,18 +194,18 @@ export default function Dashboard() {
                   <div key={i} className="flex items-center justify-between">
                     <div className="flex items-center space-x-2">
                       <div className="w-3 h-3 rounded-full" style={{ backgroundColor: item.color }}></div>
-                      <span className="text-xs font-medium text-slate-700">{item.name}</span>
+                      <span className="text-sm font-semibold text-text-secondary">{item.name}</span>
                     </div>
                     <div className="flex items-center space-x-2">
-                      <span className="text-xs font-bold text-slate-900">{item.value}</span>
-                      <span className="text-xs text-slate-400 w-8 text-right">
+                      <span className="text-sm font-bold text-text-main">{item.value}</span>
+                      <span className="text-sm text-text-muted w-8 text-right">
                         ({stats?.total_analyses ? Math.round((item.value / stats.total_analyses) * 100) : 0}%)
                       </span>
                     </div>
                   </div>
                 ))}
                 {!hasData && (
-                  <div className="text-xs text-slate-400 text-center italic mt-4">
+                  <div className="text-sm text-text-muted text-center italic mt-4">
                     No data to display
                   </div>
                 )}
@@ -213,9 +216,9 @@ export default function Dashboard() {
           {/* Start New Analysis CTA */}
           <div className="bg-gradient-to-r from-blue-50 to-indigo-50/50 rounded-2xl border border-blue-100 p-6 flex items-center justify-between relative overflow-hidden h-40">
             <div className="relative z-10">
-              <h3 className="font-bold text-slate-800 text-lg mb-1">Start a New Analysis</h3>
-              <p className="text-xs text-slate-600 mb-4 max-w-[200px]">Analyze suspicious content using our AI-powered engine.</p>
-              <button onClick={() => navigate('/analyze')} className="bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-6 rounded-lg shadow-sm shadow-blue-600/20 transition-all text-sm flex items-center space-x-2">
+              <h3 className="font-bold text-text-main text-lg mb-1">Start a New Analysis</h3>
+              <p className="text-sm text-text-secondary mb-4 max-w-[200px]">Analyze suspicious content using our AI-powered engine.</p>
+              <button onClick={() => navigate('/analyze')} className="bg-primary hover:bg-primary-hover text-white font-semibold py-2 px-6 rounded-lg shadow-sm shadow-primary/20 transition-all text-base flex items-center space-x-2">
                 <span>Start Analysis</span>
                 <ArrowRight className="w-4 h-4" />
               </button>
@@ -223,13 +226,13 @@ export default function Dashboard() {
             
             {/* Visual element (clipboard) */}
             <div className="absolute right-4 bottom-0 top-4 w-32 pointer-events-none flex flex-col items-end opacity-90">
-              <div className="w-24 h-28 bg-white rounded-t-xl border-x border-t border-slate-200 shadow-sm relative pt-4 px-3 flex flex-col space-y-2">
+              <div className="w-24 h-28 bg-card rounded-t-xl border-x border-t border-border-light shadow-sm relative pt-4 px-3 flex flex-col space-y-2">
                 <div className="w-8 h-2 bg-slate-200 rounded-full mx-auto absolute -top-1 left-1/2 -translate-x-1/2"></div>
-                <div className="w-full h-1.5 bg-blue-100 rounded-full"></div>
-                <div className="w-3/4 h-1.5 bg-slate-100 rounded-full"></div>
-                <div className="w-full h-1.5 bg-slate-100 rounded-full"></div>
+                <div className="w-full h-1.5 bg-primary/10 rounded-full"></div>
+                <div className="w-3/4 h-1.5 bg-background rounded-full"></div>
+                <div className="w-full h-1.5 bg-background rounded-full"></div>
                 
-                <div className="absolute -bottom-4 -right-4 w-12 h-12 bg-white rounded-full shadow-lg border border-slate-100 flex items-center justify-center text-blue-500">
+                <div className="absolute -bottom-4 -right-4 w-12 h-12 bg-card rounded-full shadow-lg border border-border-light flex items-center justify-center text-primary">
                   <Search className="w-5 h-5" />
                 </div>
               </div>
@@ -239,21 +242,21 @@ export default function Dashboard() {
 
         {/* Right Column (Recent Analyses) */}
         <div className="lg:col-span-7">
-          <div className="bg-white rounded-2xl shadow-sm border border-slate-200 h-full flex flex-col">
-            <div className="p-6 border-b border-slate-100 flex justify-between items-center">
-              <h3 className="font-bold text-slate-800 text-lg">Recent Analyses</h3>
-              <Link to="/history" className="text-sm font-semibold text-blue-600 hover:text-blue-700">View All</Link>
+          <div className="bg-card rounded-2xl shadow-sm border border-border-light h-full flex flex-col">
+            <div className="p-6 border-b border-border-light flex justify-between items-center">
+              <h3 className="font-bold text-text-main text-lg">Recent Analyses</h3>
+              <Link to="/history" className="text-base font-bold text-primary hover:text-blue-700">View All</Link>
             </div>
             
             {loading ? (
               <div className="flex-1 flex flex-col items-center justify-center p-8 space-y-6">
                 {[1, 2, 3, 4, 5].map(i => (
                   <div key={i} className="animate-pulse flex items-center space-x-4 w-full">
-                    <div className="w-10 h-10 bg-slate-100 rounded-xl shrink-0"></div>
-                    <div className="w-20 h-6 bg-slate-100 rounded-full shrink-0"></div>
+                    <div className="w-10 h-10 bg-background rounded-xl shrink-0"></div>
+                    <div className="w-20 h-6 bg-background rounded-full shrink-0"></div>
                     <div className="flex-1 space-y-2">
-                      <div className="h-4 bg-slate-100 rounded w-1/3"></div>
-                      <div className="h-3 bg-slate-100 rounded w-2/3"></div>
+                      <div className="h-4 bg-background rounded w-1/3"></div>
+                      <div className="h-3 bg-background rounded w-2/3"></div>
                     </div>
                   </div>
                 ))}
@@ -262,22 +265,22 @@ export default function Dashboard() {
               <div className="flex-1 flex flex-col overflow-y-auto p-2">
                 {recent.map((item) => {
                   
-                  let bgBadge = 'bg-green-100 text-green-700';
+                  let bgBadge = 'bg-success/20 text-success';
                   let status = 'SAFE';
-                  let scoreColor = 'text-green-600';
+                  let scoreColor = 'text-success';
                   
                   if (item.risk_level === 'HIGH' || item.risk_level === 'CRITICAL') {
-                    bgBadge = 'bg-red-100 text-red-700';
+                    bgBadge = 'bg-danger/20 text-red-700';
                     status = 'HIGH RISK';
-                    scoreColor = 'text-red-600';
+                    scoreColor = 'text-danger';
                   } else if (item.risk_level === 'MEDIUM') {
                     bgBadge = 'bg-orange-100 text-orange-700';
                     status = 'MEDIUM RISK';
-                    scoreColor = 'text-orange-500';
+                    scoreColor = 'text-warning';
                   } else if (item.risk_score && item.risk_score > 30) {
-                    bgBadge = 'bg-orange-50 text-orange-600';
+                    bgBadge = 'bg-warning/10 text-warning';
                     status = 'SUSPICIOUS';
-                    scoreColor = 'text-orange-500';
+                    scoreColor = 'text-warning';
                   }
 
                   let Icon = FileText;
@@ -297,10 +300,10 @@ export default function Dashboard() {
                   return (
                     <div 
                       key={item.id} 
-                      onClick={() => navigate('/results', { state: { result: item, from: '/dashboard' } })}
-                      className="flex items-center space-x-4 p-4 hover:bg-slate-50 rounded-xl transition cursor-pointer group"
+                      onClick={() => navigate(`/results/${item.id}`, { state: { result: item, from: '/dashboard' } })}
+                      className="flex items-center space-x-4 p-4 hover:bg-background rounded-xl transition cursor-pointer group"
                     >
-                      <div className="w-10 h-10 bg-blue-50 text-blue-500 rounded-xl flex items-center justify-center shrink-0">
+                      <div className="w-10 h-10 bg-primary/10 text-primary rounded-xl flex items-center justify-center shrink-0">
                         <Icon className="w-5 h-5" />
                       </div>
                       
@@ -311,28 +314,28 @@ export default function Dashboard() {
                       </div>
                       
                       <div className="flex-1 min-w-0">
-                        <div className="font-semibold text-sm text-slate-800 truncate mb-0.5">
-                          {item.classification === 'SCAM' ? `${item.scam_category || 'Unknown'} Scam` : (item.scam_category || 'Normal Conversation')}
+                        <div className="font-bold text-base text-text-main truncate mb-0.5">
+                          {item.classification === 'SCAM' ? `${item.category === 'Unknown' || !item.category ? 'Suspicious' : item.category} Scam` : (item.category === 'Unknown' || !item.category ? 'Normal Message' : item.category)}
                         </div>
-                        <div className="text-xs text-slate-500 truncate">
+                        <div className="text-sm text-text-muted truncate">
                           {item.content}
                         </div>
                       </div>
 
                       <div className="w-16 shrink-0 flex items-center justify-center">
-                        <span className="text-[10px] font-medium text-slate-500 bg-slate-100 px-2 py-0.5 rounded">
+                        <span className="text-[10px] font-semibold text-text-muted bg-background px-2 py-0.5 rounded">
                           {item.input_type === 'text' ? (item.content.length < 30 ? 'SMS' : 'Text') : item.input_type || 'Text'}
                         </span>
                       </div>
                       
                       <div className="text-right w-16 shrink-0">
-                        <div className="text-sm font-bold text-slate-800">
-                          <span className={scoreColor}>{item.risk_score || 0}</span><span className="text-slate-400 font-medium text-xs">/100</span>
+                        <div className="text-base font-bold text-text-main">
+                          <span className={scoreColor}>{item.risk_score || 0}</span><span className="text-text-muted font-semibold text-sm">/100</span>
                         </div>
-                        <div className="text-[10px] text-slate-400">{timeStr}</div>
+                        <div className="text-[10px] text-text-muted">{timeStr}</div>
                       </div>
                       
-                      <div className="shrink-0 text-slate-300 group-hover:text-slate-500 transition pl-2">
+                      <div className="shrink-0 text-text-secondary group-hover:text-text-muted transition pl-2">
                         <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
                       </div>
                     </div>
@@ -350,72 +353,68 @@ export default function Dashboard() {
       </div>
 
       {/* Supported Input Types */}
-      <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm">
+      <div className="bg-card rounded-2xl border border-border-light p-6 shadow-sm">
         <div className="flex justify-between items-center mb-6">
           <div>
-            <h3 className="font-bold text-slate-800 text-lg">Supported Input Types</h3>
-            <p className="text-xs text-slate-500">Analyze different types of content for potential scams.</p>
+            <h3 className="font-bold text-text-main text-lg">Supported Input Types</h3>
+            <p className="text-sm text-text-muted">Analyze different types of content for potential scams.</p>
           </div>
-          <button className="text-sm font-semibold text-blue-600 hover:text-blue-700 flex items-center space-x-1">
-            <span>Learn More</span>
-            <ArrowRight className="w-4 h-4" />
-          </button>
         </div>
         
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
           {/* Text */}
-          <div onClick={() => navigate('/analyze', { state: { tab: 'text' } })} className="border border-slate-100 rounded-xl p-5 hover:border-blue-200 hover:shadow-md transition cursor-pointer flex items-start space-x-4">
-            <div className="w-12 h-12 bg-blue-50 text-blue-600 rounded-xl flex items-center justify-center shrink-0">
+          <div onClick={() => navigate('/analyze', { state: { tab: 'text' } })} className="border border-border-light rounded-xl p-5 hover:border-blue-200 hover:shadow-md transition cursor-pointer flex items-start space-x-4">
+            <div className="w-12 h-12 bg-primary/10 text-primary rounded-xl flex items-center justify-center shrink-0">
               <FileText className="w-6 h-6" />
             </div>
             <div className="flex-1">
               <div className="flex justify-between items-center mb-1">
-                <h4 className="font-bold text-slate-800 text-sm">Text</h4>
-                <svg className="w-4 h-4 text-slate-300" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
+                <h4 className="font-bold text-text-main text-base">Text</h4>
+                <svg className="w-4 h-4 text-text-secondary" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
               </div>
-              <p className="text-[11px] text-slate-500 leading-snug">Analyze SMS, WhatsApp messages, emails and other text content.</p>
+              <p className="text-[11px] text-text-muted leading-snug">Analyze SMS, WhatsApp messages, emails and other text content.</p>
             </div>
           </div>
           
           {/* Image */}
-          <div onClick={() => navigate('/analyze', { state: { tab: 'image' } })} className="border border-slate-100 rounded-xl p-5 hover:border-purple-200 hover:shadow-md transition cursor-pointer flex items-start space-x-4">
+          <div onClick={() => navigate('/analyze', { state: { tab: 'image' } })} className="border border-border-light rounded-xl p-5 hover:border-purple-200 hover:shadow-md transition cursor-pointer flex items-start space-x-4">
             <div className="w-12 h-12 bg-purple-50 text-purple-600 rounded-xl flex items-center justify-center shrink-0">
               <ImageIcon className="w-6 h-6" />
             </div>
             <div className="flex-1">
               <div className="flex justify-between items-center mb-1">
-                <h4 className="font-bold text-slate-800 text-sm">Image</h4>
-                <svg className="w-4 h-4 text-slate-300" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
+                <h4 className="font-bold text-text-main text-base">Image</h4>
+                <svg className="w-4 h-4 text-text-secondary" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
               </div>
-              <p className="text-[11px] text-slate-500 leading-snug">Extract text from screenshots and analyze for suspicious content.</p>
+              <p className="text-[11px] text-text-muted leading-snug">Extract text from screenshots and analyze for suspicious content.</p>
             </div>
           </div>
 
           {/* PDF */}
-          <div onClick={() => navigate('/analyze', { state: { tab: 'pdf' } })} className="border border-slate-100 rounded-xl p-5 hover:border-red-200 hover:shadow-md transition cursor-pointer flex items-start space-x-4">
-            <div className="w-12 h-12 bg-red-50 text-red-500 rounded-xl flex items-center justify-center shrink-0">
+          <div onClick={() => navigate('/analyze', { state: { tab: 'pdf' } })} className="border border-border-light rounded-xl p-5 hover:border-danger/30 hover:shadow-md transition cursor-pointer flex items-start space-x-4">
+            <div className="w-12 h-12 bg-danger/10 text-danger rounded-xl flex items-center justify-center shrink-0">
               <File className="w-6 h-6" />
             </div>
             <div className="flex-1">
               <div className="flex justify-between items-center mb-1">
-                <h4 className="font-bold text-slate-800 text-sm">PDF</h4>
-                <svg className="w-4 h-4 text-slate-300" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
+                <h4 className="font-bold text-text-main text-base">PDF</h4>
+                <svg className="w-4 h-4 text-text-secondary" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
               </div>
-              <p className="text-[11px] text-slate-500 leading-snug">Analyze documents, invoices, and other PDF files.</p>
+              <p className="text-[11px] text-text-muted leading-snug">Analyze documents, invoices, and other PDF files.</p>
             </div>
           </div>
 
           {/* Audio */}
-          <div onClick={() => navigate('/analyze', { state: { tab: 'audio' } })} className="border border-slate-100 rounded-xl p-5 hover:border-green-200 hover:shadow-md transition cursor-pointer flex items-start space-x-4">
-            <div className="w-12 h-12 bg-green-50 text-green-600 rounded-xl flex items-center justify-center shrink-0">
+          <div onClick={() => navigate('/analyze', { state: { tab: 'audio' } })} className="border border-border-light rounded-xl p-5 hover:border-success/30 hover:shadow-md transition cursor-pointer flex items-start space-x-4">
+            <div className="w-12 h-12 bg-success/10 text-success rounded-xl flex items-center justify-center shrink-0">
               <Mic className="w-6 h-6" />
             </div>
             <div className="flex-1">
               <div className="flex justify-between items-center mb-1">
-                <h4 className="font-bold text-slate-800 text-sm">Audio</h4>
-                <svg className="w-4 h-4 text-slate-300" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
+                <h4 className="font-bold text-text-main text-base">Audio</h4>
+                <svg className="w-4 h-4 text-text-secondary" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
               </div>
-              <p className="text-[11px] text-slate-500 leading-snug">Transcribe and analyze audio messages and call recordings.</p>
+              <p className="text-[11px] text-text-muted leading-snug">Transcribe and analyze audio messages and call recordings.</p>
             </div>
           </div>
         </div>

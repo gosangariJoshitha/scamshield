@@ -8,12 +8,12 @@ interface ErrorStateProps {
 
 export function ErrorState({ title = "Something went wrong", message, onRetry }: ErrorStateProps) {
   return (
-    <div className="flex flex-col items-center justify-center p-8 bg-red-50 border border-red-100 rounded-2xl text-center">
-      <div className="w-12 h-12 bg-red-100 text-red-500 rounded-full flex items-center justify-center mb-4">
+    <div className="flex flex-col items-center justify-center p-8 bg-danger/10 border border-red-100 rounded-2xl text-center">
+      <div className="w-12 h-12 bg-danger/20 text-danger rounded-full flex items-center justify-center mb-4">
         <AlertTriangle className="w-6 h-6" />
       </div>
-      <h3 className="text-lg font-bold text-red-800 mb-2">{title}</h3>
-      <p className="text-red-600 text-sm mb-6 max-w-md">{message}</p>
+      <h3 className="text-lg font-bold text-danger mb-2">{title}</h3>
+      <p className="text-danger text-sm mb-6 max-w-md">{message}</p>
       
       {onRetry && (
         <button 

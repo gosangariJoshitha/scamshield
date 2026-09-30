@@ -139,3 +139,35 @@ def reset_password(req: schemas.ResetPassword, db: Session = Depends(database.ge
     except JWTError:
         raise HTTPException(status_code=400, detail="Invalid or expired token")
 
+@router.put("/me", response_model=schemas.UserResponse)
+def update_profile(update_data: schemas.UserUpdate, current_user: models.User = Depends(get_current_user), db: Session = Depends(database.get_db)):
+    if update_data.full_name is not None:
+        current_user.full_name = update_data.full_name
+    if update_data.two_factor_enabled is not None:
+        current_user.two_factor_enabled = update_data.two_factor_enabled
+    if update_data.email_notifications is not None:
+        current_user.email_notifications = update_data.email_notifications
+    if update_data.community_updates is not None:
+        current_user.community_updates = update_data.community_updates
+    if update_data.marketing_updates is not None:
+        current_user.marketing_updates = update_data.marketing_updates
+        
+    db.commit()
+    db.refresh(current_user)
+    return current_user
+
+@router.post("/change-password")
+def change_password(data: schemas.PasswordChange, current_user: models.User = Depends(get_current_user), db: Session = Depends(database.get_db)):
+    if not verify_password(data.current_password, current_user.password_hash):
+        raise HTTPException(status_code=400, detail="Incorrect current password")
+    
+    current_user.password_hash = get_password_hash(data.new_password)
+    db.commit()
+    return {"message": "Password updated successfully"}
+
+@router.delete("/me")
+def delete_account(current_user: models.User = Depends(get_current_user), db: Session = Depends(database.get_db)):
+    db.delete(current_user)
+    db.commit()
+    return {"message": "Account deleted successfully"}
+
