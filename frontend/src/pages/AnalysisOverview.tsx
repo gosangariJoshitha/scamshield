@@ -109,6 +109,25 @@ export default function AnalysisOverview() {
             <Download className="w-4 h-4" />
             <span>Download Report</span>
           </button>
+          <button 
+            onClick={async () => {
+              try {
+                const { reviewService } = await import('../services/reviewService');
+                const res = await reviewService.requestReview(result.id);
+                if(res.success) {
+                  alert('Human verification requested successfully! Check your Review Center.');
+                  navigate('/app/admin/reviews'); // Or just show success
+                }
+              } catch (e) {
+                console.error(e);
+                alert('Failed to request human verification or it already exists.');
+              }
+            }}
+            className="flex items-center space-x-2 bg-amber-500 hover:bg-amber-600 text-white font-semibold py-2 px-4 rounded-lg shadow-sm transition"
+          >
+            <ShieldAlert className="w-4 h-4" />
+            <span>Request Human Review</span>
+          </button>
           <button onClick={() => navigate('/analyze')} className="flex items-center space-x-2 bg-primary hover:bg-primary-hover text-white font-semibold py-2 px-4 rounded-lg shadow-sm transition">
             <Plus className="w-4 h-4" />
             <span>Analyze New Content</span>

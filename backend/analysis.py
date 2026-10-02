@@ -11,13 +11,17 @@ from app.pipeline.input_router import input_router
 from app.pipeline.analysis_pipeline import run_analysis_pipeline
 import json
 
+import time
+
 router = APIRouter(prefix="/analysis", tags=["analysis"])
 
 @router.post("/text", response_model=schemas.AnalysisResponse)
 async def analyze_text(payload: schemas.AnalysisCreate, current_user: models.User = Depends(get_current_user), db: Session = Depends(get_db)):
     try:
+        t0 = time.perf_counter()
         input_data = await input_router.route_and_extract(input_type="text", content=payload.content)
-        return await run_analysis_pipeline(db=db, input_data=input_data, user_id=current_user.id)
+        extraction_ms = (time.perf_counter() - t0) * 1000
+        return await run_analysis_pipeline(db=db, input_data=input_data, user_id=current_user.id, extraction_ms=extraction_ms)
     except Exception as e:
         print(f"Error during analysis: {e}")
         raise HTTPException(status_code=503, detail=str(e))
@@ -25,8 +29,10 @@ async def analyze_text(payload: schemas.AnalysisCreate, current_user: models.Use
 @router.post("/email", response_model=schemas.AnalysisResponse)
 async def analyze_email(payload: Dict[str, Any] = Body(...), current_user: models.User = Depends(get_current_user), db: Session = Depends(get_db)):
     try:
+        t0 = time.perf_counter()
         input_data = await input_router.route_and_extract(input_type="email", email_data=payload)
-        return await run_analysis_pipeline(db=db, input_data=input_data, user_id=current_user.id)
+        extraction_ms = (time.perf_counter() - t0) * 1000
+        return await run_analysis_pipeline(db=db, input_data=input_data, user_id=current_user.id, extraction_ms=extraction_ms)
     except Exception as e:
         print(f"Error during analysis: {e}")
         raise HTTPException(status_code=503, detail=str(e))
@@ -34,8 +40,10 @@ async def analyze_email(payload: Dict[str, Any] = Body(...), current_user: model
 @router.post("/image", response_model=schemas.AnalysisResponse)
 async def analyze_image(file: UploadFile = File(...), current_user: models.User = Depends(get_current_user), db: Session = Depends(get_db)):
     try:
+        t0 = time.perf_counter()
         input_data = await input_router.route_and_extract(input_type="image", file=file)
-        return await run_analysis_pipeline(db=db, input_data=input_data, user_id=current_user.id)
+        extraction_ms = (time.perf_counter() - t0) * 1000
+        return await run_analysis_pipeline(db=db, input_data=input_data, user_id=current_user.id, extraction_ms=extraction_ms)
     except Exception as e:
         print(f"Error during analysis: {e}")
         raise HTTPException(status_code=503, detail=str(e))
@@ -43,8 +51,10 @@ async def analyze_image(file: UploadFile = File(...), current_user: models.User 
 @router.post("/pdf", response_model=schemas.AnalysisResponse)
 async def analyze_pdf(file: UploadFile = File(...), current_user: models.User = Depends(get_current_user), db: Session = Depends(get_db)):
     try:
+        t0 = time.perf_counter()
         input_data = await input_router.route_and_extract(input_type="pdf", file=file)
-        return await run_analysis_pipeline(db=db, input_data=input_data, user_id=current_user.id)
+        extraction_ms = (time.perf_counter() - t0) * 1000
+        return await run_analysis_pipeline(db=db, input_data=input_data, user_id=current_user.id, extraction_ms=extraction_ms)
     except Exception as e:
         print(f"Error during analysis: {e}")
         raise HTTPException(status_code=503, detail=str(e))
@@ -52,8 +62,10 @@ async def analyze_pdf(file: UploadFile = File(...), current_user: models.User = 
 @router.post("/audio", response_model=schemas.AnalysisResponse)
 async def analyze_audio(file: UploadFile = File(...), current_user: models.User = Depends(get_current_user), db: Session = Depends(get_db)):
     try:
+        t0 = time.perf_counter()
         input_data = await input_router.route_and_extract(input_type="audio", file=file)
-        return await run_analysis_pipeline(db=db, input_data=input_data, user_id=current_user.id)
+        extraction_ms = (time.perf_counter() - t0) * 1000
+        return await run_analysis_pipeline(db=db, input_data=input_data, user_id=current_user.id, extraction_ms=extraction_ms)
     except Exception as e:
         print(f"Error during analysis: {e}")
         raise HTTPException(status_code=503, detail=str(e))

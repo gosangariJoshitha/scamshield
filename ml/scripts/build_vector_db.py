@@ -47,7 +47,9 @@ def ingest_knowledge():
             print("JSON not found at path")
     
     # 2. Rebuild Vector DB
-    entries = db.query(KnowledgeEntry).filter(KnowledgeEntry.status == "ACTIVE").all()
+    entries = db.query(KnowledgeEntry).filter(
+        KnowledgeEntry.status.in_(["ACTIVE", "APPROVED"])
+    ).all()
     print(f"Found {len(entries)} active entries to embed.")
     
     ids = []

@@ -25,8 +25,9 @@ ScamShield provides an application-level risk assessment. It uses ML to detect p
 2. `pip install -r requirements.txt`
 3. Setup PostgreSQL database 'scamshield'
 4. Copy `.env.example` to `.env` and configure keys.
-5. Run `alembic upgrade head`
-6. Run `uvicorn main:app --reload`
+5. To bootstrap an admin account, set both `ADMIN_EMAIL` and `ADMIN_PASSWORD`; no default admin credentials are created.
+6. Run `alembic upgrade head`
+7. Run `uvicorn main:app --reload`
 
 ### Frontend
 1. `cd frontend`

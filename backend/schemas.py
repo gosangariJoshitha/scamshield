@@ -100,6 +100,10 @@ class AnalysisResponse(BaseModel):
     model_version: Optional[str] = None
     rag_version: Optional[str] = None
     
+    # M8 Escalation Fields
+    escalation_status: Optional[str] = None
+    review_case_id: Optional[int] = None
+    
     created_at: datetime
 
     class Config:

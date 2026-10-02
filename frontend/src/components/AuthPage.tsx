@@ -73,7 +73,12 @@ export default function AuthPage({ initialMode }: AuthPageProps) {
       } else {
         const data = await auth.login({ email, password });
         localStorage.setItem('token', data.access_token);
-        navigate('/dashboard');
+        const userData = await auth.me();
+        if (userData && userData.role === 'admin') {
+          navigate('/admin');
+        } else {
+          navigate('/dashboard');
+        }
       }
     } catch (err: any) {
       if (err.response?.status === 401 || err.response?.status === 400) {

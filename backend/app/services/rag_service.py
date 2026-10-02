@@ -1,5 +1,6 @@
 import os
 import chromadb
+from pathlib import Path
 from typing import List, Dict, Any
 from app.services.embedding_service import embedding_service
 
@@ -11,13 +12,45 @@ RAG_MIN_SIMILARITY = float(os.getenv("RAG_MIN_SIMILARITY", "0.3"))
 
 class RagService:
     def __init__(self):
-        chroma_path = os.getenv("CHROMA_PERSIST_DIRECTORY", "./chroma_db")
-        self.client = chromadb.PersistentClient(path=chroma_path)
+        configured_path = os.getenv("CHROMA_PERSIST_DIRECTORY", "chroma_db")
+        chroma_path = Path(configured_path)
+        if not chroma_path.is_absolute():
+            chroma_path = Path(__file__).resolve().parents[2] / chroma_path
+        self.client = chromadb.PersistentClient(path=str(chroma_path))
         
         self.collection = self.client.get_or_create_collection(
             name=CHROMA_COLLECTION_NAME,
             metadata={"hnsw:space": "cosine"}
         )
+
+    def upsert_knowledge_entry(self, entry: Any) -> None:
+        """Keep an approved SQL knowledge entry available to semantic search."""
+        indicators = entry.indicators or []
+        document = (
+            f"Title: {entry.title or ''}\n"
+            f"Category: {entry.category or ''}\n"
+            f"Pattern: {entry.pattern or ''}\n"
+            f"Description: {entry.description or ''}\n"
+            f"Indicators: {', '.join(indicators)}\n"
+            f"Example: {entry.example or ''}\n"
+            f"Safe Action: {entry.safe_action or ''}"
+        )
+        self.collection.upsert(
+            ids=[f"knowledge_{entry.id}"],
+            embeddings=[embedding_service.generate_embedding(document)],
+            documents=[document],
+            metadatas=[{
+                "id": entry.id,
+                "title": entry.title or "",
+                "category": entry.category or "",
+                "pattern": entry.pattern or "",
+                "safe_action": entry.safe_action or "",
+                "source": entry.source or "",
+            }],
+        )
+
+    def delete_knowledge_entry(self, entry_id: int) -> None:
+        self.collection.delete(ids=[f"knowledge_{entry_id}"])
     
     def search(self, text: str, top_k: int = RAG_TOP_K) -> Dict[str, Any]:
         try:

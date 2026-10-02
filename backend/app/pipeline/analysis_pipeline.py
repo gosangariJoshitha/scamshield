@@ -3,30 +3,39 @@ from app.services.risk_engine import calculate_risk
 from app.services.rag_service import rag_service
 from app.services.llm_service import llm_service
 from schemas import NormalizedAnalysisInput
-from models import Analysis, AnalysisEvidence
+from models import Analysis, AnalysisEvidence, AnalysisPerformance
+from app.services.escalation_service import EscalationService
 from sqlalchemy.orm import Session
 import os
+import time
 
-async def run_analysis_pipeline(db: Session, input_data: NormalizedAnalysisInput, user_id: int):
+async def run_analysis_pipeline(db: Session, input_data: NormalizedAnalysisInput, user_id: int, extraction_ms: float = 0):
+    t_total_start = time.perf_counter()
     text = input_data.extracted_text
 
     # 1. Run ML Classifier
+    t0 = time.perf_counter()
     ml_result = classifier_service.predict(text)
+    ml_ms = (time.perf_counter() - t0) * 1000
     
     # 2. Run RAG Retrieval
+    t0 = time.perf_counter()
     rag_result = rag_service.search(text)
     retrieved_evidence = rag_result.get("retrieved_evidence", [])
+    rag_ms = (time.perf_counter() - t0) * 1000
     
     # 3. Compile base indicators (M3)
     base_indicators = []
     
     # 4. Call LLM for Reasoning (M5)
+    t0 = time.perf_counter()
     llm_response = await llm_service.generate_reasoning(
         text=text,
         ml_result=ml_result,
         retrieved_evidence=retrieved_evidence,
         indicators=base_indicators
     )
+    llm_ms = (time.perf_counter() - t0) * 1000
     
     # Prepare LLM data
     llm_confidence = None
@@ -66,7 +75,7 @@ async def run_analysis_pipeline(db: Session, input_data: NormalizedAnalysisInput
     all_indicators = list(set(base_indicators + llm_indicators))
     
     # 5. Risk Engine
-    # We pass the indicators to the risk engine to let it bump the score
+    t0 = time.perf_counter()
     risk_result = calculate_risk(
         ml_probability=ml_result["ml_probability"], 
         text=text, 
@@ -74,6 +83,7 @@ async def run_analysis_pipeline(db: Session, input_data: NormalizedAnalysisInput
         llm_indicators=all_indicators,
         retrieved_evidence=retrieved_evidence
     )
+    risk_engine_ms = (time.perf_counter() - t0) * 1000
     
     # Ensure all indicators are combined
     final_indicators = list(set(all_indicators + risk_result.get("risk_factors", [])))
@@ -81,6 +91,7 @@ async def run_analysis_pipeline(db: Session, input_data: NormalizedAnalysisInput
     model_version = os.getenv("OPENROUTER_MODEL", "meta-llama/llama-3-8b-instruct:free") if llm_response else "scamshield-classifier-v1"
     rag_version = "scamshield-rag-v1" if retrieved_evidence else None
 
+    t0 = time.perf_counter()
     analysis_record = Analysis(
         user_id=user_id,
         content=text,
@@ -121,6 +132,37 @@ async def run_analysis_pipeline(db: Session, input_data: NormalizedAnalysisInput
     
     if retrieved_evidence:
         db.commit()
+        
+    database_ms = (time.perf_counter() - t0) * 1000
+    
+    total_ms = (time.perf_counter() - t_total_start) * 1000 + extraction_ms
+    
+    # 7. Record performance metrics
+    perf_record = AnalysisPerformance(
+        analysis_id=analysis_record.id,
+        input_type=input_data.input_type,
+        extraction_ms=extraction_ms,
+        preprocessing_ms=0, # Included in input extraction or ML steps for now
+        ml_ms=ml_ms,
+        embedding_ms=0, # Included in RAG time
+        rag_ms=rag_ms,
+        llm_ms=llm_ms,
+        risk_engine_ms=risk_engine_ms,
+        database_ms=database_ms,
+        total_ms=total_ms,
+        status="SUCCESS" if llm_response else "FALLBACK",
+        error_message=None
+    )
+    db.add(perf_record)
+    db.commit()
+    
+    # 8. M8 Escalation Engine Evaluation
+    escalation_service = EscalationService(db)
+    evaluation = escalation_service.evaluate_analysis(analysis_record, analysis_record.user)
+    if evaluation.get("should_escalate"):
+        review_case = escalation_service.create_escalated_case(analysis_record, evaluation)
+        analysis_record.escalation_status = "ESCALATED"
+        analysis_record.review_case_id = review_case.id
     
     analysis_record.retrieved_evidence_data = retrieved_evidence
     analysis_record.evidence_status = rag_result.get("evidence_status", "NO_RELEVANT_MATCH")

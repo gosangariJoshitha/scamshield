@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { Outlet, Link, useLocation, useNavigate } from 'react-router-dom';
 import { 
   ShieldCheck, LayoutDashboard, Search, History, Users, 
-  User, LogOut, Bell, Settings, Check, Trash2, ShieldAlert,
+  User, LogOut, Bell, Settings, Check, Trash2,
   Moon, Sun
 } from 'lucide-react';
 import { auth } from '../services/auth';
@@ -35,38 +35,18 @@ export default function SidebarLayout() {
   const profileRef = useRef<HTMLDivElement>(null);
 
   // Mock Notifications
-  const [notifications, setNotifications] = useState<Notification[]>([
-    {
-      id: '1',
-      title: 'High Risk Detected',
-      message: 'Your recent analysis found a high-risk phishing attempt.',
-      isRead: false,
-      time: '5m ago',
-      type: 'alert'
-    },
-    {
-      id: '2',
-      title: 'Analysis Complete',
-      message: 'The PDF document analysis has finished successfully.',
-      isRead: false,
-      time: '1h ago',
-      type: 'success'
-    },
-    {
-      id: '3',
-      title: 'Community Update',
-      message: 'A new common scam pattern was added to the database.',
-      isRead: true,
-      time: '1d ago',
-      type: 'info'
-    }
-  ]);
+  const [notifications, setNotifications] = useState<Notification[]>([]);
 
   useEffect(() => {
-    auth.me().then(data => setUser(data)).catch(() => {
+    auth.me().then(data => {
+      setUser(data);
+      if (data && data.role === 'admin') {
+        navigate('/admin');
+      }
+    }).catch(() => {
       // If unauthorized, the protected route will handle it
     });
-  }, []);
+  }, [navigate]);
 
   // Handle clicking outside to close dropdowns
   useEffect(() => {
@@ -88,10 +68,6 @@ export default function SidebarLayout() {
     auth.logout();
     navigate('/login');
   };
-
-  const initials = user?.full_name 
-    ? user.full_name.split(' ').map((n: string) => n[0]).join('').substring(0, 2).toUpperCase()
-    : 'U';
 
   const navItems = [
     { name: 'Dashboard', path: '/dashboard', icon: LayoutDashboard },
