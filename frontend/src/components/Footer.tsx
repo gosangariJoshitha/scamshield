@@ -49,6 +49,7 @@ export default function Footer() {
             <ul className="space-y-4">
               <li><Link to="/login" className="text-text-muted hover:text-primary transition-colors text-sm font-semibold">Login</Link></li>
               <li><Link to="/signup" className="text-text-muted hover:text-primary transition-colors text-sm font-semibold">Create Account</Link></li>
+              <li><Link to="/admin/login" className="text-text-muted hover:text-primary transition-colors text-sm font-semibold">Admin sign in</Link></li>
             </ul>
           </div>
 
@@ -64,7 +65,6 @@ export default function Footer() {
         
         <div className="border-t border-border-light pt-8 flex flex-col md:flex-row justify-between items-center text-xs font-semibold text-slate-400">
           <p>© 2026 ScamShield Project. All rights reserved.</p>
-          <p className="mt-4 md:mt-0">Milestone 1 Implementation</p>
         </div>
       </div>
     </footer>
