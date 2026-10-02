@@ -10,15 +10,15 @@ def main():
     print("Loading test dataset...")
     test = pd.read_csv('../data/processed/test.csv')
     test['processed_text'] = test['processed_text'].fillna("")
-    
+
     print("Loading models...")
     clf = joblib.load('../models/classifier/scam_classifier.joblib')
     vectorizer = joblib.load('../models/classifier/tfidf_vectorizer.joblib')
-    
+
     print("Generating features...")
     X_test = vectorizer.transform(test['processed_text'])
     y_test = test['label']
-    
+
     print("Running inference...")
     y_pred = clf.predict(X_test)
     
@@ -88,7 +88,18 @@ def main():
         print(cat_df.head(5).to_string(index=False))
         print("\nBottom 5 Categories:")
         print(cat_df.tail(5).to_string(index=False))
-    
+
+    # Generate Confusion Matrix
+    cm = confusion_matrix(y_test, y_pred, labels=clf.classes_)
+
+    # False Positive / False Negative Analysis
+    fp_mask = (y_test == 'genuine') & (y_pred == 'scam')
+    fn_mask = (y_test == 'scam') & (y_pred == 'genuine')
+
+    # We'll extract a few examples (limit to 5 each)
+    fp_examples = test[fp_mask][['processed_text', 'label']].head(5).to_dict(orient='records')
+    fn_examples = test[fn_mask][['processed_text', 'label']].head(5).to_dict(orient='records')
+
     print("\nSaving reports...")
     os.makedirs('../reports', exist_ok=True)
     
@@ -99,8 +110,22 @@ def main():
         "scam_recall": rec,
         "scam_f1": f1,
         "classification_report": report_dict,
+        "confusion_matrix": {
+            "classes": list(clf.classes_),
+            "matrix": cm.tolist()
+        },
+        "error_analysis": {
+            "false_positives": len(test[fp_mask]),
+            "false_negatives": len(test[fn_mask]),
+            "fp_examples": fp_examples,
+            "fn_examples": fn_examples
+        },
         "language_evaluation": lang_metrics,
-        "category_evaluation": cat_metrics
+        "category_evaluation": cat_metrics,
+        "metadata": {
+            "dataset": "scamshield_dataset_2000_cleaned.csv",
+            "algorithm": "TF-IDF + Logistic Regression"
+        }
     }
     with open('../reports/metrics.json', 'w') as f:
         json.dump(metrics, f, indent=4)

@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
+import axios from 'axios';
 import { auth } from '../services/auth';
 import { storeToken } from '../services/token';
 import { ShieldCheck, Eye, EyeOff, Loader2, Check, Lock, Moon, Sun } from 'lucide-react';
@@ -38,13 +39,18 @@ export default function AuthPage({ initialMode, adminOnly = false }: AuthPagePro
   const hasMinLength = password.length >= 8;
   const hasUppercase = /[A-Z]/.test(password);
   const hasNumber = /[0-9]/.test(password);
-  const isPasswordValid = hasMinLength && hasUppercase && hasNumber;
+  const passwordFitsBcrypt = new TextEncoder().encode(password).length <= 72;
+  const isPasswordValid = hasMinLength && hasUppercase && hasNumber && passwordFitsBcrypt;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
 
     if (mode === 'signup') {
+      if (!fullName.trim()) {
+        setError('Please enter your full name.');
+        return;
+      }
       if (!isPasswordValid) {
         setError('Please meet all password requirements.');
         return;
@@ -60,34 +66,64 @@ export default function AuthPage({ initialMode, adminOnly = false }: AuthPagePro
     }
 
     setLoading(true);
+    let tokenStored = false;
     
     try {
       if (mode === 'signup') {
-        await auth.signup({ email, password, full_name: fullName, confirm_password: confirmPassword });
-        const loginData = await auth.login({ email, password });
-        storeToken(loginData.access_token, rememberMe);
-        navigate('/dashboard');
-      } else {
-        const data = await auth.login({ email, password });
-        storeToken(data.access_token, rememberMe);
-        const userData = await auth.me();
-        if (adminOnly && (!userData || userData.role !== 'admin' || userData.is_active === false)) {
-          auth.logout();
-          setError('This account does not have administrator access.');
-        } else if (userData && userData.role === 'admin') {
-          navigate('/admin');
-        } else {
-          navigate('/dashboard');
-        }
+        await auth.signup({
+          email: email.trim(),
+          password,
+          full_name: fullName.trim(),
+        });
       }
-    } catch (err: any) {
-      if (err.response?.status === 401 || err.response?.status === 400) {
-        // Generic error for login failure
-        setError(mode === 'login' ? 'Invalid email or password.' : 'Failed to create account. Email may already be in use.');
-      } else if (err.message) {
-        setError(err.message);
+
+      if (mode === 'signup' || mode === 'login') {
+        const loginData = await auth.login(
+          { email: email.trim(), password },
+          adminOnly ? 'admin' : 'user',
+        );
+        storeToken(loginData.access_token, rememberMe);
+        tokenStored = true;
+        const userData = await auth.me();
+        const expectedRole = adminOnly ? 'admin' : 'user';
+        if (!userData || userData.role !== expectedRole || userData.is_active === false) {
+          auth.logout();
+          tokenStored = false;
+          setError(`This account cannot sign in to the ${adminOnly ? 'admin' : 'user'} portal.`);
+          return;
+        }
+        navigate(adminOnly ? '/admin' : '/dashboard');
+      }
+    } catch (err: unknown) {
+      if (tokenStored) auth.logout();
+      if (axios.isAxiosError(err)) {
+        const status = err.response?.status;
+        if (status === 401) {
+          setError('Invalid email or password, or this account is not allowed in this portal.');
+        } else if (status === 409) {
+          setError('An account with this email already exists. Try signing in instead.');
+        } else if (status && status >= 500) {
+          setError(`The authentication service failed (HTTP ${status}). Please try again shortly.`);
+        } else if (!err.response) {
+          setError('Could not reach the authentication service. Check your connection and try again.');
+        } else {
+          const detail = err.response.data?.detail;
+          if (typeof detail === 'string') {
+            setError(detail);
+          } else if (Array.isArray(detail)) {
+            setError(
+              detail
+                .map((item: { msg?: unknown }) => item.msg)
+                .filter((message): message is string => typeof message === 'string')
+                .join(' '),
+            );
+          } else {
+            setError('Please check the form and try again.');
+          }
+        }
       } else {
-        setError('An unexpected error occurred.');
+        console.error('Authentication failed', err);
+        setError('An unexpected authentication error occurred. Please try again.');
       }
     } finally {
       setLoading(false);
@@ -95,7 +131,7 @@ export default function AuthPage({ initialMode, adminOnly = false }: AuthPagePro
   };
 
   return (
-    <div className="min-h-screen flex flex-col font-sans relative overflow-hidden bg-background">
+    <div className="auth-page min-h-screen flex flex-col font-sans relative overflow-hidden bg-background">
       {/* Header with Logo */}
       <header className="absolute top-0 left-0 w-full p-6 z-50 flex items-center justify-center">
         <Link 
@@ -178,7 +214,7 @@ export default function AuthPage({ initialMode, adminOnly = false }: AuthPagePro
             </div>
 
             {error && (
-              <div className="bg-danger-light text-danger-main p-3 rounded-xl mb-6 text-sm border border-danger-main/20 flex items-start space-x-2">
+              <div role="alert" className="bg-danger/10 text-danger p-3 rounded-xl mb-6 text-sm border border-danger/20 flex items-start space-x-2">
                 <span className="mt-0.5 font-bold">!</span>
                 <span className="font-medium">{error}</span>
               </div>
@@ -258,6 +294,10 @@ export default function AuthPage({ initialMode, adminOnly = false }: AuthPagePro
                     <div className={`flex items-center space-x-1 ${hasNumber ? 'text-success font-medium' : ''}`}>
                       {hasNumber ? <Check className="w-3.5 h-3.5" /> : <span className="w-3.5 h-3.5 inline-block" />} 
                       <span>One number</span>
+                    </div>
+                    <div className={`flex items-center space-x-1 ${passwordFitsBcrypt ? 'text-success font-medium' : 'text-danger'}`}>
+                      {passwordFitsBcrypt ? <Check className="w-3.5 h-3.5" /> : <span className="w-3.5 h-3.5 inline-block" />}
+                      <span>At most 72 UTF-8 bytes</span>
                     </div>
                   </div>
                 ) : (

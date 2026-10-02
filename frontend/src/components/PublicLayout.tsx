@@ -68,7 +68,7 @@ export default function PublicLayout() {
   ];
 
   return (
-    <div className="flex flex-col min-h-screen bg-card text-text-main font-sans">
+    <div className="public-layout flex flex-col min-h-screen bg-card text-text-main font-sans">
       <nav className="fixed top-0 left-0 right-0 z-50 bg-card border-b border-border-light shadow-[0_4px_20px_-15px_rgba(0,0,0,0.1)] h-20">
         <div className="max-w-7xl mx-auto h-full px-6 lg:px-8 flex items-center justify-between">
           
@@ -84,7 +84,7 @@ export default function PublicLayout() {
                 if (isLandingPage) e.preventDefault();
               }}
             >
-              <span className="text-[#0F172A]">Scam</span>
+              <span className="text-text-main">Scam</span>
               <span className="text-primary">Shield</span>
             </Link>
           </div>
@@ -97,8 +97,8 @@ export default function PublicLayout() {
                 onClick={(e) => handleNavClick(e, item.id)}
                 className={`text-sm font-bold transition-all duration-300 relative h-full flex items-center ${
                   isLandingPage && activeSection === item.id
-                    ? 'text-[#0F172A]'
-                    : 'text-text-muted hover:text-[#0F172A]'
+                    ? 'text-text-main'
+                    : 'text-text-muted hover:text-text-main'
                 }`}
               >
                 {item.label}
@@ -119,7 +119,7 @@ export default function PublicLayout() {
             >
               {theme === 'dark' ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
             </button>
-            <Link to="/login" className="px-6 py-2.5 rounded-full text-sm font-bold text-primary border-2 border-primary hover:bg-blue-50 transition-colors">
+            <Link to="/login" className="px-6 py-2.5 rounded-full text-sm font-bold text-primary border-2 border-primary hover:bg-primary/10 transition-colors">
               Login
             </Link>
             <Link to="/signup" className="bg-primary hover:bg-primary-hover px-6 py-2.5 rounded-full text-sm font-bold text-white shadow-lg shadow-primary/30 transition flex items-center space-x-1.5">
@@ -153,7 +153,7 @@ export default function PublicLayout() {
                 onClick={(e) => handleNavClick(e, item.id)}
                 className={`text-sm font-bold transition-all p-3 rounded-xl ${
                   isLandingPage && activeSection === item.id
-                    ? 'text-primary bg-blue-50'
+                    ? 'text-primary bg-primary/10'
                     : 'text-text-secondary hover:text-text-main hover:bg-background'
                 }`}
               >
@@ -169,7 +169,7 @@ export default function PublicLayout() {
               Switch to {theme === 'dark' ? 'light' : 'dark'} theme
             </button>
             <div className="flex flex-col space-y-3 pt-4 mt-2 border-t border-border-light">
-              <Link to="/login" onClick={() => setMobileMenuOpen(false)} className="text-sm font-bold text-center p-3 text-primary border-2 border-primary rounded-full hover:bg-blue-50 transition">Login</Link>
+              <Link to="/login" onClick={() => setMobileMenuOpen(false)} className="text-sm font-bold text-center p-3 text-primary border-2 border-primary rounded-full hover:bg-primary/10 transition">Login</Link>
               <Link to="/signup" onClick={() => setMobileMenuOpen(false)} className="bg-primary hover:bg-primary-hover p-3 rounded-full text-sm font-bold text-white text-center shadow-md transition">Get Started</Link>
             </div>
           </div>

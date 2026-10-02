@@ -19,7 +19,8 @@ class InputRouter:
         input_type: str,
         content: str | None = None,
         file: UploadFile | None = None,
-        email_data: dict | None = None
+        email_data: dict | None = None,
+        image_language: str = "en",
     ) -> NormalizedAnalysisInput:
         
         extracted_text = ""
@@ -67,7 +68,7 @@ class InputRouter:
             original_filename = file.filename
             file_bytes = await file.read()
             
-            extracted_text, metadata = ocr_service.extract_text(file_bytes)
+            extracted_text, metadata = ocr_service.extract_text(file_bytes, image_language)
             
         elif input_type == "audio":
             if not file:
@@ -75,8 +76,19 @@ class InputRouter:
             
             original_filename = file.filename
             file_bytes = await file.read()
-            
-            extracted_text, metadata = audio_service.extract_text(file_bytes, file.filename)
+            audio_extension = {
+                "audio/mpeg": ".mp3",
+                "audio/wav": ".wav",
+                "audio/x-wav": ".wav",
+                "audio/mp4": ".m4a",
+                "audio/x-m4a": ".m4a",
+                "audio/aac": ".aac",
+                "audio/ogg": ".ogg",
+                "audio/flac": ".flac",
+                "audio/webm": ".webm",
+            }.get(file.content_type or "", ".wav")
+            audio_filename = file.filename or f"audio{audio_extension}"
+            extracted_text, metadata = audio_service.extract_text(file_bytes, audio_filename)
             
         else:
             raise HTTPException(status_code=400, detail=f"Unsupported input type: {input_type}")

@@ -6,15 +6,21 @@ import { api } from '../services/api';
 export default function Analyze() {
   const location = useLocation();
   const [type, setType] = useState((location.state as any)?.tab || 'text');
+  const [ocrLanguage, setOcrLanguage] = useState('en');
   const [text, setText] = useState('');
   const [emailData, setEmailData] = useState({ subject: '', sender: '', body: '' });
   const [file, setFile] = useState<File | null>(null);
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
 
+  const selectType = (nextType: string) => {
+    setType(nextType);
+    setFile(null);
+  };
+
   const handleAnalyze = async () => {
-    if (type === 'text' && !text) return;
-    if (type === 'email' && !emailData.body && !emailData.subject) return;
+    if (type === 'text' && !text.trim()) return;
+    if (type === 'email' && !emailData.body.trim() && !emailData.subject.trim()) return;
     if ((type === 'image' || type === 'pdf' || type === 'audio') && !file) return;
     
     setLoading(true);
@@ -27,6 +33,7 @@ export default function Analyze() {
       } else {
         const formData = new FormData();
         formData.append('file', file as File);
+        if (type === 'image') formData.append('language', ocrLanguage);
         res = await api.post(`/analysis/${type}`, formData, {
           headers: {
             'Content-Type': 'multipart/form-data'
@@ -44,7 +51,7 @@ export default function Analyze() {
 
   const setExample = (content: string) => {
     setText(content);
-    setType('text');
+    selectType('text');
   };
 
   return (
@@ -57,66 +64,71 @@ export default function Analyze() {
       {/* Tabs */}
       <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
         <button 
-          onClick={() => setType('text')} 
-          className={`text-left border rounded-2xl p-5 transition-all ${type === 'text' ? 'border-blue-300 bg-primary/10/50 shadow-sm ring-1 ring-blue-300' : 'border-border-light bg-card hover:border-border-main hover:bg-background'}`}
+          onClick={() => selectType('text')}
+          aria-pressed={type === 'text'}
+          className={`text-left border rounded-2xl p-5 transition-all ${type === 'text' ? 'border-primary bg-primary/10 shadow-sm ring-1 ring-primary/30' : 'border-border-light bg-card hover:border-border-main hover:bg-background'}`}
         >
           <div className="flex items-center space-x-3 mb-2">
             <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${type === 'text' ? 'text-primary' : 'text-primary bg-primary/10'}`}>
               <FileText className="w-5 h-5" />
             </div>
-            <span className={`font-bold text-base ${type === 'text' ? 'text-blue-700' : 'text-text-main'}`}>Text</span>
+            <span className={`font-bold text-base ${type === 'text' ? 'text-primary' : 'text-text-main'}`}>Text</span>
           </div>
           <p className={`text-[11px] leading-tight ${type === 'text' ? 'text-primary/80' : 'text-text-muted'}`}>Messages, emails, links</p>
         </button>
 
         <button 
-          onClick={() => setType('image')} 
-          className={`text-left border rounded-2xl p-5 transition-all ${type === 'image' ? 'border-blue-300 bg-primary/10/50 shadow-sm ring-1 ring-blue-300' : 'border-border-light bg-card hover:border-border-main hover:bg-background'}`}
+          onClick={() => selectType('image')}
+          aria-pressed={type === 'image'}
+          className={`text-left border rounded-2xl p-5 transition-all ${type === 'image' ? 'border-primary bg-primary/10 shadow-sm ring-1 ring-primary/30' : 'border-border-light bg-card hover:border-border-main hover:bg-background'}`}
         >
           <div className="flex items-center space-x-3 mb-2">
             <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${type === 'image' ? 'text-primary' : 'text-text-muted bg-background'}`}>
               <ImageIcon className="w-5 h-5" />
             </div>
-            <span className={`font-bold text-base ${type === 'image' ? 'text-blue-700' : 'text-text-main'}`}>Image</span>
+            <span className={`font-bold text-base ${type === 'image' ? 'text-primary' : 'text-text-main'}`}>Image</span>
           </div>
           <p className={`text-[11px] leading-tight ${type === 'image' ? 'text-primary/80' : 'text-text-muted'}`}>Screenshots, photos</p>
         </button>
 
         <button 
-          onClick={() => setType('email')} 
-          className={`text-left border rounded-2xl p-5 transition-all ${type === 'email' ? 'border-blue-300 bg-primary/10/50 shadow-sm ring-1 ring-blue-300' : 'border-border-light bg-card hover:border-border-main hover:bg-background'}`}
+          onClick={() => selectType('email')}
+          aria-pressed={type === 'email'}
+          className={`text-left border rounded-2xl p-5 transition-all ${type === 'email' ? 'border-primary bg-primary/10 shadow-sm ring-1 ring-primary/30' : 'border-border-light bg-card hover:border-border-main hover:bg-background'}`}
         >
           <div className="flex items-center space-x-3 mb-2">
             <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${type === 'email' ? 'text-primary' : 'text-amber-500 bg-amber-50'}`}>
               <Mail className="w-5 h-5" />
             </div>
-            <span className={`font-bold text-base ${type === 'email' ? 'text-blue-700' : 'text-text-main'}`}>Email</span>
+            <span className={`font-bold text-base ${type === 'email' ? 'text-primary' : 'text-text-main'}`}>Email</span>
           </div>
           <p className={`text-[11px] leading-tight ${type === 'email' ? 'text-primary/80' : 'text-text-muted'}`}>Phishing, scams</p>
         </button>
 
         <button 
-          onClick={() => setType('pdf')} 
-          className={`text-left border rounded-2xl p-5 transition-all ${type === 'pdf' ? 'border-blue-300 bg-primary/10/50 shadow-sm ring-1 ring-blue-300' : 'border-border-light bg-card hover:border-border-main hover:bg-background'}`}
+          onClick={() => selectType('pdf')}
+          aria-pressed={type === 'pdf'}
+          className={`text-left border rounded-2xl p-5 transition-all ${type === 'pdf' ? 'border-primary bg-primary/10 shadow-sm ring-1 ring-primary/30' : 'border-border-light bg-card hover:border-border-main hover:bg-background'}`}
         >
           <div className="flex items-center space-x-3 mb-2">
             <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${type === 'pdf' ? 'text-primary' : 'text-danger bg-danger/10'}`}>
               <File className="w-5 h-5" />
             </div>
-            <span className={`font-bold text-base ${type === 'pdf' ? 'text-blue-700' : 'text-text-main'}`}>PDF</span>
+            <span className={`font-bold text-base ${type === 'pdf' ? 'text-primary' : 'text-text-main'}`}>PDF</span>
           </div>
           <p className={`text-[11px] leading-tight ${type === 'pdf' ? 'text-primary/80' : 'text-text-muted'}`}>Documents, invoices</p>
         </button>
 
         <button 
-          onClick={() => setType('audio')} 
-          className={`text-left border rounded-2xl p-5 transition-all ${type === 'audio' ? 'border-blue-300 bg-primary/10/50 shadow-sm ring-1 ring-blue-300' : 'border-border-light bg-card hover:border-border-main hover:bg-background'}`}
+          onClick={() => selectType('audio')}
+          aria-pressed={type === 'audio'}
+          className={`text-left border rounded-2xl p-5 transition-all ${type === 'audio' ? 'border-primary bg-primary/10 shadow-sm ring-1 ring-primary/30' : 'border-border-light bg-card hover:border-border-main hover:bg-background'}`}
         >
           <div className="flex items-center space-x-3 mb-2">
             <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${type === 'audio' ? 'text-primary' : 'text-success bg-success/10'}`}>
               <Mic className="w-5 h-5" />
             </div>
-            <span className={`font-bold text-base ${type === 'audio' ? 'text-blue-700' : 'text-text-main'}`}>Audio</span>
+            <span className={`font-bold text-base ${type === 'audio' ? 'text-primary' : 'text-text-main'}`}>Audio</span>
           </div>
           <p className={`text-[11px] leading-tight ${type === 'audio' ? 'text-primary/80' : 'text-text-muted'}`}>Call recordings, audio files</p>
         </button>
@@ -135,6 +147,7 @@ export default function Analyze() {
                 <textarea 
                   className="w-full h-48 px-4 py-4 bg-background/50 border border-border-light rounded-xl focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary focus:bg-card transition-all resize-none text-base placeholder:text-text-muted mb-4" 
                   placeholder="Type or paste your text here..."
+                  maxLength={10000}
                   value={text}
                   onChange={(e) => setText(e.target.value)}
                 ></textarea>
@@ -210,17 +223,41 @@ export default function Analyze() {
                 </h3>
                 <p className="text-sm text-text-muted mb-6">
                   {type === 'image' && 'Drop a screenshot or photo containing suspicious content.'}
-                  {type === 'pdf' && 'Drop a suspicious document or invoice.'}
+                  {type === 'pdf' && 'Upload a text-searchable PDF. For a scanned page, upload an image instead.'}
                   {type === 'audio' && 'Upload an audio recording for analysis.'}
                 </p>
+                {type === 'image' && (
+                  <label className="block text-sm font-semibold text-text-main mb-4">
+                    Text language in image
+                    <select
+                      value={ocrLanguage}
+                      onChange={(event) => setOcrLanguage(event.target.value)}
+                      className="ml-3 rounded-lg border border-border-light bg-card px-3 py-2 text-text-main focus:outline-none focus:ring-2 focus:ring-primary"
+                    >
+                      <option value="en">English</option>
+                      <option value="hi">Hindi</option>
+                      <option value="te">Telugu</option>
+                    </select>
+                  </label>
+                )}
                 
                 <label className="flex-1 border-2 border-dashed border-border-light rounded-2xl bg-background flex flex-col items-center justify-center p-8 hover:bg-background hover:border-border-main transition cursor-pointer relative overflow-hidden">
                   <input 
                     type="file" 
                     className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-                    onChange={(e) => setFile(e.target.files ? e.target.files[0] : null)}
+                    onChange={(e) => {
+                      const selectedFile = e.target.files?.[0] || null;
+                      const maxSize = type === 'audio' ? 25 * 1024 * 1024 : 10 * 1024 * 1024;
+                      if (selectedFile && selectedFile.size > maxSize) {
+                        alert(`File is too large. Maximum size is ${type === 'audio' ? '25MB' : '10MB'}.`);
+                        e.target.value = '';
+                        setFile(null);
+                        return;
+                      }
+                      setFile(selectedFile);
+                    }}
                     accept={
-                      type === 'image' ? "image/*" : 
+                      type === 'image' ? "image/png,image/jpeg,image/gif" :
                       type === 'pdf' ? "application/pdf" : 
                       "audio/*"
                     }

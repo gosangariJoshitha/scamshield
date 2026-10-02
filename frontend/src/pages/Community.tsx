@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { 
   Users, AlertTriangle, Clock, ShieldCheck, 
   MessageSquare, UploadCloud, ChevronRight,
-  Landmark, Briefcase, TrendingUp, Truck, Gift, Headphones, Lightbulb
+  Lightbulb
 } from 'lucide-react';
 import { communityService, type CommunityReport, type CommunityReportCreate } from '../services/community';
 import { EmptyState } from '../components/common/EmptyState';
@@ -31,6 +31,7 @@ export default function Community() {
       const data = await communityService.getReports();
       setReports(data);
     } catch (err) {
+      console.error('Failed to load community reports', err);
       setError('Failed to load community reports.');
     } finally {
       setIsLoading(false);
@@ -64,6 +65,7 @@ export default function Community() {
       setStatusFilter('All Reports');
       setCurrentPage(1);
     } catch (err) {
+      console.error('Failed to submit community report', err);
       setSubmitError('Failed to submit report. Please try again.');
     } finally {
       setIsSubmitting(false);
@@ -82,13 +84,16 @@ export default function Community() {
     return 'bg-background text-text-muted';
   };
 
-  // Real stats calculated from DB
-  const confirmedCount = reports.filter(r => r.status.toLowerCase() === 'confirmed').length;
+  const isVerifiedReport = (status: string) => ['verified', 'confirmed'].includes(status.toLowerCase());
+  const verifiedCount = reports.filter(r => isVerifiedReport(r.status)).length;
   const pendingCount = reports.filter(r => r.status.toLowerCase() === 'pending').length;
+  const categoryCount = new Set(reports.map(report => report.category.trim().toLowerCase()).filter(Boolean)).size;
 
   const filteredReports = reports.filter(r => {
     if (statusFilter === 'All Reports') return true;
-    return r.status.toLowerCase() === statusFilter.toLowerCase();
+    const normalizedStatus = r.status.toLowerCase().replace(/_/g, ' ');
+    if (statusFilter === 'Verified') return isVerifiedReport(r.status);
+    return normalizedStatus === statusFilter.toLowerCase();
   });
 
   const totalPages = Math.ceil(filteredReports.length / ITEMS_PER_PAGE);
@@ -119,9 +124,9 @@ export default function Community() {
             <AlertTriangle className="w-6 h-6" />
           </div>
           <div className="flex-1">
-            <div className="text-[10px] text-text-muted font-bold uppercase tracking-wider mb-1">Confirmed Scams</div>
-            <div className="text-2xl font-bold text-text-main leading-none mb-1">{isLoading ? '-' : confirmedCount}</div>
-            <div className="text-[11px] text-text-muted">Validated by community</div>
+            <div className="text-[10px] text-text-muted font-bold uppercase tracking-wider mb-1">Verified Reports</div>
+            <div className="text-2xl font-bold text-text-main leading-none mb-1">{isLoading ? '-' : verifiedCount}</div>
+            <div className="text-[11px] text-text-muted">Reviewed by an administrator</div>
           </div>
         </div>
 
@@ -141,9 +146,9 @@ export default function Community() {
             <ShieldCheck className="w-6 h-6" />
           </div>
           <div className="flex-1">
-            <div className="text-[10px] text-text-muted font-bold uppercase tracking-wider mb-1">Helped Users</div>
-            <div className="text-2xl font-bold text-text-main leading-none mb-1">{isLoading ? '-' : (confirmedCount * 3 + 12)}</div>
-            <div className="text-[11px] text-text-muted">People benefited</div>
+            <div className="text-[10px] text-text-muted font-bold uppercase tracking-wider mb-1">Categories Reported</div>
+            <div className="text-2xl font-bold text-text-main leading-none mb-1">{isLoading ? '-' : categoryCount}</div>
+            <div className="text-[11px] text-text-muted">Distinct report categories</div>
           </div>
         </div>
       </div>
@@ -153,12 +158,12 @@ export default function Community() {
         {/* Left Column (Reports List) */}
         <div className="lg:col-span-8">
           <div className="bg-card rounded-2xl shadow-sm border border-border-light flex flex-col h-full min-h-[600px]">
-            <div className="p-6 border-b border-border-light flex justify-between items-center bg-background/50">
+            <div className="p-6 border-b border-border-light flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4 bg-background/50">
               <div>
                 <h3 className="font-bold text-text-main text-lg">Recent Community Reports</h3>
                 <p className="text-sm text-text-muted mt-0.5">Latest reports submitted by ScamShield users.</p>
               </div>
-              <div className="relative">
+              <div className="relative w-full sm:w-auto sm:min-w-44">
                 <select 
                   value={statusFilter}
                   onChange={(e) => {
@@ -168,8 +173,10 @@ export default function Community() {
                   className="block w-full pl-3 pr-8 py-2 text-base border border-border-light rounded-lg appearance-none bg-card focus:outline-none focus:ring-1 focus:ring-primary font-semibold text-text-secondary"
                 >
                   <option>All Reports</option>
-                  <option>Confirmed</option>
+                  <option>Verified</option>
                   <option>Pending</option>
+                  <option>Rejected</option>
+                  <option>Needs information</option>
                 </select>
                 <div className="absolute inset-y-0 right-0 flex items-center px-2 pointer-events-none text-text-muted">
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7"></path></svg>
@@ -212,10 +219,23 @@ export default function Community() {
                    else if (diffSecs < 86400) timeStr = `${Math.floor(diffSecs/3600)} hours ago`;
                    else timeStr = `${Math.floor(diffSecs/86400)} days ago`;
 
-                   const isConfirmed = report.status.toLowerCase() === 'confirmed';
+                   const normalizedStatus = report.status.toLowerCase();
+                   const isVerified = isVerifiedReport(report.status);
+                   const statusLabel = isVerified
+                     ? 'Verified scam'
+                     : normalizedStatus === 'needs_information'
+                       ? 'Needs information'
+                       : normalizedStatus === 'rejected'
+                         ? 'Rejected'
+                         : 'Pending review';
+                   const statusClass = isVerified
+                     ? 'bg-danger/10 text-danger'
+                     : normalizedStatus === 'rejected'
+                       ? 'bg-background text-text-muted'
+                       : 'bg-warning/10 text-warning';
 
                    return (
-                     <div key={report.id} className="p-4 flex items-start space-x-4 hover:bg-background rounded-xl transition cursor-pointer group">
+                     <div key={report.id} className="p-4 flex items-start space-x-4 hover:bg-background rounded-xl transition group">
                        <div className={`w-12 h-12 rounded-2xl flex items-center justify-center shrink-0 ${getColorClassForCategory(report.category)}`}>
                          {getIconForCategory(report.category)}
                        </div>
@@ -223,11 +243,8 @@ export default function Community() {
                        <div className="flex-1 min-w-0 pr-4">
                          <div className="flex items-center space-x-2 mb-1.5 flex-wrap gap-y-1">
                            <h4 className="font-bold text-text-main text-base">{report.category}</h4>
-                           <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded uppercase tracking-wider ${isConfirmed ? 'bg-danger/10 text-danger' : 'bg-warning/10 text-warning'}`}>
-                             {isConfirmed ? 'Scam' : 'Suspicious'}
-                           </span>
-                           <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-background text-text-muted uppercase tracking-wider">
-                             Text
+                           <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded uppercase tracking-wider ${statusClass}`}>
+                             {statusLabel}
                            </span>
                          </div>
                          <p className="text-sm text-text-secondary line-clamp-2">{report.content}</p>
@@ -359,20 +376,20 @@ export default function Community() {
                 <h3 className="font-bold text-lg">Why Report?</h3>
               </div>
               <p className="text-white/90 text-sm leading-relaxed mb-4">
-                Every report helps strengthen the ScamShield AI model. When you report a new scam pattern, you directly help protect thousands of other users from falling victim to the same trap.
+                Reports are queued for administrative review. Verified reports can inform ScamShield's knowledge base; submitting a report does not immediately train the classifier or notify other users.
               </p>
               <ul className="space-y-2 text-sm text-white/90 font-medium">
                 <li className="flex items-center space-x-2">
                   <div className="w-1.5 h-1.5 bg-white rounded-full"></div>
-                  <span>Updates global scam knowledge</span>
+                  <span>Reviewed before entering the knowledge base</span>
                 </li>
                 <li className="flex items-center space-x-2">
                   <div className="w-1.5 h-1.5 bg-white rounded-full"></div>
-                  <span>Improves AI detection accuracy</span>
+                  <span>Helps moderators identify recurring patterns</span>
                 </li>
                 <li className="flex items-center space-x-2">
                   <div className="w-1.5 h-1.5 bg-white rounded-full"></div>
-                  <span>Protects vulnerable users</span>
+                  <span>Can support future detection improvements</span>
                 </li>
               </ul>
             </div>

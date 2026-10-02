@@ -7,10 +7,10 @@ import {
 
 export default function Landing() {
   return (
-    <div className="flex-1 bg-card text-text-main flex flex-col font-sans">
+    <div className="landing-page flex-1 bg-card text-text-main flex flex-col font-sans">
       
       {/* Background soft styling */}
-      <div className="absolute top-0 left-0 w-full h-[800px] bg-gradient-to-b from-blue-50/50 to-transparent pointer-events-none"></div>
+      <div className="absolute top-0 left-0 w-full h-[800px] bg-gradient-to-b from-primary/10 to-transparent pointer-events-none"></div>
 
       {/* Hero Section */}
       <section id="home" className="max-w-7xl mx-auto px-6 lg:px-8 w-full flex flex-col lg:flex-row items-center pt-16 pb-20 relative z-10 min-h-[85vh]">
@@ -22,7 +22,7 @@ export default function Landing() {
             <span className="text-xs font-bold text-primary uppercase tracking-wider">AI-Powered Scam Protection</span>
           </div>
 
-          <h1 className="text-[3.5rem] lg:text-[4.5rem] font-bold mb-6 leading-[1.05] text-[#0F172A] tracking-tight">
+          <h1 className="text-[3.5rem] lg:text-[4.5rem] font-bold mb-6 leading-[1.05] text-text-main tracking-tight">
             Don't Just<br />Detect Scams.<br />
             <span className="text-primary">Understand Them.</span>
           </h1>
@@ -155,7 +155,7 @@ export default function Landing() {
       <section className="py-24 bg-background/50">
         <div className="max-w-7xl mx-auto px-6 lg:px-8">
           <div className="text-center mb-12">
-            <h2 className="text-3xl font-bold text-[#0F172A] mb-4">Whatever the message looks like, ScamShield can read it.</h2>
+            <h2 className="text-3xl font-bold text-text-main mb-4">Whatever the message looks like, ScamShield can read it.</h2>
             <p className="text-text-muted font-medium">Paste, upload or forward content from any platform.</p>
           </div>
           
@@ -183,7 +183,7 @@ export default function Landing() {
       <section id="how-it-works" className="py-24 bg-card relative">
         <div className="max-w-7xl mx-auto px-6 lg:px-8">
           <div className="text-center mb-20">
-            <h2 className="text-3xl font-bold text-[#0F172A] mb-4">Detection Is Only the Beginning.</h2>
+            <h2 className="text-3xl font-bold text-text-main mb-4">Detection Is Only the Beginning.</h2>
             <p className="text-text-muted font-medium max-w-2xl mx-auto">Unlike traditional classifiers, our pipeline extracts, detects, and reasons.</p>
           </div>
           
@@ -227,7 +227,7 @@ export default function Landing() {
         <div className="max-w-7xl mx-auto px-6 lg:px-8">
           <div className="flex flex-col md:flex-row md:items-end justify-between mb-12 gap-4">
             <div>
-              <h2 className="text-3xl font-bold text-[#0F172A] mb-4">A Score Isn't Enough. Show Me Why.</h2>
+              <h2 className="text-3xl font-bold text-text-main mb-4">A Score Isn't Enough. Show Me Why.</h2>
               <p className="text-text-muted font-medium max-w-2xl">We highlight exactly what makes a message dangerous so you can make informed decisions.</p>
             </div>
           </div>
@@ -279,7 +279,7 @@ export default function Landing() {
       <section id="features" className="py-24 bg-card">
         <div className="max-w-7xl mx-auto px-6 lg:px-8">
           <div className="mb-12">
-            <h2 className="text-3xl font-bold text-[#0F172A] mb-3">Core Features</h2>
+            <h2 className="text-3xl font-bold text-text-main mb-3">Core Features</h2>
             <p className="text-text-muted font-medium">Built with cutting-edge technology to keep you secure.</p>
           </div>
 
@@ -328,7 +328,7 @@ export default function Landing() {
         <div className="max-w-7xl mx-auto px-6 lg:px-8">
           <div className="flex flex-col md:flex-row md:items-end justify-between mb-12 gap-4">
             <div>
-              <h2 className="text-3xl font-bold text-[#0F172A] mb-3">What We Detect</h2>
+              <h2 className="text-3xl font-bold text-text-main mb-3">What We Detect</h2>
               <p className="text-text-muted font-medium max-w-2xl">Our models are trained to recognize a wide variety of evolving threat vectors.</p>
             </div>
           </div>
@@ -362,7 +362,7 @@ export default function Landing() {
         <div className="max-w-7xl mx-auto px-6 lg:px-8 flex flex-col md:flex-row items-center justify-between gap-12">
           
           <div className="md:w-1/2">
-            <h2 className="text-3xl lg:text-4xl font-bold text-[#0F172A] mb-6">Your Privacy is our Priority</h2>
+            <h2 className="text-3xl lg:text-4xl font-bold text-text-main mb-6">Your Privacy is our Priority</h2>
             <p className="text-text-muted font-medium text-lg leading-relaxed mb-10 max-w-lg">
               We understand that the messages you analyze might contain sensitive or personal information. ScamShield is built from the ground up with a privacy-first architecture.
             </p>
@@ -438,7 +438,7 @@ export default function Landing() {
         <div className="max-w-5xl mx-auto px-6">
           <div className="bg-background/80 rounded-[2rem] border border-border-light p-12 flex flex-col md:flex-row items-center justify-between shadow-sm">
             <div className="mb-8 md:mb-0 md:pr-12">
-              <h2 className="text-3xl font-bold text-[#0F172A] mb-3">Not sure if it's a scam?</h2>
+              <h2 className="text-3xl font-bold text-text-main mb-3">Not sure if it's a scam?</h2>
               <p className="text-text-muted text-base font-medium max-w-sm">Analyze suspicious messages, screenshots, PDFs or audio and get instant insights.</p>
             </div>
             

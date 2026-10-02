@@ -6,11 +6,12 @@ export const auth = {
     const response = await api.get('/auth/me');
     return response.data;
   },
-  async login(credentials: any) {
+  async login(credentials: { email: string; password: string }, portal: 'user' | 'admin' = 'user') {
     const formData = new FormData();
     formData.append('username', credentials.email);
     formData.append('password', credentials.password);
-    const response = await api.post('/auth/login', formData);
+    const endpoint = portal === 'admin' ? '/auth/admin/login' : '/auth/login';
+    const response = await api.post(endpoint, formData);
     return response.data;
   },
   async signup(data: any) {

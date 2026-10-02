@@ -9,3 +9,7 @@ dist/
 .DS_Store
 backend/chroma_db/
 .pytest_cache/
+tests/
+backend/tests/
+frontend/tests/
+*.env

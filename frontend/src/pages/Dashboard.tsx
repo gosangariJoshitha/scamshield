@@ -93,10 +93,6 @@ export default function Dashboard() {
             <div className="text-[10px] text-text-muted font-bold uppercase tracking-wider mb-1">Total Analyses</div>
             <div className="flex items-end justify-between">
               <div className="text-2xl font-bold text-text-main">{loading ? '-' : stats?.total_analyses || 0}</div>
-              <div className="text-[10px] text-success font-bold flex flex-col items-end">
-                <span>↑ +3</span>
-                <span className="text-text-muted font-normal">this week</span>
-              </div>
             </div>
             <div className="text-sm text-text-muted mt-2">All analyzed content</div>
           </div>
@@ -110,10 +106,6 @@ export default function Dashboard() {
             <div className="text-[10px] text-text-muted font-bold uppercase tracking-wider mb-1">Scams Detected</div>
             <div className="flex items-end justify-between">
               <div className="text-2xl font-bold text-text-main">{loading ? '-' : stats?.scams_detected || 0}</div>
-              <div className="text-[10px] text-success font-bold flex flex-col items-end">
-                <span>↑ +2</span>
-                <span className="text-text-muted font-normal">this week</span>
-              </div>
             </div>
             <div className="text-sm text-text-muted mt-2">Potential threats identified</div>
           </div>
@@ -127,10 +119,6 @@ export default function Dashboard() {
             <div className="text-[10px] text-text-muted font-bold uppercase tracking-wider mb-1">Safe Messages</div>
             <div className="flex items-end justify-between">
               <div className="text-2xl font-bold text-text-main">{loading ? '-' : stats?.safe_messages || 0}</div>
-              <div className="text-[10px] text-success font-bold flex flex-col items-end">
-                <span>↑ +1</span>
-                <span className="text-text-muted font-normal">this week</span>
-              </div>
             </div>
             <div className="text-sm text-text-muted mt-2">Classified as genuine</div>
           </div>
@@ -144,10 +132,6 @@ export default function Dashboard() {
             <div className="text-[10px] text-text-muted font-bold uppercase tracking-wider mb-1">High Risk</div>
             <div className="flex items-end justify-between">
               <div className="text-2xl font-bold text-text-main">{loading ? '-' : stats?.high_risk || 0}</div>
-              <div className="text-[10px] text-success font-bold flex flex-col items-end">
-                <span>↑ +1</span>
-                <span className="text-text-muted font-normal">this week</span>
-              </div>
             </div>
             <div className="text-sm text-text-muted mt-2">Requires attention</div>
           </div>

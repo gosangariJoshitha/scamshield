@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { 
   ArrowRight, ShieldAlert, Calendar, Download, 
   FileText, AlertTriangle, CheckCircle, Search, 
@@ -11,6 +11,7 @@ import { ErrorState } from '../components/common/ErrorState';
 
 export default function History() {
   const navigate = useNavigate();
+  const location = useLocation();
   const [history, setHistory] = useState<AnalysisResult[]>([]);
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [loading, setLoading] = useState(true);
@@ -46,6 +47,10 @@ export default function History() {
     fetchData();
   }, []);
 
+  useEffect(() => {
+    setSearchQuery(new URLSearchParams(location.search).get('q') || '');
+  }, [location.search]);
+
   const avgRiskScore = history.length > 0 
     ? Math.round(history.reduce((acc, curr) => acc + (curr.risk_score || 0), 0) / history.length)
     : 0;
@@ -55,11 +60,22 @@ export default function History() {
       const q = searchQuery.toLowerCase();
       if (!item.content.toLowerCase().includes(q) && !(item.category || '').toLowerCase().includes(q)) return false;
     }
-    if (riskFilter !== 'All Risks' && item.risk_level !== riskFilter.toUpperCase()) return false;
+    if (riskFilter !== 'All Risks') {
+      const matchesRisk = riskFilter === 'High'
+        ? item.risk_level === 'HIGH' || item.risk_level === 'CRITICAL'
+        : item.risk_level === riskFilter.toUpperCase();
+      if (!matchesRisk) return false;
+    }
     if (classificationFilter !== 'All' && item.classification !== classificationFilter.toUpperCase()) return false;
     if (inputTypeFilter !== 'All Types' && (item.input_type || 'text').toLowerCase() !== inputTypeFilter.toLowerCase()) return false;
-    if (dateRange.start && new Date(item.created_at) < new Date(dateRange.start)) return false;
-    if (dateRange.end && new Date(item.created_at) > new Date(dateRange.end)) return false;
+    if (dateRange.start) {
+      const [year, month, day] = dateRange.start.split('-').map(Number);
+      if (new Date(item.created_at) < new Date(year, month - 1, day)) return false;
+    }
+    if (dateRange.end) {
+      const [year, month, day] = dateRange.end.split('-').map(Number);
+      if (new Date(item.created_at) > new Date(year, month - 1, day, 23, 59, 59, 999)) return false;
+    }
     return true;
   });
 
@@ -69,6 +85,7 @@ export default function History() {
       return;
     }
     const headers = ["ID", "Date", "Classification", "Risk Level", "Risk Score", "Category", "Input Type", "Content Preview"];
+    const escapeCsv = (value: string | number) => `"${String(value).replace(/"/g, '""')}"`;
     const rows = filteredHistory.map(item => [
       item.id,
       new Date(item.created_at).toLocaleString(),
@@ -77,16 +94,17 @@ export default function History() {
       item.risk_score,
       item.category || '',
       item.input_type || 'text',
-      `"${item.content.replace(/"/g, '""').substring(0, 100)}"`
-    ]);
-    const csvContent = "data:text/csv;charset=utf-8," + headers.join(",") + "\n" + rows.map(e => e.join(",")).join("\n");
-    const encodedUri = encodeURI(csvContent);
+      item.content.substring(0, 100)
+    ].map(escapeCsv).join(','));
+    const csvContent = [headers.map(escapeCsv).join(','), ...rows].join('\n');
+    const downloadUrl = URL.createObjectURL(new Blob([csvContent], { type: 'text/csv;charset=utf-8' }));
     const link = document.createElement("a");
-    link.setAttribute("href", encodedUri);
+    link.setAttribute("href", downloadUrl);
     link.setAttribute("download", "scamshield_history.csv");
     document.body.appendChild(link);
     link.click();
     link.remove();
+    URL.revokeObjectURL(downloadUrl);
   };
 
   const resetFilters = () => {
@@ -238,6 +256,7 @@ export default function History() {
                 <select value={inputTypeFilter} onChange={e => setInputTypeFilter(e.target.value)} className="block w-full pl-3 pr-8 py-2 text-base border border-border-light rounded-lg appearance-none bg-card focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary font-semibold text-text-secondary">
                   <option>All Types</option>
                   <option>Text</option>
+                  <option>Email</option>
                   <option>Image</option>
                   <option>Audio</option>
                   <option>PDF</option>
@@ -276,9 +295,6 @@ export default function History() {
             <table className="w-full text-left whitespace-nowrap">
               <thead className="bg-card border-b border-border-light">
                 <tr>
-                  <th className="px-6 py-4 text-[10px] font-bold text-text-muted uppercase tracking-wider w-10">
-                    <input type="checkbox" className="rounded border-border-main text-primary focus:ring-primary" />
-                  </th>
                   <th className="px-4 py-4 text-[10px] font-bold text-text-muted uppercase tracking-wider">
                     Date & Time
                   </th>
@@ -316,9 +332,6 @@ export default function History() {
 
                   return (
                     <tr key={item.id} className="hover:bg-card transition group">
-                      <td className="px-6 py-4">
-                        <input type="checkbox" className="rounded border-border-main text-primary focus:ring-primary" />
-                      </td>
                       <td className="px-4 py-4 text-sm text-text-muted font-semibold">
                         {new Date(item.created_at).toLocaleString()}
                       </td>
@@ -341,12 +354,12 @@ export default function History() {
                         {item.input_type || 'Text'}
                       </td>
                       <td className="px-4 py-4">
-                        <span className="text-xs font-bold text-blue-700 bg-primary/10 px-2.5 py-1 rounded">
+                        <span className="text-xs font-bold text-primary bg-primary/10 px-2.5 py-1 rounded">
                           {item.category || 'General'}
                         </span>
                       </td>
                       <td className="px-4 py-4">
-                        <span className={`text-xs font-bold px-2.5 py-1 rounded uppercase tracking-wider ${item.classification === 'SCAM' ? 'bg-danger/20 text-red-700' : 'bg-success/20 text-success'}`}>
+                        <span className={`text-xs font-bold px-2.5 py-1 rounded uppercase tracking-wider ${item.classification === 'SCAM' ? 'bg-danger/20 text-danger' : 'bg-success/20 text-success'}`}>
                           {item.classification}
                         </span>
                       </td>

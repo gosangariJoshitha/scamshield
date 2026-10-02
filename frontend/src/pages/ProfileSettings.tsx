@@ -25,6 +25,8 @@ export default function ProfileSettings() {
   // Forms state
   const [newName, setNewName] = useState('');
   const [passwords, setPasswords] = useState({ current: '', new: '', confirm: '' });
+  const [settingsError, setSettingsError] = useState<string | null>(null);
+  const [savingPreference, setSavingPreference] = useState<string | null>(null);
 
   useEffect(() => {
     const fetchProfileData = async () => {
@@ -35,7 +37,7 @@ export default function ProfileSettings() {
           setNewName(userData.full_name);
           setIsEditModalOpen(true);
         }
-      } catch (err) {
+      } catch {
         auth.logout();
         navigate('/login');
       } finally {
@@ -50,11 +52,25 @@ export default function ProfileSettings() {
     e.preventDefault();
     if (!newName.trim()) return;
     try {
-      const res = await auth.updateProfile(newName);
+      const res = await auth.updateProfile({ full_name: newName.trim() });
       setUser(res);
       setIsEditModalOpen(false);
-    } catch (err) {
+    } catch {
       alert("Failed to update profile");
+    }
+  };
+
+  const updatePreference = async (key: 'email_notifications' | 'community_updates' | 'marketing_updates') => {
+    setSettingsError(null);
+    setSavingPreference(key);
+    try {
+      const res = await auth.updateProfile({ [key]: !user[key] });
+      setUser(res);
+    } catch (err) {
+      console.error('Failed to update account preference', err);
+      setSettingsError('Could not save this preference. Please try again.');
+    } finally {
+      setSavingPreference(null);
     }
   };
 
@@ -99,8 +115,6 @@ export default function ProfileSettings() {
   }
 
   const memberSince = new Date(user.created_at).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
-  const lastLogin = new Date().toLocaleString('en-US', { year: 'numeric', month: 'long', day: 'numeric', hour: 'numeric', minute: '2-digit' });
-
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -189,10 +203,6 @@ export default function ProfileSettings() {
                 <div className="text-text-main font-bold">{memberSince}</div>
               </div>
 
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-                <div className="text-text-muted text-sm font-semibold">Last Login</div>
-                <div className="text-text-main font-bold">{lastLogin}</div>
-              </div>
             </div>
           </div>
         )}
@@ -222,27 +232,19 @@ export default function ProfileSettings() {
               <div className="flex items-center justify-between p-5">
                 <div>
                   <div className="text-base font-bold text-text-main">Email</div>
-                  <div className="text-sm text-text-muted">Your email is used for authentication.</div>
+                  <div className="text-sm text-text-muted">Your email is used for authentication. Verification is not configured.</div>
                 </div>
-                <div className="bg-success/20 text-success px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider">
-                  Verified
+                <div className="bg-background text-text-muted px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider">
+                  Not configured
                 </div>
               </div>
 
               <div className="flex items-center justify-between p-5">
                 <div>
                   <div className="text-base font-bold text-text-main">Two-Factor Authentication</div>
-                  <div className="text-sm text-text-muted">Add another layer of security to your account.</div>
+                  <div className="text-sm text-text-muted">Multi-factor sign-in is not implemented, so this setting cannot be enabled.</div>
                 </div>
-                <button 
-                  onClick={async () => {
-                    const res = await auth.updateProfile({ two_factor_enabled: !user.two_factor_enabled });
-                    setUser(res);
-                  }}
-                  className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 focus:ring-offset-background ${user.two_factor_enabled ? 'bg-primary' : 'bg-slate-300 dark:bg-slate-700'}`}
-                >
-                  <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${user.two_factor_enabled ? 'translate-x-6' : 'translate-x-1'}`} />
-                </button>
+                <span className="bg-background text-text-muted px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider">Unavailable</span>
               </div>
 
               <div className="flex flex-col sm:flex-row sm:items-center justify-between p-5 gap-4">
@@ -253,8 +255,8 @@ export default function ProfileSettings() {
                 <div className="bg-card border border-border-light p-3 rounded-lg flex items-center space-x-3 text-sm flex-1 sm:max-w-xs shadow-sm">
                   <Monitor className="w-5 h-5 text-primary shrink-0" />
                   <div className="min-w-0">
-                    <div className="font-semibold text-text-main truncate">Windows • Chrome</div>
-                    <div className="text-xs text-success font-bold mt-0.5">Current Session</div>
+                    <div className="font-semibold text-text-main truncate">This browser</div>
+                    <div className="text-xs text-success font-bold mt-0.5">Current session</div>
                   </div>
                 </div>
               </div>
@@ -267,20 +269,25 @@ export default function ProfileSettings() {
           <div className="space-y-6 max-w-3xl">
             <div className="mb-8">
               <h2 className="text-lg font-bold text-text-main">Preferences</h2>
-              <p className="text-sm text-text-muted">Customize how ScamShield works for you.</p>
+              <p className="text-sm text-text-muted">Save your notification preferences for future notification delivery.</p>
             </div>
+            {settingsError && (
+              <div role="alert" className="rounded-lg border border-danger/20 bg-danger/5 px-4 py-3 text-sm font-semibold text-danger">
+                {settingsError}
+              </div>
+            )}
 
             <div className="bg-background/50 rounded-xl border border-border-light divide-y divide-border-light overflow-hidden">
               <div className="flex items-center justify-between p-5">
                 <div>
                   <div className="text-base font-bold text-text-main">Email Notifications</div>
-                  <div className="text-sm text-text-muted">Receive important updates about your analyses and account.</div>
+                  <div className="text-sm text-text-muted">Preference only; delivery is not yet integrated.</div>
                 </div>
                 <button 
-                  onClick={async () => {
-                    const res = await auth.updateProfile({ email_notifications: !user.email_notifications });
-                    setUser(res);
-                  }}
+                  type="button"
+                  aria-pressed={Boolean(user.email_notifications)}
+                  disabled={savingPreference !== null}
+                  onClick={() => updatePreference('email_notifications')}
                   className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 focus:ring-offset-background ${user.email_notifications ? 'bg-primary' : 'bg-slate-300 dark:bg-slate-700'}`}
                 >
                   <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${user.email_notifications ? 'translate-x-6' : 'translate-x-1'}`} />
@@ -290,13 +297,13 @@ export default function ProfileSettings() {
               <div className="flex items-center justify-between p-5">
                 <div>
                   <div className="text-base font-bold text-text-main">Community Updates</div>
-                  <div className="text-sm text-text-muted">Get notified about new community reports and scam trends.</div>
+                  <div className="text-sm text-text-muted">Preference only; delivery is not yet integrated.</div>
                 </div>
                 <button 
-                  onClick={async () => {
-                    const res = await auth.updateProfile({ community_updates: !user.community_updates });
-                    setUser(res);
-                  }}
+                  type="button"
+                  aria-pressed={Boolean(user.community_updates)}
+                  disabled={savingPreference !== null}
+                  onClick={() => updatePreference('community_updates')}
                   className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 focus:ring-offset-background ${user.community_updates ? 'bg-primary' : 'bg-slate-300 dark:bg-slate-700'}`}
                 >
                   <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${user.community_updates ? 'translate-x-6' : 'translate-x-1'}`} />
@@ -306,13 +313,13 @@ export default function ProfileSettings() {
               <div className="flex items-center justify-between p-5">
                 <div>
                   <div className="text-base font-bold text-text-main">Marketing Updates</div>
-                  <div className="text-sm text-text-muted">Receive product updates and security tips.</div>
+                  <div className="text-sm text-text-muted">Preference only; delivery is not yet integrated.</div>
                 </div>
                 <button 
-                  onClick={async () => {
-                    const res = await auth.updateProfile({ marketing_updates: !user.marketing_updates });
-                    setUser(res);
-                  }}
+                  type="button"
+                  aria-pressed={Boolean(user.marketing_updates)}
+                  disabled={savingPreference !== null}
+                  onClick={() => updatePreference('marketing_updates')}
                   className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 focus:ring-offset-background ${user.marketing_updates ? 'bg-primary' : 'bg-slate-300 dark:bg-slate-700'}`}
                 >
                   <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${user.marketing_updates ? 'translate-x-6' : 'translate-x-1'}`} />

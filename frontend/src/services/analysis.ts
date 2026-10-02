@@ -37,6 +37,11 @@ export const analysisService = {
     const response = await api.get('/analysis/history');
     return response.data;
   },
+
+  getAnalysis: async (analysisId: number): Promise<AnalysisResult> => {
+    const response = await api.get(`/analysis/${analysisId}`);
+    return response.data;
+  },
   
   getRecentAnalyses: async (limit: number = 5): Promise<AnalysisResult[]> => {
     const history = await analysisService.getHistory();

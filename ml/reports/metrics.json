@@ -30,6 +30,33 @@
             "support": 300.0
         }
     },
+    "confusion_matrix": {
+        "classes": [
+            "genuine",
+            "scam"
+        ],
+        "matrix": [
+            [
+                150,
+                0
+            ],
+            [
+                1,
+                149
+            ]
+        ]
+    },
+    "error_analysis": {
+        "false_positives": 0,
+        "false_negatives": 1,
+        "fp_examples": [],
+        "fn_examples": [
+            {
+                "processed_text": "apni credit card limit badhane ke liye is link par click karein aur details bharein.",
+                "label": "scam"
+            }
+        ]
+    },
     "language_evaluation": [
         {
             "language": "en",
@@ -287,5 +314,9 @@
             "samples": 2,
             "accuracy": 1.0
         }
-    ]
+    ],
+    "metadata": {
+        "dataset": "scamshield_dataset_2000_cleaned.csv",
+        "algorithm": "TF-IDF + Logistic Regression"
+    }
 }

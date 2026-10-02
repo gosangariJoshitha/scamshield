@@ -3,7 +3,7 @@ import { Outlet, Link, useLocation, useNavigate } from 'react-router-dom';
 import { 
   ShieldCheck, LayoutDashboard, Search, History, Users, 
   User, LogOut, Bell, Settings, Check, Trash2,
-  Moon, Sun
+  Moon, Sun, Menu
 } from 'lucide-react';
 import { auth } from '../services/auth';
 import { useTheme } from '../hooks/useTheme';
@@ -24,6 +24,7 @@ export default function SidebarLayout() {
 
   const [user, setUser] = useState<any>(null);
   const [searchQuery, setSearchQuery] = useState('');
+  const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const { theme, toggleTheme } = useTheme();
   
   // Dropdown states
@@ -93,8 +94,16 @@ export default function SidebarLayout() {
 
   return (
     <div className="flex h-screen bg-background text-text-main font-sans">
-      <aside className="w-64 bg-card text-text-main flex flex-col h-full shrink-0 border-r border-border-light shadow-sm z-20">
-        <Link to="/dashboard" className="p-6 flex items-center space-x-2 border-b border-border-light mb-4 hover:bg-background transition-colors cursor-pointer block">
+      {mobileNavOpen && (
+        <button
+          type="button"
+          aria-label="Close navigation menu"
+          onClick={() => setMobileNavOpen(false)}
+          className="fixed inset-0 z-30 bg-black/40 md:hidden"
+        />
+      )}
+      <aside className={`fixed inset-y-0 left-0 z-40 w-64 bg-card text-text-main flex flex-col h-full shrink-0 border-r border-border-light shadow-sm transition-transform duration-200 md:static md:translate-x-0 ${mobileNavOpen ? 'translate-x-0' : '-translate-x-full'}`}>
+        <Link to="/dashboard" onClick={() => setMobileNavOpen(false)} className="p-6 flex items-center space-x-2 border-b border-border-light mb-4 hover:bg-background transition-colors cursor-pointer block">
           <div className="flex items-center space-x-2">
             <ShieldCheck className="w-8 h-8 text-primary shrink-0" />
             <span className="text-xl font-bold tracking-wide">SCAMSHIELD</span>
@@ -105,7 +114,7 @@ export default function SidebarLayout() {
             const source = location.state?.from;
             const isActive = path === item.path || (path === '/results' && (source === item.path || (!source && item.path === '/analyze')));
             return (
-              <Link key={item.path} to={item.path} className={`flex items-center space-x-3 px-4 py-3 rounded-xl transition-colors ${isActive ? 'bg-primary/10 text-primary font-bold' : 'text-text-secondary hover:bg-background hover:text-text-main'}`}>
+              <Link key={item.path} to={item.path} onClick={() => setMobileNavOpen(false)} className={`flex items-center space-x-3 px-4 py-3 rounded-xl transition-colors ${isActive ? 'bg-primary/10 text-primary font-bold' : 'text-text-secondary hover:bg-background hover:text-text-main'}`}>
                 <item.icon className={`w-5 h-5 ${isActive ? 'text-primary' : 'text-text-muted'}`} />
                 <span className="font-bold text-sm">{item.name}</span>
               </Link>
@@ -120,8 +129,17 @@ export default function SidebarLayout() {
         </div>
       </aside>
       
-      <main className="flex-1 overflow-auto flex flex-col relative">
-        <div className="h-16 border-b border-border-light bg-card flex items-center justify-between px-8 shrink-0 shadow-sm z-10 relative">
+      <main className="flex-1 min-w-0 overflow-auto flex flex-col relative">
+        <div className="h-16 border-b border-border-light bg-card flex items-center justify-between gap-3 px-4 sm:px-8 shrink-0 shadow-sm z-10 relative">
+          <button
+            type="button"
+            onClick={() => setMobileNavOpen(true)}
+            aria-label="Open navigation menu"
+            aria-expanded={mobileNavOpen}
+            className="p-2 -ml-2 text-text-muted hover:bg-background hover:text-text-main rounded-lg transition-colors md:hidden"
+          >
+            <Menu className="w-5 h-5" />
+          </button>
           {/* Top Header Search */}
           <div className="flex-1 max-w-2xl flex items-center">
             <div className="relative w-full max-w-md">
@@ -156,7 +174,7 @@ export default function SidebarLayout() {
             </div>
           </div>
           
-          <div className="flex items-center space-x-6">
+          <div className="flex items-center space-x-2 sm:space-x-6">
             {/* Theme Toggle */}
             <button
               onClick={toggleTheme}
@@ -183,14 +201,16 @@ export default function SidebarLayout() {
                 <div className="absolute right-0 mt-2 w-80 bg-card rounded-2xl shadow-xl border border-border-light overflow-hidden z-50">
                   <div className="p-4 border-b border-border-light flex items-center justify-between bg-background">
                     <h3 className="font-bold text-text-main text-sm">Notifications</h3>
-                    <div className="flex space-x-2">
-                      <button onClick={markAllAsRead} className="text-xs font-bold text-primary hover:text-primary-hover flex items-center space-x-1" title="Mark all as read">
-                        <Check className="w-3.5 h-3.5" />
-                      </button>
-                      <button onClick={clearAllNotifications} className="text-xs font-bold text-text-muted hover:text-danger flex items-center space-x-1" title="Clear all">
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </button>
-                    </div>
+                    {notifications.length > 0 && (
+                      <div className="flex space-x-2">
+                        <button onClick={markAllAsRead} className="text-xs font-bold text-primary hover:text-primary-hover flex items-center space-x-1" title="Mark all as read">
+                          <Check className="w-3.5 h-3.5" />
+                        </button>
+                        <button onClick={clearAllNotifications} className="text-xs font-bold text-text-muted hover:text-danger flex items-center space-x-1" title="Clear all">
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    )}
                   </div>
                   <div className="max-h-96 overflow-y-auto">
                     {notifications.length === 0 ? (
@@ -256,7 +276,7 @@ export default function SidebarLayout() {
           </div>
         </div>
         
-        <div className="p-8 flex-1 pb-24 max-w-7xl mx-auto w-full">
+        <div className="p-4 sm:p-8 flex-1 pb-24 max-w-7xl mx-auto w-full">
           <Outlet context={{ user }} />
         </div>
       </main>

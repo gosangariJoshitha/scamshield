@@ -6,7 +6,7 @@ from models import AuditLog, User, ReviewCase, Analysis, KnowledgeEntry, ReviewC
 from app.services.escalation_service import EscalationService
 from app.services.jira_service import JiraService
 from app.services.rag_service import rag_service
-from auth import get_current_user
+from auth import get_current_regular_user, get_current_user
 import json
 from typing import List
 from datetime import datetime
@@ -16,7 +16,7 @@ router = APIRouter()
 # --- USER ENDPOINTS ---
 
 @router.post("/request/{analysis_id}")
-def request_review(analysis_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+def request_review(analysis_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_regular_user)):
     """User requests human verification for an analysis."""
     escalation_service = EscalationService(db)
     try:
@@ -26,7 +26,7 @@ def request_review(analysis_id: int, db: Session = Depends(get_db), current_user
         raise HTTPException(status_code=400, detail=str(e))
 
 @router.get("/my")
-def get_my_reviews(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+def get_my_reviews(db: Session = Depends(get_db), current_user: User = Depends(get_current_regular_user)):
     """Get all reviews requested by the user."""
     reviews = db.query(ReviewCase).filter(ReviewCase.user_id == current_user.id).all()
     
@@ -42,7 +42,7 @@ def get_my_reviews(db: Session = Depends(get_db), current_user: User = Depends(g
     return result
 
 @router.post("/{case_id}/information")
-def provide_additional_information(case_id: int, info: dict, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+def provide_additional_information(case_id: int, info: dict, db: Session = Depends(get_db), current_user: User = Depends(get_current_regular_user)):
     """User provides additional information for a case that needs it."""
     review_case = db.query(ReviewCase).filter(ReviewCase.id == case_id, ReviewCase.user_id == current_user.id).first()
     if not review_case:

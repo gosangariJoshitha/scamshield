@@ -1,11 +1,35 @@
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel, EmailStr, Field, field_validator
 from typing import Optional, List, Any, Dict
 from datetime import datetime
 
+
+def _validate_password_strength(password: str) -> str:
+    if len(password) < 8:
+        raise ValueError("Password must be at least 8 characters")
+    if not any(character.isupper() for character in password) or not any(character.isdigit() for character in password):
+        raise ValueError("Password must contain at least one uppercase letter and one number")
+    if len(password.encode("utf-8")) > 72:
+        raise ValueError("Password must be at most 72 UTF-8 bytes")
+    return password
+
+
 class UserCreate(BaseModel):
-    full_name: str
+    full_name: str = Field(min_length=1, max_length=120)
     email: EmailStr
-    password: str
+    password: str = Field(min_length=8, max_length=72)
+
+    @field_validator("full_name")
+    @classmethod
+    def validate_full_name(cls, full_name: str) -> str:
+        normalized_name = full_name.strip()
+        if not normalized_name:
+            raise ValueError("Full name must not be blank")
+        return normalized_name
+
+    @field_validator("password")
+    @classmethod
+    def validate_password_strength(cls, password: str) -> str:
+        return _validate_password_strength(password)
 
 class UserLogin(BaseModel):
     email: EmailStr
@@ -27,6 +51,16 @@ class UserResponse(BaseModel):
     class Config:
         from_attributes = True
 
+    @field_validator("two_factor_enabled", "marketing_updates", mode="before")
+    @classmethod
+    def default_disabled_preferences(cls, value: Optional[bool]) -> bool:
+        return False if value is None else value
+
+    @field_validator("email_notifications", "community_updates", mode="before")
+    @classmethod
+    def default_enabled_preferences(cls, value: Optional[bool]) -> bool:
+        return True if value is None else value
+
 class UserUpdate(BaseModel):
     full_name: Optional[str] = None
     two_factor_enabled: Optional[bool] = None
@@ -36,7 +70,12 @@ class UserUpdate(BaseModel):
 
 class PasswordChange(BaseModel):
     current_password: str
-    new_password: str
+    new_password: str = Field(min_length=8, max_length=72)
+
+    @field_validator("new_password")
+    @classmethod
+    def validate_new_password(cls, password: str) -> str:
+        return _validate_password_strength(password)
 
 class Token(BaseModel):
     access_token: str
@@ -120,7 +159,12 @@ class ForgotPassword(BaseModel):
 
 class ResetPassword(BaseModel):
     token: str
-    new_password: str
+    new_password: str = Field(min_length=8, max_length=72)
+
+    @field_validator("new_password")
+    @classmethod
+    def validate_new_password(cls, password: str) -> str:
+        return _validate_password_strength(password)
 
 class CommunityReportCreate(BaseModel):
     content: str

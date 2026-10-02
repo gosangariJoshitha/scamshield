@@ -14,7 +14,7 @@ export default function Footer() {
                  <ShieldCheck className="w-5 h-5" strokeWidth={2.5} />
               </div>
               <span className="text-[1.3rem] font-bold tracking-tight flex">
-                <span className="text-[#0F172A]">Scam</span>
+                <span className="text-text-main">Scam</span>
                 <span className="text-primary">Shield</span>
               </span>
             </Link>
@@ -25,7 +25,7 @@ export default function Footer() {
           
           {/* Product */}
           <div>
-            <h4 className="font-bold text-[#0F172A] mb-6 text-sm">Product</h4>
+            <h4 className="font-bold text-text-main mb-6 text-sm">Product</h4>
             <ul className="space-y-4">
               <li><Link to="/analyze" className="text-text-muted hover:text-primary transition-colors text-sm font-semibold">Analyze</Link></li>
               <li><Link to="/history" className="text-text-muted hover:text-primary transition-colors text-sm font-semibold">History</Link></li>
@@ -35,7 +35,7 @@ export default function Footer() {
           
           {/* Resources */}
           <div>
-            <h4 className="font-bold text-[#0F172A] mb-6 text-sm">Resources</h4>
+            <h4 className="font-bold text-text-main mb-6 text-sm">Resources</h4>
             <ul className="space-y-4">
               <li><a href="/#how-it-works" className="text-text-muted hover:text-primary transition-colors text-sm font-semibold">How it Works</a></li>
               <li><a href="/#security" className="text-text-muted hover:text-primary transition-colors text-sm font-semibold">Security</a></li>
@@ -45,7 +45,7 @@ export default function Footer() {
           
           {/* Account */}
           <div>
-            <h4 className="font-bold text-[#0F172A] mb-6 text-sm">Account</h4>
+            <h4 className="font-bold text-text-main mb-6 text-sm">Account</h4>
             <ul className="space-y-4">
               <li><Link to="/login" className="text-text-muted hover:text-primary transition-colors text-sm font-semibold">Login</Link></li>
               <li><Link to="/signup" className="text-text-muted hover:text-primary transition-colors text-sm font-semibold">Create Account</Link></li>

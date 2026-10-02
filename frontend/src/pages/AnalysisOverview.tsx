@@ -1,45 +1,76 @@
-import { useLocation, Navigate, useNavigate } from 'react-router-dom';
-import { useState } from 'react';
+import { useLocation, useNavigate, useParams } from 'react-router-dom';
+import { useEffect, useState } from 'react';
 import { 
-  AlertTriangle, CheckCircle, FileText, Download, Plus, Clock, Globe,
+  AlertTriangle, CheckCircle, FileText, Download, Plus, Clock,
   Activity, AlertCircle, MessageSquare, ArrowRight, ShieldAlert,
   ShieldCheck, FileImage, Headphones, File
 } from 'lucide-react';
 import { PieChart, Pie, Cell } from 'recharts';
+import { analysisService, type AnalysisResult } from '../services/analysis';
 
-interface AnalysisItem {
-  id: number;
-  content: string;
-  risk_score: number;
-  risk_level: string;
-  classification: string;
-  ml_probability: number;
-  category: string;
-  indicators: string[];
-  explanation: string;
-  evidence: string[];
-  recommended_action: string;
-  created_at: string;
-  input_type?: string;
-  original_filename?: string;
+type AnalysisItem = AnalysisResult & {
   original_text?: string;
-  llm_confidence?: number;
-  llm_reasoning?: string;
-  processing_status?: string;
-  model_version?: string;
-  rag_version?: string;
-  retrieved_evidence_data?: any[];
-  evidence_status?: string;
-}
+};
 
 export default function AnalysisOverview() {
   const location = useLocation();
   const navigate = useNavigate();
-  const result: AnalysisItem = location.state?.result;
+  const { id } = useParams();
+  const routeAnalysisId = Number(id);
+  const possibleStateResult = location.state?.result as AnalysisItem | undefined;
+  const stateResult = possibleStateResult?.id === routeAnalysisId ? possibleStateResult : undefined;
+  const [result, setResult] = useState<AnalysisItem | undefined>(stateResult);
+  const [loading, setLoading] = useState(!stateResult);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [showAllIndicators, setShowAllIndicators] = useState(false);
+  const [reviewRequested, setReviewRequested] = useState(false);
+  const [reviewPending, setReviewPending] = useState(false);
 
+  useEffect(() => {
+    if (stateResult) {
+      setResult(stateResult);
+      setLoadError(null);
+      setLoading(false);
+      return;
+    }
+
+    if (!Number.isInteger(routeAnalysisId) || routeAnalysisId <= 0) {
+      setResult(undefined);
+      setLoadError('This analysis link is invalid.');
+      setLoading(false);
+      return;
+    }
+
+    let active = true;
+    setResult(undefined);
+    setLoadError(null);
+    setLoading(true);
+    analysisService.getAnalysis(routeAnalysisId)
+      .then(data => {
+        if (active) setResult(data);
+      })
+      .catch(error => {
+        console.error('Failed to load analysis', error);
+        if (active) setLoadError('Unable to load this analysis. It may not exist or may not belong to your account.');
+      })
+      .finally(() => {
+        if (active) setLoading(false);
+      });
+    return () => { active = false; };
+  }, [id, stateResult, routeAnalysisId]);
+
+  if (loading) {
+    return <div className="p-8 text-center text-text-muted" role="status">Loading analysis…</div>;
+  }
   if (!result) {
-    return <Navigate to="/history" replace />;
+    return (
+      <div className="space-y-4 rounded-2xl border border-border-light bg-card p-8 text-center">
+        <p className="font-semibold text-text-main">{loadError || 'Analysis not found.'}</p>
+        <button onClick={() => navigate('/history')} className="rounded-lg bg-primary px-4 py-2 font-semibold text-white">
+          Back to history
+        </button>
+      </div>
+    );
   }
 
   const isScam = result.classification === 'SCAM';
@@ -110,23 +141,26 @@ export default function AnalysisOverview() {
             <span>Download Report</span>
           </button>
           <button 
+            disabled={reviewPending || reviewRequested}
             onClick={async () => {
+              setReviewPending(true);
               try {
                 const { reviewService } = await import('../services/reviewService');
                 const res = await reviewService.requestReview(result.id);
-                if(res.success) {
-                  alert('Human verification requested successfully! Check your Review Center.');
-                  navigate('/app/admin/reviews'); // Or just show success
-                }
+                if (!res.success) throw new Error(res.message || 'The review request could not be submitted.');
+                setReviewRequested(true);
+                alert('Human verification requested successfully. Your request has been sent to the review team.');
               } catch (e) {
                 console.error(e);
-                alert('Failed to request human verification or it already exists.');
+                alert(e instanceof Error ? e.message : 'Failed to request human verification.');
+              } finally {
+                setReviewPending(false);
               }
             }}
-            className="flex items-center space-x-2 bg-amber-500 hover:bg-amber-600 text-white font-semibold py-2 px-4 rounded-lg shadow-sm transition"
+            className="flex items-center space-x-2 bg-amber-500 hover:bg-amber-600 disabled:cursor-not-allowed disabled:opacity-60 text-white font-semibold py-2 px-4 rounded-lg shadow-sm transition"
           >
-            <ShieldAlert className="w-4 h-4" />
-            <span>Request Human Review</span>
+            {reviewRequested ? <CheckCircle className="w-4 h-4" /> : <ShieldAlert className="w-4 h-4" />}
+            <span>{reviewPending ? 'Submitting…' : reviewRequested ? 'Review Requested' : 'Request Human Review'}</span>
           </button>
           <button onClick={() => navigate('/analyze')} className="flex items-center space-x-2 bg-primary hover:bg-primary-hover text-white font-semibold py-2 px-4 rounded-lg shadow-sm transition">
             <Plus className="w-4 h-4" />

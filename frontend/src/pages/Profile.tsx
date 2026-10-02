@@ -22,7 +22,7 @@ export default function Profile() {
         // Fetch stats for the activity summary
         const statsData = await dashboardService.getStats().catch(() => null);
         if (statsData) setStats(statsData);
-      } catch (err) {
+      } catch {
         auth.logout();
         navigate('/login');
       } finally {
@@ -110,23 +110,23 @@ export default function Profile() {
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           <div className="bg-card border border-border-light rounded-xl p-5 shadow-sm text-center">
             <div className="flex justify-center mb-2"><FileText className="w-5 h-5 text-primary" /></div>
-            <div className="text-3xl font-bold text-text-main leading-none mb-1">{stats?.total_analyses || 0}</div>
+            <div className="text-3xl font-bold text-text-main leading-none mb-1">{stats?.total_analyses ?? '—'}</div>
             <div className="text-xs text-text-muted font-semibold">Analyses</div>
           </div>
           <div className="bg-card border border-border-light rounded-xl p-5 shadow-sm text-center">
             <div className="flex justify-center mb-2"><AlertTriangle className="w-5 h-5 text-danger" /></div>
-            <div className="text-3xl font-bold text-text-main leading-none mb-1">{stats?.scams_detected || 0}</div>
+            <div className="text-3xl font-bold text-text-main leading-none mb-1">{stats?.scams_detected ?? '—'}</div>
             <div className="text-xs text-text-muted font-semibold">Scams</div>
           </div>
           <div className="bg-card border border-border-light rounded-xl p-5 shadow-sm text-center">
             <div className="flex justify-center mb-2"><CheckCircle className="w-5 h-5 text-success" /></div>
-            <div className="text-3xl font-bold text-text-main leading-none mb-1">{stats?.safe_messages || 0}</div>
+            <div className="text-3xl font-bold text-text-main leading-none mb-1">{stats?.safe_messages ?? '—'}</div>
             <div className="text-xs text-text-muted font-semibold">Safe</div>
           </div>
           <div className="bg-card border border-border-light rounded-xl p-5 shadow-sm text-center">
             <div className="flex justify-center mb-2"><Activity className="w-5 h-5 text-warning" /></div>
-            <div className="text-3xl font-bold text-text-main leading-none mb-1">58</div>
-            <div className="text-xs text-text-muted font-semibold">Avg Risk</div>
+            <div className="text-3xl font-bold text-text-main leading-none mb-1">{stats?.high_risk ?? '—'}</div>
+            <div className="text-xs text-text-muted font-semibold">High Risk</div>
           </div>
         </div>
       </div>
@@ -136,21 +136,13 @@ export default function Profile() {
         <div className="space-y-4">
           <h3 className="text-lg font-bold text-text-main">Security Status</h3>
           <div className="bg-card border border-border-light rounded-2xl p-5 shadow-sm space-y-4">
-            <div className="flex items-center space-x-3 text-text-main">
-              <CheckCircle className="w-5 h-5 text-success" />
-              <span className="font-semibold text-sm">Account Active</span>
+            <div className={`flex items-center space-x-3 ${user.is_active ? 'text-text-main' : 'text-text-muted'}`}>
+              {user.is_active ? <CheckCircle className="w-5 h-5 text-success" /> : <Shield className="w-5 h-5 text-text-muted" />}
+              <span className="font-semibold text-sm">Account {user.is_active ? 'Active' : 'Inactive'}</span>
             </div>
-            <div className="flex items-center space-x-3 text-text-main">
-              <CheckCircle className="w-5 h-5 text-success" />
-              <span className="font-semibold text-sm">Email Verified</span>
-            </div>
-            <div className={`flex items-center space-x-3 ${user?.two_factor_enabled ? 'text-text-main' : 'text-text-muted'}`}>
-              {user?.two_factor_enabled ? (
-                <CheckCircle className="w-5 h-5 text-success" />
-              ) : (
-                <div className="w-5 h-5 rounded-full border-2 border-border-main flex items-center justify-center shrink-0"></div>
-              )}
-              <span className="font-semibold text-sm">Two-Factor Authentication</span>
+            <div className="flex items-center space-x-3 text-text-muted">
+              <Shield className="w-5 h-5" />
+              <span className="font-semibold text-sm">Two-factor authentication is not enforced yet</span>
             </div>
           </div>
         </div>
