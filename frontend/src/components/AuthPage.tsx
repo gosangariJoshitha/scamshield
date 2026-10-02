@@ -2,7 +2,8 @@ import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { auth } from '../services/auth';
 import { storeToken } from '../services/token';
-import { ShieldCheck, Eye, EyeOff, Loader2, Check, Lock } from 'lucide-react';
+import { ShieldCheck, Eye, EyeOff, Loader2, Check, Lock, Moon, Sun } from 'lucide-react';
+import { useTheme } from '../hooks/useTheme';
 
 interface AuthPageProps {
   initialMode: 'login' | 'signup';
@@ -11,6 +12,7 @@ interface AuthPageProps {
 
 export default function AuthPage({ initialMode, adminOnly = false }: AuthPageProps) {
   const navigate = useNavigate();
+  const { theme, toggleTheme } = useTheme();
   const [mode, setMode] = useState<'login' | 'signup'>(initialMode);
   // Form states
   const [email, setEmail] = useState('');
@@ -95,7 +97,7 @@ export default function AuthPage({ initialMode, adminOnly = false }: AuthPagePro
   return (
     <div className="min-h-screen flex flex-col font-sans relative overflow-hidden bg-background">
       {/* Header with Logo */}
-      <header className="absolute top-0 left-0 w-full p-6 z-50 flex flex-col items-center justify-center">
+      <header className="absolute top-0 left-0 w-full p-6 z-50 flex items-center justify-center">
         <Link 
           to="/" 
           onClick={() => window.scrollTo(0, 0)}
@@ -112,6 +114,15 @@ export default function AuthPage({ initialMode, adminOnly = false }: AuthPagePro
             Detect · Verify · Stay Safe
           </span>
         </Link>
+        <button
+          type="button"
+          onClick={toggleTheme}
+          aria-label={`Switch to ${theme === 'dark' ? 'light' : 'dark'} theme`}
+          title={`Switch to ${theme === 'dark' ? 'light' : 'dark'} theme`}
+          className="absolute right-5 top-5 rounded-full border border-border-light bg-card p-2.5 text-text-secondary transition-colors hover:border-primary hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary sm:right-6 sm:top-6"
+        >
+          {theme === 'dark' ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+        </button>
       </header>
 
       {/* Main Authentication Area */}
@@ -255,8 +266,8 @@ export default function AuthPage({ initialMode, adminOnly = false }: AuthPagePro
               </div>}
 
               {/* Remember Me / Forgot Password - Only for Login */}
-              {!adminOnly && <div className={`overflow-hidden transition-all duration-300 ${mode === 'login' ? 'max-h-12 opacity-100 mb-6 mt-4' : 'max-h-0 opacity-0 mb-0'}`}>
-                <div className="flex items-center justify-between">
+              {mode === 'login' && (
+                <div className="mb-6 mt-4 flex items-center justify-between">
                   <label className="flex items-center space-x-2 cursor-pointer group">
                     <div className="relative flex items-center justify-center">
                       <input 
@@ -270,11 +281,13 @@ export default function AuthPage({ initialMode, adminOnly = false }: AuthPagePro
                     <span className="text-sm font-medium text-text-secondary group-hover:text-text-main transition-colors">Remember me</span>
                   </label>
                   
-                  <Link to="/forgot-password" className="text-sm font-medium text-primary hover:text-primary-hover">
-                    Forgot password?
-                  </Link>
+                  {!adminOnly && (
+                    <Link to="/forgot-password" className="text-sm font-medium text-primary hover:text-primary-hover">
+                      Forgot password?
+                    </Link>
+                  )}
                 </div>
-              </div>}
+              )}
 
               {/* Confirm Password - Only for Signup */}
               {!adminOnly && <div className={`overflow-hidden transition-all duration-300 ${mode === 'signup' ? 'max-h-24 opacity-100 mb-5' : 'max-h-0 opacity-0 mb-0'}`}>
@@ -338,6 +351,12 @@ export default function AuthPage({ initialMode, adminOnly = false }: AuthPagePro
                 {mode === 'login' ? "Sign up" : "Log in"}
               </button>
             </div>}
+
+            {!adminOnly && (
+              <div className="mt-4 text-center text-sm font-medium text-text-secondary">
+                Not a user? <Link to="/admin/login" className="font-semibold text-primary hover:text-primary-hover">Admin sign in</Link>
+              </div>
+            )}
 
             {adminOnly && (
               <div className="mt-8 text-center text-sm font-medium text-text-secondary">

@@ -2,6 +2,7 @@ import os
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
+from urllib.parse import urlsplit
 
 import models
 from database import engine
@@ -48,11 +49,25 @@ init_admin()
 
 app = FastAPI(title="ScamShield API")
 
-FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:5173")
+FRONTEND_URLS = [
+    origin.strip().rstrip("/")
+    for origin in os.getenv("FRONTEND_URL", "http://localhost:5173").split(",")
+    if origin.strip()
+]
+has_local_frontend = any(
+    urlsplit(origin).scheme == "http"
+    and urlsplit(origin).hostname in {"localhost", "127.0.0.1"}
+    for origin in FRONTEND_URLS
+)
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[FRONTEND_URL],
+    allow_origins=FRONTEND_URLS,
+    allow_origin_regex=(
+        r"^http://(?:localhost|127\.0\.0\.1):517[0-9]$"
+        if has_local_frontend
+        else None
+    ),
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

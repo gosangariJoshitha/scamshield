@@ -1,12 +1,14 @@
 import { Outlet, Link, useLocation } from 'react-router-dom';
-import { ShieldCheck, Menu, X, ArrowRight } from 'lucide-react';
+import { ShieldCheck, Menu, X, ArrowRight, Moon, Sun } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import Footer from './Footer';
+import { useTheme } from '../hooks/useTheme';
 
 export default function PublicLayout() {
   const [activeSection, setActiveSection] = useState('home');
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const location = useLocation();
+  const { theme, toggleTheme } = useTheme();
 
   const isLandingPage = location.pathname === '/';
 
@@ -108,6 +110,15 @@ export default function PublicLayout() {
           </div>
 
           <div className="hidden lg:flex items-center space-x-4">
+            <button
+              type="button"
+              onClick={toggleTheme}
+              aria-label={`Switch to ${theme === 'dark' ? 'light' : 'dark'} theme`}
+              title={`Switch to ${theme === 'dark' ? 'light' : 'dark'} theme`}
+              className="rounded-full border border-border-light p-2.5 text-text-secondary transition-colors hover:border-primary hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+            >
+              {theme === 'dark' ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+            </button>
             <Link to="/login" className="px-6 py-2.5 rounded-full text-sm font-bold text-primary border-2 border-primary hover:bg-blue-50 transition-colors">
               Login
             </Link>
@@ -117,7 +128,16 @@ export default function PublicLayout() {
             </Link>
           </div>
 
-          <div className="lg:hidden flex items-center">
+          <div className="lg:hidden flex items-center gap-2">
+            <button
+              type="button"
+              onClick={toggleTheme}
+              aria-label={`Switch to ${theme === 'dark' ? 'light' : 'dark'} theme`}
+              title={`Switch to ${theme === 'dark' ? 'light' : 'dark'} theme`}
+              className="rounded-full border border-border-light p-2 text-text-secondary transition-colors hover:border-primary hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+            >
+              {theme === 'dark' ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
+            </button>
             <button onClick={() => setMobileMenuOpen(!mobileMenuOpen)} className="text-text-main p-2">
               {mobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
             </button>
@@ -140,6 +160,14 @@ export default function PublicLayout() {
                 {item.label}
               </a>
             ))}
+            <button
+              type="button"
+              onClick={toggleTheme}
+              className="flex items-center justify-center gap-2 rounded-full border border-border-light p-3 text-sm font-bold text-text-secondary transition hover:border-primary hover:text-primary"
+            >
+              {theme === 'dark' ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+              Switch to {theme === 'dark' ? 'light' : 'dark'} theme
+            </button>
             <div className="flex flex-col space-y-3 pt-4 mt-2 border-t border-border-light">
               <Link to="/login" onClick={() => setMobileMenuOpen(false)} className="text-sm font-bold text-center p-3 text-primary border-2 border-primary rounded-full hover:bg-blue-50 transition">Login</Link>
               <Link to="/signup" onClick={() => setMobileMenuOpen(false)} className="bg-primary hover:bg-primary-hover p-3 rounded-full text-sm font-bold text-white text-center shadow-md transition">Get Started</Link>
