@@ -1,5 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException
 import os
+from datetime import datetime, timedelta, timezone
 from sqlalchemy.orm import Session
 from sqlalchemy import String, cast, desc, func, or_
 from typing import List, Dict, Any
@@ -17,47 +18,65 @@ def require_admin(current_user: models.User = Depends(get_current_user)):
     return current_user
 
 @router.get("/overview")
-def get_admin_overview(db: Session = Depends(get_db), current_admin: models.User = Depends(require_admin)):
-    # Total Analyses
-    total_analyses = db.query(models.Analysis).count()
-    
-    # Scams Detected
-    scams_detected = db.query(models.Analysis).filter(models.Analysis.classification == "SCAM").count()
-    
-    # High/Critical Risk
-    high_risk = db.query(models.Analysis).filter(models.Analysis.risk_level.in_(["HIGH", "CRITICAL"])).count()
-    
-    # Pending Reviews
-    pending_reviews = db.query(models.ReviewCase).filter(models.ReviewCase.status == "PENDING").count()
-    
-    # Community Reports
-    community_reports = db.query(models.CommunityReport).count()
-    
-    # Verified Knowledge
-    verified_knowledge = db.query(models.KnowledgeEntry).filter(models.KnowledgeEntry.status == "APPROVED").count()
+def get_admin_overview(
+    days: int = 30,
+    db: Session = Depends(get_db),
+    current_admin: models.User = Depends(require_admin),
+):
+    if days not in (7, 30, 90):
+        raise HTTPException(status_code=422, detail="days must be 7, 30, or 90")
 
-    # Risk Distribution
-    risk_dist = db.query(
+    since = datetime.now(timezone.utc) - timedelta(days=days)
+    analysis_query = db.query(models.Analysis).filter(models.Analysis.created_at >= since)
+    report_query = db.query(models.CommunityReport).filter(models.CommunityReport.created_at >= since)
+
+    total_analyses = analysis_query.count()
+    scams_detected = analysis_query.filter(models.Analysis.classification == "SCAM").count()
+    high_risk = analysis_query.filter(models.Analysis.risk_level.in_(["HIGH", "CRITICAL"])).count()
+    pending_reviews = db.query(models.ReviewCase).filter(models.ReviewCase.status == "PENDING").count()
+    community_reports = report_query.count()
+    verified_knowledge = db.query(models.KnowledgeEntry).filter(
+        models.KnowledgeEntry.status.in_(["APPROVED", "ACTIVE"])
+    ).count()
+
+    risk_dist = analysis_query.with_entities(
         models.Analysis.risk_level, 
         func.count(models.Analysis.id)
     ).group_by(models.Analysis.risk_level).all()
-    
-    # Classification Distribution
-    class_dist = db.query(
-        models.Analysis.classification, 
-        func.count(models.Analysis.id)
-    ).group_by(models.Analysis.classification).all()
 
-    # Input Type Distribution
-    input_dist = db.query(
-        models.Analysis.input_type, 
-        func.count(models.Analysis.id)
-    ).group_by(models.Analysis.input_type).all()
+    today = datetime.now(timezone.utc).date()
+    activity = {
+        (today - timedelta(days=offset)).isoformat(): 0
+        for offset in range(days - 1, -1, -1)
+    }
+    for bucket, count in analysis_query.with_entities(
+        func.date(models.Analysis.created_at), func.count(models.Analysis.id)
+    ).group_by(func.date(models.Analysis.created_at)).all():
+        if bucket is not None:
+            bucket_key = bucket.isoformat() if hasattr(bucket, "isoformat") else str(bucket)
+            if bucket_key in activity:
+                activity[bucket_key] = count
 
-    # Recent Analyses
-    recent_analyses = db.query(models.Analysis).order_by(desc(models.Analysis.created_at)).limit(5).all()
+    recent_analyses = analysis_query.order_by(
+        desc(models.Analysis.created_at)
+    ).limit(5).all()
+    recent_reviews = db.query(models.ReviewCase).filter(
+        models.ReviewCase.created_at >= since
+    ).order_by(
+        desc(models.ReviewCase.created_at)
+    ).limit(5).all()
+    recent_reports = report_query.order_by(
+        desc(models.CommunityReport.created_at)
+    ).limit(5).all()
+    review_statuses = db.query(
+        models.ReviewCase.status, func.count(models.ReviewCase.id)
+    ).group_by(models.ReviewCase.status).all()
+    report_statuses = db.query(
+        models.CommunityReport.status, func.count(models.CommunityReport.id)
+    ).group_by(models.CommunityReport.status).all()
 
     return {
+        "period_days": days,
         "totalAnalyses": total_analyses,
         "scamsDetected": scams_detected,
         "highRisk": high_risk,
@@ -65,8 +84,9 @@ def get_admin_overview(db: Session = Depends(get_db), current_admin: models.User
         "communityReports": community_reports,
         "verifiedKnowledge": verified_knowledge,
         "riskDistribution": [{"name": r[0] or "UNKNOWN", "value": r[1]} for r in risk_dist],
-        "classificationDistribution": [{"name": r[0] or "UNKNOWN", "value": r[1]} for r in class_dist],
-        "inputTypeDistribution": [{"name": r[0] or "UNKNOWN", "value": r[1]} for r in input_dist],
+        "analysisActivity": [{"date": day, "count": count} for day, count in activity.items()],
+        "reviewStatusCounts": {status: count for status, count in review_statuses},
+        "reportStatusCounts": {status: count for status, count in report_statuses},
         "recentAnalyses": [
             {
                 "id": a.id,
@@ -77,7 +97,29 @@ def get_admin_overview(db: Session = Depends(get_db), current_admin: models.User
                 "category": a.category,
                 "user": a.user.email if a.user else "Unknown"
             } for a in recent_analyses
-        ]
+        ],
+        "recentReviews": [
+            {
+                "id": review.id,
+                "analysis_id": review.analysis_id,
+                "status": review.status,
+                "priority": review.priority,
+                "created_at": review.created_at,
+                "risk_level": review.analysis.risk_level if review.analysis else None,
+                "input_type": review.analysis.input_type if review.analysis else None,
+                "reporter": review.user.email if review.user else "Unknown",
+            } for review in recent_reviews
+        ],
+        "recentCommunityReports": [
+            {
+                "id": report.id,
+                "category": report.category,
+                "content": report.content,
+                "status": report.status,
+                "created_at": report.created_at,
+                "reporter": report.user.email if report.user else "Unknown",
+            } for report in recent_reports
+        ],
     }
 
 @router.get("/analyses")
@@ -192,12 +234,28 @@ def get_admin_community_reports(
     skip: int = 0,
     limit: int = 50,
     status: str = None,
+    category: str = None,
+    search: str = None,
     db: Session = Depends(get_db),
     current_admin: models.User = Depends(require_admin)
 ):
     query = db.query(models.CommunityReport)
     if status:
         query = query.filter(models.CommunityReport.status == status)
+    if category:
+        query = query.filter(models.CommunityReport.category.ilike(f"%{category.strip()}%"))
+    if search and search.strip():
+        term = f"%{search.strip()}%"
+        query = query.outerjoin(
+            models.User, models.CommunityReport.user_id == models.User.id
+        ).filter(or_(
+            cast(models.CommunityReport.id, String).ilike(term),
+            models.CommunityReport.content.ilike(term),
+            models.CommunityReport.description.ilike(term),
+            models.CommunityReport.category.ilike(term),
+            models.User.email.ilike(term),
+            models.User.full_name.ilike(term),
+        ))
         
     total = query.count()
     reports = query.order_by(desc(models.CommunityReport.created_at)).offset(skip).limit(limit).all()
@@ -221,10 +279,10 @@ def get_admin_community_reports(
         "total_pages": (total + limit - 1) // limit
     }
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 class CommunityAction(BaseModel):
-    action: str # VERIFY, REJECT, NEEDS_INFORMATION
-    notes: str = None
+    action: str
+    notes: str = ""
     
 @router.post("/community/reports/{report_id}/action")
 def action_community_report(
@@ -239,16 +297,31 @@ def action_community_report(
         
     if payload.action == "VERIFY":
         report.status = "VERIFIED"
-        # Create knowledge entry
+    elif payload.action == "REJECT":
+        report.status = "REJECTED"
+    elif payload.action == "NEEDS_INFORMATION":
+        report.status = "NEEDS_INFORMATION"
+    elif payload.action == "CONVERT_TO_KNOWLEDGE":
+        if report.status != "VERIFIED":
+            raise HTTPException(
+                status_code=400,
+                detail="Only verified community reports can be converted to knowledge",
+            )
+        existing_entry = db.query(models.KnowledgeEntry).filter(
+            models.KnowledgeEntry.source_type == "VERIFIED_COMMUNITY_REPORT",
+            models.KnowledgeEntry.source_reference == str(report.id),
+        ).first()
+        if existing_entry:
+            raise HTTPException(status_code=409, detail="This report is already in the knowledge base")
         k_entry = models.KnowledgeEntry(
-            title=f"Community Verified: {report.category}",
+            title=f"Community Verified: {report.category or 'Scam pattern'}",
             pattern=report.content,
-            category=report.category,
+            category=report.category or "COMMUNITY_REPORT",
             description=report.description,
             indicators=[],
-            safe_action="Proceed with caution.",
+            safe_action="Verify through an official channel before taking action.",
             risk_level="HIGH",
-            source="Community",
+            source="Verified Community Report",
             source_type="VERIFIED_COMMUNITY_REPORT",
             source_reference=str(report.id),
             status="APPROVED"
@@ -256,17 +329,9 @@ def action_community_report(
         db.add(k_entry)
         db.flush()
         rag_service.upsert_knowledge_entry(k_entry)
-        
-    elif payload.action == "REJECT":
-        report.status = "REJECTED"
-    elif payload.action == "NEEDS_INFORMATION":
-        report.status = "NEEDS_INFORMATION"
     else:
         raise HTTPException(status_code=400, detail="Invalid action")
-        
-    db.commit()
-    
-    # Audit Log
+
     audit = models.AuditLog(
         actor_id=current_admin.id,
         action=f"COMMUNITY_{payload.action}",
@@ -277,7 +342,11 @@ def action_community_report(
     )
     db.add(audit)
     db.commit()
-    return {"status": "success", "report_status": report.status}
+    return {
+        "status": "success",
+        "report_status": report.status,
+        "knowledge_id": k_entry.id if payload.action == "CONVERT_TO_KNOWLEDGE" else None,
+    }
 
 @router.get("/knowledge")
 def get_admin_knowledge(
@@ -285,6 +354,7 @@ def get_admin_knowledge(
     limit: int = 50,
     status: str = None,
     category: str = None,
+    search: str = None,
     db: Session = Depends(get_db),
     current_admin: models.User = Depends(require_admin)
 ):
@@ -293,6 +363,14 @@ def get_admin_knowledge(
         query = query.filter(models.KnowledgeEntry.status == status)
     if category:
         query = query.filter(models.KnowledgeEntry.category == category)
+    if search and search.strip():
+        term = f"%{search.strip()}%"
+        query = query.filter(or_(
+            models.KnowledgeEntry.title.ilike(term),
+            models.KnowledgeEntry.pattern.ilike(term),
+            models.KnowledgeEntry.category.ilike(term),
+            models.KnowledgeEntry.source.ilike(term),
+        ))
         
     total = query.count()
     entries = query.order_by(desc(models.KnowledgeEntry.created_at)).offset(skip).limit(limit).all()
@@ -306,10 +384,14 @@ def get_admin_knowledge(
                 "source": e.source,
                 "status": e.status,
                 "created_at": e.created_at,
+                "updated_at": e.updated_at,
                 "risk_level": e.risk_level,
                 "pattern": e.pattern,
+                "description": e.description,
                 "safe_action": e.safe_action,
-                "indicators": e.indicators
+                "indicators": e.indicators or [],
+                "source_type": e.source_type,
+                "source_reference": e.source_reference,
             } for e in entries
         ],
         "total": total,
@@ -324,7 +406,9 @@ class KnowledgeCreate(BaseModel):
     category: str
     risk_level: str
     safe_action: str
-    indicators: List[str] = []
+    indicators: List[str] = Field(default_factory=list)
+    description: str = ""
+    source: str = "Admin"
 
 @router.post("/knowledge")
 def create_knowledge_entry(
@@ -339,7 +423,8 @@ def create_knowledge_entry(
         risk_level=payload.risk_level,
         safe_action=payload.safe_action,
         indicators=payload.indicators,
-        source="Admin",
+        description=payload.description,
+        source=payload.source,
         source_type="MANUAL_ENTRY",
         status="APPROVED"
     )
@@ -358,6 +443,42 @@ def create_knowledge_entry(
     db.add(audit)
     db.commit()
     return {"status": "success", "id": entry.id}
+
+
+class KnowledgeUpdate(BaseModel):
+    title: str | None = None
+    pattern: str | None = None
+    category: str | None = None
+    risk_level: str | None = None
+    safe_action: str | None = None
+    indicators: List[str] | None = None
+    description: str | None = None
+    source: str | None = None
+
+
+@router.patch("/knowledge/{entry_id}")
+def update_knowledge_entry(
+    entry_id: int,
+    payload: KnowledgeUpdate,
+    db: Session = Depends(get_db),
+    current_admin: models.User = Depends(require_admin),
+):
+    entry = db.query(models.KnowledgeEntry).filter(models.KnowledgeEntry.id == entry_id).first()
+    if not entry:
+        raise HTTPException(status_code=404, detail="Entry not found")
+    for field, value in payload.dict(exclude_unset=True).items():
+        setattr(entry, field, value)
+    if entry.status in ("APPROVED", "ACTIVE"):
+        rag_service.upsert_knowledge_entry(entry)
+    db.add(models.AuditLog(
+        actor_id=current_admin.id,
+        action="KNOWLEDGE_UPDATED",
+        resource_type="KNOWLEDGE_ENTRY",
+        resource_id=str(entry.id),
+        result="SUCCESS",
+    ))
+    db.commit()
+    return {"status": "success"}
 
 @router.patch("/knowledge/{entry_id}/approve")
 def approve_knowledge(entry_id: int, db: Session = Depends(get_db), current_admin: models.User = Depends(require_admin)):
@@ -378,6 +499,51 @@ def approve_knowledge(entry_id: int, db: Session = Depends(get_db), current_admi
     db.add(audit)
     db.commit()
     return {"status": "success"}
+
+
+@router.patch("/knowledge/{entry_id}/archive")
+def archive_knowledge(
+    entry_id: int,
+    db: Session = Depends(get_db),
+    current_admin: models.User = Depends(require_admin),
+):
+    entry = db.query(models.KnowledgeEntry).filter(models.KnowledgeEntry.id == entry_id).first()
+    if not entry:
+        raise HTTPException(status_code=404, detail="Entry not found")
+    rag_service.delete_knowledge_entry(entry.id)
+    entry.status = "INACTIVE"
+    db.add(models.AuditLog(
+        actor_id=current_admin.id,
+        action="KNOWLEDGE_ARCHIVED",
+        resource_type="KNOWLEDGE_ENTRY",
+        resource_id=str(entry.id),
+        result="SUCCESS",
+    ))
+    db.commit()
+    return {"status": "success"}
+
+
+@router.post("/knowledge/{entry_id}/reindex")
+def reindex_knowledge(
+    entry_id: int,
+    db: Session = Depends(get_db),
+    current_admin: models.User = Depends(require_admin),
+):
+    entry = db.query(models.KnowledgeEntry).filter(models.KnowledgeEntry.id == entry_id).first()
+    if not entry:
+        raise HTTPException(status_code=404, detail="Entry not found")
+    if entry.status not in ("APPROVED", "ACTIVE"):
+        raise HTTPException(status_code=409, detail="Only active knowledge entries can be indexed")
+    rag_service.upsert_knowledge_entry(entry)
+    db.add(models.AuditLog(
+        actor_id=current_admin.id,
+        action="KNOWLEDGE_REINDEXED",
+        resource_type="KNOWLEDGE_ENTRY",
+        resource_id=str(entry.id),
+        result="SUCCESS",
+    ))
+    db.commit()
+    return {"status": "success", "indexed": True}
 
 @router.delete("/knowledge/{entry_id}")
 def delete_knowledge(entry_id: int, db: Session = Depends(get_db), current_admin: models.User = Depends(require_admin)):
@@ -439,6 +605,7 @@ def get_admin_users(
     limit: int = 50,
     role: str = None,
     status: str = None,
+    search: str = None,
     db: Session = Depends(get_db),
     current_admin: models.User = Depends(require_admin)
 ):
@@ -448,6 +615,13 @@ def get_admin_users(
     if status:
         is_active = True if status == "ACTIVE" else False
         query = query.filter(models.User.is_active == is_active)
+    if search and search.strip():
+        term = search.strip()
+        query = query.filter(or_(
+            models.User.full_name.ilike(f"%{term}%"),
+            models.User.email.ilike(f"%{term}%"),
+            cast(models.User.id, String).ilike(f"%{term}%"),
+        ))
         
     total = query.count()
     users = query.order_by(desc(models.User.created_at)).offset(skip).limit(limit).all()
@@ -466,7 +640,13 @@ def get_admin_users(
         "total": total,
         "page": (skip // limit) + 1,
         "page_size": limit,
-        "total_pages": (total + limit - 1) // limit
+        "total_pages": (total + limit - 1) // limit,
+        "summary": {
+            "total": db.query(models.User).count(),
+            "active": db.query(models.User).filter(models.User.is_active.is_(True)).count(),
+            "inactive": db.query(models.User).filter(models.User.is_active.is_(False)).count(),
+            "admins": db.query(models.User).filter(models.User.role == "admin").count(),
+        }
     }
 
 class UserRoleUpdate(BaseModel):
@@ -477,7 +657,18 @@ def update_user_role(user_id: int, payload: UserRoleUpdate, db: Session = Depend
     user = db.query(models.User).filter(models.User.id == user_id).first()
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
-        
+    if payload.role not in {"user", "admin"}:
+        raise HTTPException(status_code=422, detail="Role must be user or admin")
+    if user.id == current_admin.id and payload.role != "admin":
+        raise HTTPException(status_code=400, detail="Cannot remove your own admin role")
+    if user.role == "admin" and payload.role != "admin" and user.is_active:
+        active_admins = db.query(models.User).filter(
+            models.User.role == "admin",
+            models.User.is_active.is_(True),
+        ).count()
+        if active_admins <= 1:
+            raise HTTPException(status_code=400, detail="Cannot demote the last active administrator")
+
     old_role = user.role
     user.role = payload.role
     

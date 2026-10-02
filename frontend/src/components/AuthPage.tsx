@@ -1,22 +1,17 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { auth } from '../services/auth';
+import { storeToken } from '../services/token';
 import { ShieldCheck, Eye, EyeOff, Loader2, Check, Lock } from 'lucide-react';
 
 interface AuthPageProps {
   initialMode: 'login' | 'signup';
+  adminOnly?: boolean;
 }
 
-export default function AuthPage({ initialMode }: AuthPageProps) {
+export default function AuthPage({ initialMode, adminOnly = false }: AuthPageProps) {
   const navigate = useNavigate();
   const [mode, setMode] = useState<'login' | 'signup'>(initialMode);
-  
-  // Sync mode with prop changes (when URL changes)
-  useEffect(() => {
-    setMode(initialMode);
-    setError('');
-  }, [initialMode]);
-
   // Form states
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -68,13 +63,16 @@ export default function AuthPage({ initialMode }: AuthPageProps) {
       if (mode === 'signup') {
         await auth.signup({ email, password, full_name: fullName, confirm_password: confirmPassword });
         const loginData = await auth.login({ email, password });
-        localStorage.setItem('token', loginData.access_token);
+        storeToken(loginData.access_token, rememberMe);
         navigate('/dashboard');
       } else {
         const data = await auth.login({ email, password });
-        localStorage.setItem('token', data.access_token);
+        storeToken(data.access_token, rememberMe);
         const userData = await auth.me();
-        if (userData && userData.role === 'admin') {
+        if (adminOnly && (!userData || userData.role !== 'admin' || userData.is_active === false)) {
+          auth.logout();
+          setError('This account does not have administrator access.');
+        } else if (userData && userData.role === 'admin') {
           navigate('/admin');
         } else {
           navigate('/dashboard');
@@ -123,43 +121,46 @@ export default function AuthPage({ initialMode }: AuthPageProps) {
           {/* Subtle cyan ambient glow behind the card (pseudo-element effect achieved by a div behind it if needed, but keeping it clean here) */}
           
           {/* Sliding Toggle */}
-          <div className="p-3 border-b border-border-light bg-background">
-            <div className="relative flex bg-slate-200/50 rounded-lg p-1 border border-border-light/50">
-              {/* Sliding Background Pill */}
-              <div 
-                className="absolute top-1 bottom-1 w-[calc(50%-4px)] bg-card shadow-sm border border-border-main/60 rounded-md transition-transform duration-300 ease-out"
-                style={{
-                  transform: mode === 'login' ? 'translateX(0)' : 'translateX(100%)',
-                }}
-              />
-              <button
-                type="button"
-                onClick={() => toggleMode('login')}
-                className={`flex-1 py-2 text-sm font-semibold rounded-md relative z-10 transition-colors duration-300 ${
-                  mode === 'login' ? 'text-primary' : 'text-text-muted hover:text-text-main'
-                }`}
-              >
-                Login
-              </button>
-              <button
-                type="button"
-                onClick={() => toggleMode('signup')}
-                className={`flex-1 py-2 text-sm font-semibold rounded-md relative z-10 transition-colors duration-300 ${
-                  mode === 'signup' ? 'text-primary' : 'text-text-muted hover:text-text-main'
-                }`}
-              >
-                Sign Up
-              </button>
+          {!adminOnly && (
+            <div className="p-3 border-b border-border-light bg-background">
+              <div className="relative flex bg-slate-200/50 rounded-lg p-1 border border-border-light/50">
+                <div
+                  className="absolute top-1 bottom-1 w-[calc(50%-4px)] bg-card shadow-sm border border-border-main/60 rounded-md transition-transform duration-300 ease-out"
+                  style={{
+                    transform: mode === 'login' ? 'translateX(0)' : 'translateX(100%)',
+                  }}
+                />
+                <button
+                  type="button"
+                  onClick={() => toggleMode('login')}
+                  className={`flex-1 py-2 text-sm font-semibold rounded-md relative z-10 transition-colors duration-300 ${
+                    mode === 'login' ? 'text-primary' : 'text-text-muted hover:text-text-main'
+                  }`}
+                >
+                  Login
+                </button>
+                <button
+                  type="button"
+                  onClick={() => toggleMode('signup')}
+                  className={`flex-1 py-2 text-sm font-semibold rounded-md relative z-10 transition-colors duration-300 ${
+                    mode === 'signup' ? 'text-primary' : 'text-text-muted hover:text-text-main'
+                  }`}
+                >
+                  Sign Up
+                </button>
+              </div>
             </div>
-          </div>
+          )}
 
           <div className="p-8 sm:p-10">
             <div className="text-center mb-8">
               <h2 className="text-2xl font-bold text-text-main mb-2">
-                {mode === 'login' ? 'Welcome back' : 'Create your account'}
+                {adminOnly ? 'Admin sign in' : mode === 'login' ? 'Welcome back' : 'Create your account'}
               </h2>
               <p className="text-sm text-text-muted">
-                {mode === 'login' 
+                {adminOnly
+                  ? 'Sign in with an administrator account to continue.'
+                  : mode === 'login'
                   ? 'Sign in to your ScamShield account.' 
                   : 'Start analyzing suspicious content.'}
               </p>
@@ -174,7 +175,7 @@ export default function AuthPage({ initialMode }: AuthPageProps) {
 
             <form onSubmit={handleSubmit} className="flex flex-col">
               {/* Full Name - Only for Signup */}
-              <div className={`overflow-hidden transition-all duration-300 ${mode === 'signup' ? 'max-h-24 opacity-100 mb-5' : 'max-h-0 opacity-0 mb-0'}`}>
+              {!adminOnly && <div className={`overflow-hidden transition-all duration-300 ${mode === 'signup' ? 'max-h-24 opacity-100 mb-5' : 'max-h-0 opacity-0 mb-0'}`}>
                 <label className="block text-text-main mb-1.5 text-sm font-medium">Full Name</label>
                 <input 
                   type="text" 
@@ -185,7 +186,7 @@ export default function AuthPage({ initialMode }: AuthPageProps) {
                   onChange={e => setFullName(e.target.value)} 
                   autoComplete="name"
                 />
-              </div>
+              </div>}
 
               {/* Email */}
               <div className="mb-5">
@@ -226,7 +227,7 @@ export default function AuthPage({ initialMode }: AuthPageProps) {
               </div>
 
               {/* Password Validation Feedback - Only for Signup */}
-              <div className={`overflow-hidden transition-all duration-300 ${mode === 'signup' ? 'max-h-32 opacity-100 mb-5 mt-2' : 'max-h-0 opacity-0 mb-0'}`}>
+              {!adminOnly && <div className={`overflow-hidden transition-all duration-300 ${mode === 'signup' ? 'max-h-32 opacity-100 mb-5 mt-2' : 'max-h-0 opacity-0 mb-0'}`}>
                 {isPasswordValid && password.length > 0 ? (
                   <div className="text-xs text-success flex items-center space-x-1 font-medium">
                     <Check className="w-3.5 h-3.5" />
@@ -251,10 +252,10 @@ export default function AuthPage({ initialMode }: AuthPageProps) {
                 ) : (
                   <div className="h-0" />
                 )}
-              </div>
+              </div>}
 
               {/* Remember Me / Forgot Password - Only for Login */}
-              <div className={`overflow-hidden transition-all duration-300 ${mode === 'login' ? 'max-h-12 opacity-100 mb-6 mt-4' : 'max-h-0 opacity-0 mb-0'}`}>
+              {!adminOnly && <div className={`overflow-hidden transition-all duration-300 ${mode === 'login' ? 'max-h-12 opacity-100 mb-6 mt-4' : 'max-h-0 opacity-0 mb-0'}`}>
                 <div className="flex items-center justify-between">
                   <label className="flex items-center space-x-2 cursor-pointer group">
                     <div className="relative flex items-center justify-center">
@@ -269,15 +270,14 @@ export default function AuthPage({ initialMode }: AuthPageProps) {
                     <span className="text-sm font-medium text-text-secondary group-hover:text-text-main transition-colors">Remember me</span>
                   </label>
                   
-                  {/* Kept visually disabled as it doesn't have an endpoint currently */}
-                  <span className="text-sm font-medium text-text-muted cursor-not-allowed" title="Not available yet">
+                  <Link to="/forgot-password" className="text-sm font-medium text-primary hover:text-primary-hover">
                     Forgot password?
-                  </span>
+                  </Link>
                 </div>
-              </div>
+              </div>}
 
               {/* Confirm Password - Only for Signup */}
-              <div className={`overflow-hidden transition-all duration-300 ${mode === 'signup' ? 'max-h-24 opacity-100 mb-5' : 'max-h-0 opacity-0 mb-0'}`}>
+              {!adminOnly && <div className={`overflow-hidden transition-all duration-300 ${mode === 'signup' ? 'max-h-24 opacity-100 mb-5' : 'max-h-0 opacity-0 mb-0'}`}>
                 <label className="block text-text-main mb-1.5 text-sm font-medium">Confirm Password</label>
                 <input 
                   type={showPassword ? "text" : "password"} 
@@ -288,10 +288,10 @@ export default function AuthPage({ initialMode }: AuthPageProps) {
                   onChange={e => setConfirmPassword(e.target.value)} 
                   autoComplete="new-password"
                 />
-              </div>
+              </div>}
 
               {/* Terms - Only for Signup */}
-              <div className={`overflow-hidden transition-all duration-300 ${mode === 'signup' ? 'max-h-12 opacity-100 mb-6 mt-1' : 'max-h-0 opacity-0 mb-0'}`}>
+              {!adminOnly && <div className={`overflow-hidden transition-all duration-300 ${mode === 'signup' ? 'max-h-12 opacity-100 mb-6 mt-1' : 'max-h-0 opacity-0 mb-0'}`}>
                 <label className="flex items-start space-x-2 cursor-pointer group">
                   <div className="relative flex items-center justify-center mt-0.5 shrink-0">
                     <input 
@@ -304,10 +304,10 @@ export default function AuthPage({ initialMode }: AuthPageProps) {
                     <Check className="w-3 h-3 text-white absolute pointer-events-none opacity-0 peer-checked:opacity-100" />
                   </div>
                   <span className="text-xs text-text-secondary group-hover:text-text-main transition-colors leading-relaxed font-medium">
-                    I agree to the <a href="#" className="text-primary hover:underline">Terms of Service</a> and <a href="#" className="text-primary hover:underline">Privacy Policy</a>.
+                    I agree to the <Link to="/terms" className="text-primary hover:underline">Terms of Service</Link> and <Link to="/privacy" className="text-primary hover:underline">Privacy Policy</Link>.
                   </span>
                 </label>
-              </div>
+              </div>}
 
               {/* Action Button */}
               <button 
@@ -326,7 +326,7 @@ export default function AuthPage({ initialMode }: AuthPageProps) {
               </button>
             </form>
 
-            <div className="mt-8 text-center text-sm font-medium">
+            {!adminOnly && <div className="mt-8 text-center text-sm font-medium">
               <span className="text-text-secondary">
                 {mode === 'login' ? "Don't have an account? " : "Already have an account? "}
               </span>
@@ -337,7 +337,13 @@ export default function AuthPage({ initialMode }: AuthPageProps) {
               >
                 {mode === 'login' ? "Sign up" : "Log in"}
               </button>
-            </div>
+            </div>}
+
+            {adminOnly && (
+              <div className="mt-8 text-center text-sm font-medium text-text-secondary">
+                Not an administrator? <Link to="/login" className="font-semibold text-primary hover:text-primary-hover">Go to user login</Link>
+              </div>
+            )}
             
             {/* Security Reassurance */}
             <div className="mt-6 pt-6 border-t border-border-light flex items-center justify-center space-x-1.5 text-xs font-medium text-text-muted">

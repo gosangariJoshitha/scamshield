@@ -1,5 +1,5 @@
 import AuthPage from '../components/AuthPage';
 
-export default function Login() {
-  return <AuthPage initialMode="login" />;
+export default function Login({ adminOnly = false }: { adminOnly?: boolean }) {
+  return <AuthPage initialMode="login" adminOnly={adminOnly} />;
 }

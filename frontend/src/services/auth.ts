@@ -1,4 +1,5 @@
 import { api } from './api';
+import { clearToken } from './token';
 
 export const auth = {
   async me() {
@@ -17,7 +18,7 @@ export const auth = {
     return response.data;
   },
   logout() {
-    localStorage.removeItem('token');
+    clearToken();
   },
   async forgotPassword(email: string) {
     const response = await api.post('/auth/forgot-password', { email });

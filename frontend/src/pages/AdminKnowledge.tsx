@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { 
-  BookOpen, Plus, Trash2, Check, X, ChevronLeft, ChevronRight, Info
+  BookOpen, Plus, Trash2, Check, X, ChevronLeft, ChevronRight, Info, Search
 } from 'lucide-react';
 import { api } from '../services/api';
 
@@ -18,6 +19,7 @@ interface KnowledgeEntry {
 }
 
 export default function AdminKnowledge() {
+  const [searchParams] = useSearchParams();
   const [entries, setEntries] = useState<KnowledgeEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -28,6 +30,7 @@ export default function AdminKnowledge() {
   const [totalPages, setTotalPages] = useState(1);
   const [statusFilter, setStatusFilter] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('');
+  const [search, setSearch] = useState(searchParams.get('search') ?? '');
   
   const [showAddModal, setShowAddModal] = useState(false);
   const [formData, setFormData] = useState({
@@ -43,11 +46,11 @@ export default function AdminKnowledge() {
     try {
       setLoading(true);
       const skip = (page - 1) * pageSize;
-      let url = `/admin/knowledge?skip=${skip}&limit=${pageSize}`;
-      if (statusFilter) url += `&status=${statusFilter}`;
-      if (categoryFilter) url += `&category=${encodeURIComponent(categoryFilter)}`;
-      
-      const response = await api.get(url);
+      const params = new URLSearchParams({ skip: String(skip), limit: String(pageSize) });
+      if (statusFilter) params.set('status', statusFilter);
+      if (categoryFilter) params.set('category', categoryFilter);
+      if (search.trim()) params.set('search', search.trim());
+      const response = await api.get(`/admin/knowledge?${params.toString()}`);
       setEntries(response.data.items);
       setTotal(response.data.total);
       setTotalPages(response.data.total_pages);
@@ -58,7 +61,7 @@ export default function AdminKnowledge() {
     } finally {
       setLoading(false);
     }
-  }, [page, pageSize, statusFilter, categoryFilter]);
+  }, [page, pageSize, statusFilter, categoryFilter, search]);
 
   useEffect(() => {
     void fetchKnowledge();
@@ -140,6 +143,10 @@ export default function AdminKnowledge() {
 
       <div className="bg-card rounded-xl shadow-sm border border-border-light p-4 flex flex-col sm:flex-row justify-between items-center gap-4">
         <div className="flex items-center gap-4 w-full sm:w-auto">
+          <label className="relative w-full sm:w-64">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-text-muted" size={15} />
+            <input value={search} onChange={(event) => { setSearch(event.target.value); setPage(1); }} placeholder="Search knowledge" aria-label="Search knowledge entries" className="w-full rounded-lg border border-border-light bg-background py-2 pl-9 pr-3 text-sm text-text-main outline-none focus:border-primary" />
+          </label>
           <select 
             value={statusFilter} 
             onChange={(e) => { setStatusFilter(e.target.value); setPage(1); }}

@@ -1,287 +1,315 @@
-import React, { useCallback, useEffect, useState } from 'react';
-import { 
-  ShieldAlert, ShieldCheck, Search, Users, 
-  AlertTriangle, Clock
-} from 'lucide-react';
+import { useCallback, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { PieChart, Pie, Cell, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid } from 'recharts';
+import {
+  Activity, AlertTriangle, ArrowUpRight, ClipboardCheck, FileWarning,
+  RefreshCw, Search, ShieldAlert, Users
+} from 'lucide-react';
+import {
+  Area, AreaChart, Cell, Pie, PieChart, ResponsiveContainer,
+  Tooltip, XAxis, YAxis
+} from 'recharts';
 import { api } from '../services/api';
 
-interface AdminStats {
+type ActivityPoint = { date: string; count: number };
+type CountItem = { name: string; value: number };
+type ReviewItem = {
+  id: number;
+  analysis_id: number;
+  status: string;
+  priority: string;
+  created_at: string;
+  risk_level?: string | null;
+  input_type?: string | null;
+  reporter: string;
+};
+type ReportItem = {
+  id: number;
+  category?: string | null;
+  content: string;
+  status: string;
+  created_at: string;
+  reporter: string;
+};
+type OverviewStats = {
   totalAnalyses: number;
-  scamsDetected: number;
   highRisk: number;
   pendingReviews: number;
   communityReports: number;
-  verifiedKnowledge: number;
-  riskDistribution: { name: string; value: number }[];
-  classificationDistribution: { name: string; value: number }[];
-  inputTypeDistribution: { name: string; value: number }[];
-  recentAnalyses: any[];
+  riskDistribution: CountItem[];
+  analysisActivity: ActivityPoint[];
+  recentReviews: ReviewItem[];
+  recentCommunityReports: ReportItem[];
+  reportStatusCounts: Record<string, number>;
+  reviewStatusCounts: Record<string, number>;
+};
+
+const riskColors: Record<string, string> = {
+  LOW: '#16A34A', MEDIUM: '#F59E0B', HIGH: '#EA580C', CRITICAL: '#DC2626',
+};
+
+function countLabel(value: number | undefined) {
+  return (value ?? 0).toLocaleString();
+}
+
+function statusStyle(status: string) {
+  if (['VERIFIED', 'APPROVED', 'CLOSED'].includes(status)) return 'bg-success/10 text-success';
+  if (['REJECTED'].includes(status)) return 'bg-danger/10 text-danger';
+  if (['IN_REVIEW', 'ASSIGNED'].includes(status)) return 'bg-info/10 text-info';
+  return 'bg-warning/10 text-warning';
+}
+
+function EmptyPanel({ children }: { children: string }) {
+  return <div className="flex min-h-36 items-center justify-center text-sm text-text-muted">{children}</div>;
 }
 
 export default function AdminOverview() {
-  const [stats, setStats] = useState<AdminStats | null>(null);
+  const [days, setDays] = useState(30);
+  const [stats, setStats] = useState<OverviewStats | null>(null);
+  const [health, setHealth] = useState<Record<string, string> | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const fetchAdminOverview = useCallback(async () => {
+  const fetchOverview = useCallback(async () => {
+    setLoading(true);
     try {
-      setLoading(true);
-      const response = await api.get('/admin/overview');
-      setStats(response.data);
+      const [overview, serviceHealth] = await Promise.all([
+        api.get(`/admin/overview?days=${days}`),
+        api.get('/admin/monitoring/health'),
+      ]);
+      setStats(overview.data);
+      setHealth(serviceHealth.data);
       setError(null);
-    } catch (err) {
-      setError('Failed to load admin overview data');
-      console.error(err);
+    } catch (requestError) {
+      console.error('Unable to load admin overview', requestError);
+      setError('Unable to load the dashboard. Check the connection and try again.');
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [days]);
 
   useEffect(() => {
-    void fetchAdminOverview();
-  }, [fetchAdminOverview]);
+    void fetchOverview();
+  }, [fetchOverview]);
 
-  if (loading) {
+  if (loading && !stats) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <div className="flex flex-col items-center space-y-4">
-          <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin"></div>
-          <p className="text-text-muted font-medium">Loading overview data...</p>
-        </div>
+      <div className="grid min-h-80 place-items-center rounded-2xl border border-border-light bg-card">
+        <RefreshCw className="animate-spin text-primary" size={28} />
       </div>
     );
   }
 
-  if (error || !stats) {
+  if (error && !stats) {
     return (
-      <div className="bg-danger/10 border border-danger/20 rounded-xl p-6 text-center">
-        <AlertTriangle className="w-10 h-10 text-danger mx-auto mb-3" />
-        <h3 className="text-lg font-bold text-text-main mb-1">Error Loading Data</h3>
-        <p className="text-text-secondary">{error}</p>
-        <button onClick={fetchAdminOverview} className="mt-4 px-4 py-2 bg-primary text-white font-semibold rounded-lg hover:bg-primary-hover">
+      <div role="alert" className="rounded-2xl border border-danger/20 bg-card p-8 text-center">
+        <AlertTriangle className="mx-auto mb-3 text-danger" size={28} />
+        <p className="font-semibold text-text-main">{error}</p>
+        <button onClick={() => void fetchOverview()} className="mt-4 rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-white">
           Retry
         </button>
       </div>
     );
   }
 
-  const COLORS = {
-    LOW: '#16A34A',
-    MEDIUM: '#F59E0B',
-    HIGH: '#EF4444',
-    CRITICAL: '#991B1B',
-    SCAM: '#DC2626',
-    SUSPICIOUS: '#F59E0B',
-    GENUINE: '#16A34A',
-    TEXT: '#3B82F6',
-    IMAGE: '#8B5CF6',
-    EMAIL: '#06B6D4',
-    PDF: '#EC4899',
-    AUDIO: '#F59E0B'
-  };
+  if (!stats) return null;
+  const reviewTotal = Object.values(stats.reviewStatusCounts ?? {}).reduce((total, count) => total + count, 0);
+  const cards = [
+    { label: `Analyses · ${days} days`, value: stats.totalAnalyses, icon: Search, tone: 'text-info bg-info/10' },
+    { label: 'High / Critical Risk', value: stats.highRisk, icon: ShieldAlert, tone: 'text-danger bg-danger/10' },
+    { label: 'Pending Reviews', value: stats.pendingReviews, icon: ClipboardCheck, tone: 'text-warning bg-warning/10' },
+    { label: `Community Reports · ${days} days`, value: stats.communityReports, icon: Users, tone: 'text-primary bg-primary/10' },
+  ];
 
   return (
-    <div className="space-y-6 max-w-7xl mx-auto pb-10">
-      
-      {/* Header */}
-      <div>
-        <h1 className="text-3xl font-bold text-text-main mb-1">Admin Overview</h1>
-        <p className="text-text-muted">Monitor ScamShield activity, AI performance, and security operations.</p>
-      </div>
+    <div className="space-y-5">
+      <header className="flex flex-wrap items-end justify-between gap-3">
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-wider text-primary">ScamShield administration</p>
+          <h2 className="mt-1 text-2xl font-bold tracking-tight text-text-main sm:text-3xl">Dashboard</h2>
+          <p className="mt-1 text-sm text-text-muted">Overview of current analysis and moderation activity.</p>
+        </div>
+        <div className="flex items-center gap-2">
+          <label htmlFor="overview-days" className="sr-only">Dashboard date range</label>
+          <select
+            id="overview-days"
+            value={days}
+            onChange={(event) => setDays(Number(event.target.value))}
+            className="h-10 rounded-lg border border-border-light bg-card px-3 text-sm text-text-secondary outline-none focus:border-primary focus:ring-2 focus:ring-primary/15"
+          >
+            <option value={7}>Last 7 days</option>
+            <option value={30}>Last 30 days</option>
+            <option value={90}>Last 90 days</option>
+          </select>
+          <button
+            type="button"
+            onClick={() => void fetchOverview()}
+            disabled={loading}
+            aria-label="Refresh dashboard"
+            className="rounded-lg border border-border-light bg-card p-2.5 text-text-secondary hover:bg-background disabled:opacity-50"
+          >
+            <RefreshCw size={16} className={loading ? 'animate-spin' : ''} />
+          </button>
+        </div>
+      </header>
 
-      {/* KPIs */}
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
-        {[
-          { label: 'Total Analyses', value: stats.totalAnalyses, icon: Search, color: 'text-blue-500' },
-          { label: 'Scams Detected', value: stats.scamsDetected, icon: ShieldAlert, color: 'text-danger' },
-          { label: 'High/Critical Risk', value: stats.highRisk, icon: AlertTriangle, color: 'text-orange-500' },
-          { label: 'Pending Reviews', value: stats.pendingReviews, icon: Clock, color: 'text-purple-500' },
-          { label: 'Community Reports', value: stats.communityReports, icon: Users, color: 'text-cyan-500' },
-          { label: 'Verified Knowledge', value: stats.verifiedKnowledge, icon: ShieldCheck, color: 'text-success' },
-        ].map((kpi, idx) => {
-          const Icon = kpi.icon;
-          return (
-            <div key={idx} className="bg-card rounded-xl shadow-sm border border-border-light p-4 flex flex-col justify-between">
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-[11px] font-bold text-text-muted uppercase tracking-wider">{kpi.label}</span>
-                <Icon className={`w-4 h-4 ${kpi.color}`} />
-              </div>
-              <div className="text-2xl font-bold text-text-main">{kpi.value.toLocaleString()}</div>
+      {error && <p role="alert" className="rounded-lg border border-danger/20 bg-danger/5 px-4 py-3 text-sm text-danger">{error}</p>}
+
+      <section aria-label="Platform summary" className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        {cards.map(({ label, value, icon: Icon, tone }) => (
+          <article key={label} className="flex min-h-28 items-center gap-4 rounded-xl border border-border-light bg-card p-4 shadow-sm">
+            <span className={`grid h-11 w-11 shrink-0 place-items-center rounded-xl ${tone}`}><Icon size={20} /></span>
+            <div className="min-w-0">
+              <p className="text-xs font-medium text-text-muted">{label}</p>
+              <p className="mt-1 text-2xl font-bold tabular-nums text-text-main">{loading ? '…' : countLabel(value)}</p>
             </div>
-          )
-        })}
-      </div>
+          </article>
+        ))}
+      </section>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        
-        {/* Risk Distribution */}
-        <div className="bg-card rounded-2xl shadow-sm border border-border-light p-6">
-          <h3 className="text-lg font-bold text-text-main mb-4">Risk Distribution</h3>
-          <div className="h-64">
-            {stats.riskDistribution.length === 0 ? (
-              <div className="h-full flex items-center justify-center text-text-muted text-sm">No data available</div>
-            ) : (
-              <ResponsiveContainer width="100%" height="100%">
-                <PieChart>
-                  <Pie
-                    data={stats.riskDistribution}
-                    innerRadius={60}
-                    outerRadius={80}
-                    paddingAngle={5}
-                    dataKey="value"
-                  >
-                    {stats.riskDistribution.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={COLORS[entry.name as keyof typeof COLORS] || '#8884d8'} />
-                    ))}
-                  </Pie>
-                  <Tooltip 
-                    contentStyle={{ backgroundColor: 'var(--color-bg-card)', borderColor: 'var(--color-border-light)', borderRadius: '8px' }}
-                    itemStyle={{ color: 'var(--color-text-main)' }}
-                  />
-                </PieChart>
-              </ResponsiveContainer>
-            )}
+      <section className="grid grid-cols-1 gap-4 xl:grid-cols-3">
+        <article className="rounded-xl border border-border-light bg-card p-4 shadow-sm xl:col-span-2 sm:p-5">
+          <div className="mb-3 flex items-start justify-between gap-3">
+            <div>
+              <h3 className="font-semibold text-text-main">Analysis activity</h3>
+              <p className="mt-0.5 text-xs text-text-muted">Completed analyses by creation date</p>
+            </div>
+            <Activity className="text-primary" size={18} />
           </div>
-          <div className="flex justify-center gap-4 mt-2 flex-wrap">
-            {stats.riskDistribution.map(r => (
-              <div key={r.name} className="flex items-center text-xs font-semibold text-text-secondary">
-                <div className="w-3 h-3 rounded-full mr-1.5" style={{ backgroundColor: COLORS[r.name as keyof typeof COLORS] || '#8884d8' }}></div>
-                {r.name} ({r.value})
+          {stats.analysisActivity?.some((point) => point.count > 0) ? (
+            <div className="h-56">
+              <ResponsiveContainer width="100%" height="100%">
+                <AreaChart data={stats.analysisActivity} margin={{ top: 8, right: 10, bottom: 0, left: -20 }}>
+                  <defs>
+                    <linearGradient id="analysisActivityFill" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor="#06B6D4" stopOpacity={0.25} />
+                      <stop offset="100%" stopColor="#06B6D4" stopOpacity={0.01} />
+                    </linearGradient>
+                  </defs>
+                  <XAxis dataKey="date" tickFormatter={(date: string) => new Date(`${date}T00:00:00`).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })} tick={{ fill: 'var(--color-text-muted)', fontSize: 11 }} axisLine={false} tickLine={false} />
+                  <YAxis allowDecimals={false} tick={{ fill: 'var(--color-text-muted)', fontSize: 11 }} axisLine={false} tickLine={false} />
+                  <Tooltip labelFormatter={(date) => String(date)} contentStyle={{ background: 'var(--color-card)', borderColor: 'var(--color-border-light)', borderRadius: 10, color: 'var(--color-text)' }} />
+                  <Area type="monotone" dataKey="count" name="Analyses" stroke="#0891B2" strokeWidth={2.5} fill="url(#analysisActivityFill)" activeDot={{ r: 4 }} />
+                </AreaChart>
+              </ResponsiveContainer>
+            </div>
+          ) : <EmptyPanel>No analysis activity in this period.</EmptyPanel>}
+        </article>
+
+        <article className="rounded-xl border border-border-light bg-card p-4 shadow-sm sm:p-5">
+          <div className="mb-3 flex items-start justify-between gap-3">
+            <div>
+              <h3 className="font-semibold text-text-main">Risk distribution</h3>
+              <p className="mt-0.5 text-xs text-text-muted">Analyses in selected period</p>
+            </div>
+            <AlertTriangle className="text-warning" size={18} />
+          </div>
+          {stats.riskDistribution.length ? (
+            <>
+              <div className="h-40">
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <Pie data={stats.riskDistribution} dataKey="value" nameKey="name" innerRadius={43} outerRadius={67} paddingAngle={3}>
+                      {stats.riskDistribution.map((risk) => <Cell key={risk.name} fill={riskColors[risk.name] ?? '#64748B'} />)}
+                    </Pie>
+                    <Tooltip contentStyle={{ background: 'var(--color-card)', borderColor: 'var(--color-border-light)', borderRadius: 10, color: 'var(--color-text)' }} />
+                  </PieChart>
+                </ResponsiveContainer>
               </div>
-            ))}
-          </div>
-        </div>
-
-        {/* Classification */}
-        <div className="bg-card rounded-2xl shadow-sm border border-border-light p-6">
-          <h3 className="text-lg font-bold text-text-main mb-4">Classification</h3>
-          <div className="h-64">
-            {stats.classificationDistribution.length === 0 ? (
-              <div className="h-full flex items-center justify-center text-text-muted text-sm">No data available</div>
-            ) : (
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={stats.classificationDistribution} layout="vertical" margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
-                  <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="var(--color-border-light)" />
-                  <XAxis type="number" hide />
-                  <YAxis dataKey="name" type="category" axisLine={false} tickLine={false} tick={{ fill: 'var(--color-text-secondary)', fontSize: 12, fontWeight: 600 }} width={80} />
-                  <Tooltip 
-                    cursor={{ fill: 'var(--color-bg-background)' }}
-                    contentStyle={{ backgroundColor: 'var(--color-bg-card)', borderColor: 'var(--color-border-light)', borderRadius: '8px' }}
-                  />
-                  <Bar dataKey="value" radius={[0, 4, 4, 0]} barSize={24}>
-                    {stats.classificationDistribution.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={COLORS[entry.name as keyof typeof COLORS] || '#8884d8'} />
-                    ))}
-                  </Bar>
-                </BarChart>
-              </ResponsiveContainer>
-            )}
-          </div>
-        </div>
-
-        {/* Input Types */}
-        <div className="bg-card rounded-2xl shadow-sm border border-border-light p-6">
-          <h3 className="text-lg font-bold text-text-main mb-4">Input Types</h3>
-          <div className="h-64">
-             {stats.inputTypeDistribution.length === 0 ? (
-              <div className="h-full flex items-center justify-center text-text-muted text-sm">No data available</div>
-            ) : (
-              <ResponsiveContainer width="100%" height="100%">
-                <PieChart>
-                  <Pie
-                    data={stats.inputTypeDistribution}
-                    innerRadius={0}
-                    outerRadius={80}
-                    dataKey="value"
-                  >
-                    {stats.inputTypeDistribution.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={COLORS[entry.name.toUpperCase() as keyof typeof COLORS] || '#94a3b8'} />
-                    ))}
-                  </Pie>
-                  <Tooltip 
-                    contentStyle={{ backgroundColor: 'var(--color-bg-card)', borderColor: 'var(--color-border-light)', borderRadius: '8px' }}
-                  />
-                </PieChart>
-              </ResponsiveContainer>
-            )}
-          </div>
-          <div className="flex justify-center gap-4 mt-2 flex-wrap">
-            {stats.inputTypeDistribution.map(r => (
-              <div key={r.name} className="flex items-center text-xs font-semibold text-text-secondary uppercase">
-                <div className="w-3 h-3 rounded-full mr-1.5" style={{ backgroundColor: COLORS[r.name.toUpperCase() as keyof typeof COLORS] || '#94a3b8' }}></div>
-                {r.name} ({r.value})
+              <div className="flex flex-wrap justify-center gap-x-4 gap-y-2">
+                {stats.riskDistribution.map((risk) => (
+                  <span key={risk.name} className="inline-flex items-center gap-1.5 text-xs text-text-secondary">
+                    <span className="h-2 w-2 rounded-full" style={{ backgroundColor: riskColors[risk.name] ?? '#64748B' }} />
+                    {risk.name} <b className="font-semibold text-text-main">{countLabel(risk.value)}</b>
+                  </span>
+                ))}
               </div>
-            ))}
+            </>
+          ) : <EmptyPanel>No risk data available.</EmptyPanel>}
+        </article>
+      </section>
+
+      <section className="grid grid-cols-1 gap-4 xl:grid-cols-5">
+        <article className="overflow-hidden rounded-xl border border-border-light bg-card shadow-sm xl:col-span-3">
+          <div className="flex items-center justify-between border-b border-border-light px-4 py-4 sm:px-5">
+            <div>
+              <h3 className="font-semibold text-text-main">Recent human reviews</h3>
+              <p className="mt-0.5 text-xs text-text-muted">{countLabel(reviewTotal)} cases total</p>
+            </div>
+            <Link to="/admin/reviews" className="inline-flex items-center gap-1 text-xs font-semibold text-primary hover:text-primary-hover">
+              View queue <ArrowUpRight size={14} />
+            </Link>
           </div>
-        </div>
-      </div>
+          {stats.recentReviews.length ? (
+            <div className="overflow-x-auto">
+              <table className="w-full min-w-[540px] text-left text-sm">
+                <thead className="bg-background text-[10px] uppercase tracking-wide text-text-muted">
+                  <tr><th className="px-4 py-3 font-semibold">Case</th><th className="px-4 py-3 font-semibold">Type / Risk</th><th className="px-4 py-3 font-semibold">Status</th><th className="px-4 py-3 font-semibold">Reported by</th></tr>
+                </thead>
+                <tbody className="divide-y divide-border-light">
+                  {stats.recentReviews.map((item) => (
+                    <tr key={item.id} className="hover:bg-background/60">
+                      <td className="px-4 py-3"><Link to={`/admin/reviews/${item.id}`} className="font-semibold text-primary hover:underline">RV-{item.id}</Link><p className="text-xs text-text-muted">Analysis #{item.analysis_id}</p></td>
+                      <td className="px-4 py-3 text-xs text-text-secondary">{item.input_type || 'Unknown'}<p className="mt-1 font-semibold">{item.risk_level || 'Unrated'}</p></td>
+                      <td className="px-4 py-3"><span className={`rounded-full px-2 py-1 text-[10px] font-semibold ${statusStyle(item.status)}`}>{item.status.replaceAll('_', ' ')}</span></td>
+                      <td className="max-w-32 truncate px-4 py-3 text-xs text-text-secondary" title={item.reporter}>{item.reporter}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ) : <EmptyPanel>No human-review cases yet.</EmptyPanel>}
+        </article>
 
-      {/* Recent Analyses Table */}
-      <div className="bg-card rounded-2xl shadow-sm border border-border-light overflow-hidden">
-        <div className="p-6 border-b border-border-light flex items-center justify-between">
-          <h3 className="text-lg font-bold text-text-main">Recent Analyses</h3>
-          <Link to="/admin/analyses" className="text-sm font-semibold text-primary hover:text-primary-hover">View All</Link>
-        </div>
-        <div className="overflow-x-auto">
-          <table className="w-full text-left text-sm">
-            <thead className="bg-background text-text-muted text-[11px] uppercase tracking-wider">
-              <tr>
-                <th className="px-6 py-4 font-bold">ID</th>
-                <th className="px-6 py-4 font-bold">Date</th>
-                <th className="px-6 py-4 font-bold">Type</th>
-                <th className="px-6 py-4 font-bold">Classification</th>
-                <th className="px-6 py-4 font-bold">Risk</th>
-                <th className="px-6 py-4 font-bold">Action</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-border-light">
-              {stats.recentAnalyses.length === 0 ? (
-                <tr>
-                  <td colSpan={6} className="px-6 py-8 text-center text-text-muted">No recent analyses found.</td>
-                </tr>
-              ) : (
-                stats.recentAnalyses.map(analysis => (
-                  <tr key={analysis.id} className="hover:bg-background/50 transition-colors">
-                    <td className="px-6 py-4 font-mono font-medium">#ANL_{analysis.id}</td>
-                    <td className="px-6 py-4 text-text-secondary">
-                      {new Date(analysis.created_at).toLocaleString()}
-                    </td>
-                    <td className="px-6 py-4">
-                      <span className="font-semibold text-text-secondary uppercase tracking-wider text-[11px]">{analysis.input_type}</span>
-                    </td>
-                    <td className="px-6 py-4">
-                      <span className={`px-2 py-1 rounded text-xs font-bold ${
-                        analysis.classification === 'SCAM' ? 'bg-danger/10 text-danger' : 
-                        analysis.classification === 'SUSPICIOUS' ? 'bg-warning/10 text-warning' : 
-                        'bg-success/10 text-success'
-                      }`}>
-                        {analysis.classification}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4">
-                      <span className={`px-2 py-1 rounded text-xs font-bold ${
-                        ['HIGH', 'CRITICAL'].includes(analysis.risk_level) ? 'bg-danger/10 text-danger' : 
-                        analysis.risk_level === 'MEDIUM' ? 'bg-warning/10 text-warning' : 
-                        'bg-success/10 text-success'
-                      }`}>
-                        {analysis.risk_level}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4">
-                      <Link to={`/admin/analyses/${analysis.id}`} className="text-primary hover:text-primary-hover font-semibold text-xs">
-                        View
-                      </Link>
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
-      </div>
+        <article className="overflow-hidden rounded-xl border border-border-light bg-card shadow-sm xl:col-span-2">
+          <div className="flex items-center justify-between border-b border-border-light px-4 py-4 sm:px-5">
+            <div>
+              <h3 className="font-semibold text-text-main">Community reports</h3>
+              <p className="mt-0.5 text-xs text-text-muted">{countLabel(stats.communityReports)} in selected period</p>
+            </div>
+            <Link to="/admin/community" className="inline-flex items-center gap-1 text-xs font-semibold text-primary hover:text-primary-hover">
+              View reports <ArrowUpRight size={14} />
+            </Link>
+          </div>
+          {stats.recentCommunityReports.length ? (
+            <ul className="divide-y divide-border-light">
+              {stats.recentCommunityReports.map((report) => (
+                <li key={report.id} className="flex items-start gap-3 px-4 py-3 sm:px-5">
+                  <span className="mt-0.5 grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-primary/10 text-primary"><FileWarning size={16} /></span>
+                  <div className="min-w-0 flex-1">
+                    <p className="line-clamp-2 text-sm font-medium text-text-main">{report.content}</p>
+                    <p className="mt-1 truncate text-xs text-text-muted">{report.category || 'Uncategorized'} · {report.reporter}</p>
+                  </div>
+                  <span className={`shrink-0 rounded-full px-2 py-1 text-[10px] font-semibold ${statusStyle(report.status.toUpperCase())}`}>{report.status.replaceAll('_', ' ')}</span>
+                </li>
+              ))}
+            </ul>
+          ) : <EmptyPanel>No community reports yet.</EmptyPanel>}
+        </article>
+      </section>
 
+      <section className="rounded-xl border border-border-light bg-card p-4 shadow-sm sm:p-5">
+        <div className="mb-3 flex items-center gap-2">
+          <Activity className="text-primary" size={17} />
+          <h3 className="font-semibold text-text-main">Service status</h3>
+        </div>
+        {health ? (
+          <div className="flex flex-wrap gap-2">
+            {Object.entries(health).map(([service, status]) => {
+              const healthy = status.toLowerCase() === 'healthy' || status.toLowerCase() === 'configured';
+              return (
+                <span key={service} className={`inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-medium ${
+                  healthy ? 'border-success/20 bg-success/5 text-success' : 'border-warning/20 bg-warning/5 text-warning'
+                }`}>
+                  <span className={`h-1.5 w-1.5 rounded-full ${healthy ? 'bg-success' : 'bg-warning'}`} />
+                  {service.replaceAll('_', ' ')} · {status}
+                </span>
+              );
+            })}
+          </div>
+        ) : (
+          <p className="text-sm text-text-muted">Service health is unavailable.</p>
+        )}
+      </section>
     </div>
   );
 }

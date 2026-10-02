@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { 
-  ChevronLeft, ChevronRight, UserX, UserCheck, CheckCircle, XCircle, X
+  ChevronLeft, ChevronRight, UserX, UserCheck, CheckCircle, XCircle, X, Search
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { api } from '../services/api';
@@ -29,6 +30,7 @@ interface UserDetails {
 }
 
 export default function AdminUsers() {
+  const [searchParams] = useSearchParams();
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -39,6 +41,7 @@ export default function AdminUsers() {
   const [totalPages, setTotalPages] = useState(1);
   const [roleFilter, setRoleFilter] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
+  const [search, setSearch] = useState(searchParams.get('search') ?? '');
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [userDetails, setUserDetails] = useState<UserDetails | null>(null);
   const [detailsLoading, setDetailsLoading] = useState(false);
@@ -48,11 +51,11 @@ export default function AdminUsers() {
     try {
       setLoading(true);
       const skip = (page - 1) * pageSize;
-      let url = `/admin/users?skip=${skip}&limit=${pageSize}`;
-      if (roleFilter) url += `&role=${roleFilter}`;
-      if (statusFilter) url += `&status=${statusFilter}`;
-      
-      const response = await api.get(url);
+      const params = new URLSearchParams({ skip: String(skip), limit: String(pageSize) });
+      if (roleFilter) params.set('role', roleFilter);
+      if (statusFilter) params.set('status', statusFilter);
+      if (search.trim()) params.set('search', search.trim());
+      const response = await api.get(`/admin/users?${params.toString()}`);
       setUsers(response.data.items);
       setTotal(response.data.total);
       setTotalPages(response.data.total_pages);
@@ -63,7 +66,7 @@ export default function AdminUsers() {
     } finally {
       setLoading(false);
     }
-  }, [page, pageSize, roleFilter, statusFilter]);
+  }, [page, pageSize, roleFilter, statusFilter, search]);
 
   useEffect(() => {
     void fetchUsers();
@@ -126,7 +129,11 @@ export default function AdminUsers() {
       </div>
 
       <div className="bg-card rounded-xl shadow-sm border border-border-light p-4 flex flex-col sm:flex-row justify-between items-center gap-4">
-        <div className="flex items-center gap-4 w-full sm:w-auto">
+        <div className="flex w-full flex-col gap-3 sm:w-auto sm:flex-row">
+          <label className="relative w-full sm:w-64">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-text-muted" size={15} />
+            <input value={search} onChange={(event) => { setSearch(event.target.value); setPage(1); }} placeholder="Search name, email or ID" aria-label="Search users" className="w-full rounded-lg border border-border-light bg-background py-2 pl-9 pr-3 text-sm text-text-main outline-none focus:border-primary" />
+          </label>
           <select 
             value={roleFilter} 
             onChange={(e) => { setRoleFilter(e.target.value); setPage(1); }}

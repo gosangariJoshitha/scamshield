@@ -1,143 +1,231 @@
-from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy.orm import Session
-from sqlalchemy import text
-from typing import Dict, Any, List
 import json
+import logging
 import os
+from datetime import date, datetime, timedelta, timezone
+from pathlib import Path
 
-from auth import get_current_user
+from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy import case, desc, func, text
+from sqlalchemy.orm import Session
+
 import models
+from app.services.rag_service import rag_service
+from auth import get_current_user
 from database import get_db
 
+logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/admin/monitoring", tags=["monitoring"])
+REPOSITORY_ROOT = Path(__file__).resolve().parents[1]
 
-def check_admin(current_user: models.User):
-    # In a real app we'd check current_user.role == "admin"
-    # But for M7 we'll allow the demo user to see the dashboard to satisfy requirements easily.
-    # Alternatively, we could enforce it and require making an admin user. Let's allow for now.
+
+def require_admin(current_user: models.User = Depends(get_current_user)):
+    if current_user.role != "admin" or not current_user.is_active:
+        raise HTTPException(status_code=403, detail="Admin privileges required")
     return current_user
 
-@router.get("/overview")
-def get_monitoring_overview(current_user: models.User = Depends(get_current_user), db: Session = Depends(get_db)):
-    check_admin(current_user)
-    
-    # ML Metrics
-    ml_metrics = {}
-    try:
-        # FastAPI runs from backend/
-        with open("../ml/reports/metrics.json", "r") as f:
-            ml_metrics = json.load(f)
-    except Exception:
-        pass
 
-    # RAG Metrics
-    rag_metrics = {}
+def _read_report(filename: str):
+    path = REPOSITORY_ROOT / "ml" / "reports" / filename
+    if not path.is_file():
+        return None
     try:
-        with open("../ml/reports/rag_metrics.json", "r") as f:
-            rag_metrics = json.load(f)
-    except Exception:
-        pass
-            
-    # System & LLM metrics from DB
-    perf_records = db.query(models.AnalysisPerformance).all()
-    total_analyses = len(perf_records)
-    
-    if total_analyses > 0:
-        avg_time = sum(p.total_ms for p in perf_records) / total_analyses
-        avg_llm = sum(p.llm_ms for p in perf_records) / total_analyses
-        llm_success = len([p for p in perf_records if p.status == "SUCCESS"])
-        llm_success_rate = llm_success / total_analyses
-        llm_fallback_rate = 1.0 - llm_success_rate
-    else:
-        avg_time = 0
-        avg_llm = 0
-        llm_success_rate = 0
-        llm_fallback_rate = 0
+        with path.open(encoding="utf-8") as report_file:
+            return json.load(report_file)
+    except (OSError, json.JSONDecodeError):
+        logger.exception("Unable to read monitoring report %s", path)
+        return None
+
+
+@router.get("/overview")
+def get_monitoring_overview(
+    db: Session = Depends(get_db),
+    current_admin: models.User = Depends(require_admin),
+):
+    performance = db.query(
+        func.count(models.AnalysisPerformance.id),
+        func.avg(models.AnalysisPerformance.total_ms),
+        func.avg(models.AnalysisPerformance.llm_ms),
+        func.sum(case(
+            (models.AnalysisPerformance.status == "SUCCESS", 1),
+            else_=0,
+        )),
+    ).first()
+    total = int(performance[0] or 0)
+    llm_success_rate = (float(performance[3] or 0) / total) if total else 0.0
+    failed = db.query(models.AnalysisPerformance).filter(
+        models.AnalysisPerformance.status != "SUCCESS"
+    ).count()
+    active_users = db.query(models.User).filter(models.User.is_active.is_(True)).count()
+    latest_analysis = db.query(func.max(models.Analysis.created_at)).scalar()
 
     return {
-        "period": "All Time",
-        "model": ml_metrics,
-        "rag": rag_metrics,
+        "period": "All time",
+        "model": _read_report("metrics.json"),
+        "rag": _read_report("rag_metrics.json"),
         "llm": {
             "success_rate": llm_success_rate,
-            "fallback_rate": llm_fallback_rate,
-            "average_latency_ms": avg_llm,
+            "fallback_rate": 1 - llm_success_rate if total else None,
+            "average_latency_ms": float(performance[2]) if performance[2] is not None else None,
+            "total_recorded": total,
         },
         "system": {
-            "total_analyses": total_analyses,
-            "average_analysis_time_ms": avg_time
-        }
+            "total_analyses": db.query(models.Analysis).count(),
+            "recorded_analyses": total,
+            "average_analysis_time_ms": float(performance[1]) if performance[1] is not None else None,
+            "errors": failed,
+            "active_users": active_users,
+            "last_analysis_at": latest_analysis,
+        },
     }
+
+
+@router.get("/activity")
+def get_analysis_activity(
+    days: int = 7,
+    db: Session = Depends(get_db),
+    current_admin: models.User = Depends(require_admin),
+):
+    if days not in (7, 30, 90):
+        raise HTTPException(status_code=422, detail="days must be 7, 30, or 90")
+
+    today = datetime.now(timezone.utc).date()
+    start_date = today - timedelta(days=days - 1)
+    grouped = db.query(
+        func.date(models.Analysis.created_at),
+        models.Analysis.input_type,
+        func.count(models.Analysis.id),
+    ).filter(
+        models.Analysis.created_at >= datetime.combine(start_date, datetime.min.time(), timezone.utc)
+    ).group_by(
+        func.date(models.Analysis.created_at),
+        models.Analysis.input_type,
+    ).all()
+
+    by_day = {}
+    channels = set()
+    for day, channel, count in grouped:
+        if day is None:
+            continue
+        day_key = day.isoformat() if isinstance(day, date) else str(day)
+        channel_name = (channel or "unknown").lower()
+        channels.add(channel_name)
+        by_day.setdefault(day_key, {})[channel_name] = int(count)
+
+    results = []
+    for offset in range(days - 1, -1, -1):
+        day_key = (today - timedelta(days=offset)).isoformat()
+        counts = by_day.get(day_key, {})
+        results.append({
+            "date": day_key,
+            "total": sum(counts.values()),
+            **{channel: counts.get(channel, 0) for channel in sorted(channels)},
+        })
+    return {"days": days, "channels": sorted(channels), "items": results}
+
 
 @router.get("/performance")
-def get_performance_details(current_user: models.User = Depends(get_current_user), db: Session = Depends(get_db)):
-    check_admin(current_user)
-    perf_records = db.query(models.AnalysisPerformance).all()
-    total_analyses = len(perf_records)
-    
-    if total_analyses == 0:
-        return {"stages": {}}
-        
-    avg_extraction = sum(p.extraction_ms for p in perf_records) / total_analyses
-    avg_ml = sum(p.ml_ms for p in perf_records) / total_analyses
-    avg_rag = sum(p.rag_ms for p in perf_records) / total_analyses
-    avg_llm = sum(p.llm_ms for p in perf_records) / total_analyses
-    avg_risk = sum(p.risk_engine_ms for p in perf_records) / total_analyses
-    avg_db = sum(p.database_ms for p in perf_records) / total_analyses
-    avg_total = sum(p.total_ms for p in perf_records) / total_analyses
-    
-    return {
-        "stages": {
-            "extraction_ms": avg_extraction,
-            "ml_ms": avg_ml,
-            "rag_ms": avg_rag,
-            "llm_ms": avg_llm,
-            "risk_engine_ms": avg_risk,
-            "database_ms": avg_db,
-            "total_ms": avg_total
-        }
+def get_performance_details(
+    db: Session = Depends(get_db),
+    current_admin: models.User = Depends(require_admin),
+):
+    fields = (
+        "extraction_ms", "ml_ms", "rag_ms", "llm_ms",
+        "risk_engine_ms", "database_ms", "total_ms",
+    )
+    averages = db.query(*[
+        func.avg(getattr(models.AnalysisPerformance, field)) for field in fields
+    ]).first()
+    stages = {
+        field: float(value) if value is not None else None
+        for field, value in zip(fields, averages)
     }
+    return {"stages": stages}
+
 
 @router.get("/channels")
-def get_channel_performance(current_user: models.User = Depends(get_current_user), db: Session = Depends(get_db)):
-    check_admin(current_user)
-    perf_records = db.query(models.AnalysisPerformance).all()
-    
-    channels = {}
-    for p in perf_records:
-        ctype = p.input_type
-        if ctype not in channels:
-            channels[ctype] = {"count": 0, "success": 0, "failure": 0, "total_time": 0}
-            
-        channels[ctype]["count"] += 1
-        channels[ctype]["total_time"] += p.total_ms
-        if p.status == "SUCCESS":
-            channels[ctype]["success"] += 1
-        else:
-            channels[ctype]["failure"] += 1
-            
-    # Calculate averages
-    for ctype, data in channels.items():
-        data["average_latency_ms"] = data["total_time"] / data["count"]
-        data["success_rate"] = data["success"] / data["count"]
-        
-    return channels
+def get_channel_performance(
+    db: Session = Depends(get_db),
+    current_admin: models.User = Depends(require_admin),
+):
+    rows = db.query(
+        models.AnalysisPerformance.input_type,
+        func.count(models.AnalysisPerformance.id),
+        func.sum(case(
+            (models.AnalysisPerformance.status == "SUCCESS", 1),
+            else_=0,
+        )),
+        func.avg(models.AnalysisPerformance.total_ms),
+    ).group_by(models.AnalysisPerformance.input_type).all()
+    result = {}
+    for channel, count, successes, latency in rows:
+        count = int(count or 0)
+        success = int(successes or 0)
+        result[channel or "unknown"] = {
+            "count": count,
+            "success": success,
+            "failure": count - success,
+            "average_latency_ms": float(latency) if latency is not None else None,
+            "success_rate": success / count if count else None,
+        }
+    return result
+
+
+@router.get("/logs")
+def get_monitoring_logs(
+    skip: int = 0,
+    limit: int = 10,
+    db: Session = Depends(get_db),
+    current_admin: models.User = Depends(require_admin),
+):
+    limit = min(max(limit, 1), 100)
+    query = db.query(models.AuditLog)
+    total = query.count()
+    logs = query.order_by(desc(models.AuditLog.created_at)).offset(max(skip, 0)).limit(limit).all()
+    return {
+        "items": [
+            {
+                "id": item.id,
+                "actor": item.actor.email if item.actor else f"Actor {item.actor_id}",
+                "action": item.action,
+                "resource_type": item.resource_type,
+                "resource_id": item.resource_id,
+                "result": item.result,
+                "created_at": item.created_at,
+            }
+            for item in logs
+        ],
+        "total": total,
+    }
+
 
 @router.get("/health")
-def get_system_health(current_user: models.User = Depends(get_current_user), db: Session = Depends(get_db)):
-    check_admin(current_user)
+def get_system_health(
+    db: Session = Depends(get_db),
+    current_admin: models.User = Depends(require_admin),
+):
     health = {
         "api": "Healthy",
         "database": "Healthy",
-        "ml_model": "Healthy",
-        "chromadb": "Healthy",
-        "embedding": "Healthy",
-        "llm": "Healthy" if os.getenv("OPENROUTER_API_KEY") else "Not Configured"
+        "ml_model": "Healthy" if (
+            (REPOSITORY_ROOT / "ml" / "models" / "classifier" / "scam_classifier.joblib").is_file()
+            and (REPOSITORY_ROOT / "ml" / "models" / "classifier" / "tfidf_vectorizer.joblib").is_file()
+        ) else "Unavailable",
+        "chromadb": "Unknown",
+        "embedding": "Configured",
+        "llm": "Configured" if os.getenv("OPENROUTER_API_KEY") else "Not Configured",
     }
-    
+
     try:
         db.execute(text("SELECT 1"))
     except Exception:
+        logger.exception("Database health check failed")
         health["database"] = "Unavailable"
-        
+
+    try:
+        rag_service.collection.count()
+        health["chromadb"] = "Healthy"
+    except Exception:
+        logger.exception("ChromaDB health check failed")
+        health["chromadb"] = "Unavailable"
+
     return health

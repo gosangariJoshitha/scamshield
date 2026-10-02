@@ -1,4 +1,4 @@
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import ProtectedRoute from './components/ProtectedRoute';
 import SidebarLayout from './components/SidebarLayout';
 import PublicLayout from './components/PublicLayout';
@@ -28,7 +28,6 @@ import AdminCommunity from './pages/AdminCommunity';
 import AdminKnowledge from './pages/AdminKnowledge';
 import AdminUsers from './pages/AdminUsers';
 import AdminAuditLogs from './pages/AdminAuditLogs';
-import AdminSystemHealth from './pages/AdminSystemHealth';
 import AdminSettings from './pages/AdminSettings';
 
 import { useTheme } from './hooks/useTheme';
@@ -60,7 +59,8 @@ function App() {
           <Route path="/profile/settings" element={<ProfileSettings />} />
         </Route>
 
-        <Route element={<ProtectedRoute><AdminLayout /></ProtectedRoute>}>
+        <Route path="/admin/login" element={<Login adminOnly />} />
+        <Route element={<AdminLayout />}>
           <Route path="/admin" element={<AdminOverview />} />
           <Route path="/admin/analyses" element={<AdminAnalyses />} />
           <Route path="/admin/analyses/:id" element={<AdminAnalysisDetails />} />
@@ -68,7 +68,7 @@ function App() {
           <Route path="/admin/knowledge" element={<AdminKnowledge />} />
           <Route path="/admin/users" element={<AdminUsers />} />
           <Route path="/admin/audit" element={<AdminAuditLogs />} />
-          <Route path="/admin/health" element={<AdminSystemHealth />} />
+          <Route path="/admin/health" element={<Navigate to="/admin/monitoring" replace />} />
           <Route path="/admin/settings" element={<AdminSettings />} />
           <Route path="/admin/monitoring" element={<MonitoringDashboard />} />
           <Route path="/admin/reviews" element={<AdminReviewCenter />} />

@@ -18,6 +18,23 @@ export interface ReviewCase {
     events: any[];
 }
 
+export interface ReviewListResponse {
+    items: Array<ReviewCase & {
+        risk_level: string | null;
+        classification: string | null;
+        category: string | null;
+        input_type: string | null;
+        content_preview: string;
+        reporter: string;
+        escalation_reason: string | null;
+    }>;
+    total: number;
+    page: number;
+    page_size: number;
+    total_pages: number;
+    summary: Record<string, number>;
+}
+
 export const reviewService = {
     // User endpoints
     requestReview: async (analysisId: number) => {
@@ -36,8 +53,13 @@ export const reviewService = {
     },
     
     // Admin endpoints
-    getAllReviews: async () => {
-        const response = await api.get('/reviews/admin/list');
+    getAllReviews: async (params: {
+        skip?: number;
+        limit?: number;
+        search?: string;
+        review_status?: string;
+    } = {}): Promise<ReviewListResponse> => {
+        const response = await api.get('/reviews/admin/list', { params });
         return response.data;
     },
     

@@ -167,6 +167,7 @@ class ReviewCaseEvent(Base):
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
     review_case = relationship("ReviewCase", back_populates="events")
+    actor = relationship("User", foreign_keys=[actor_user_id])
 
 class JiraIntegration(Base):
     __tablename__ = "jira_integrations"

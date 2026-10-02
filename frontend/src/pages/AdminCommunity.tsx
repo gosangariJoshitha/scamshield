@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import {
-  Users, ChevronLeft, ChevronRight, CheckCircle
+  Users, ChevronLeft, ChevronRight, CheckCircle, Search
 } from 'lucide-react';
 import { api } from '../services/api';
 
@@ -16,6 +17,7 @@ interface CommunityReport {
 }
 
 export default function AdminCommunity() {
+  const [searchParams] = useSearchParams();
   const [reports, setReports] = useState<CommunityReport[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -25,6 +27,8 @@ export default function AdminCommunity() {
   const [total, setTotal] = useState(0);
   const [totalPages, setTotalPages] = useState(1);
   const [statusFilter, setStatusFilter] = useState('');
+  const [search, setSearch] = useState(searchParams.get('search') ?? '');
+  const [categoryFilter, setCategoryFilter] = useState('');
   
   const [selectedReport, setSelectedReport] = useState<CommunityReport | null>(null);
   const [actionNotes, setActionNotes] = useState('');
@@ -34,10 +38,11 @@ export default function AdminCommunity() {
     try {
       setLoading(true);
       const skip = (page - 1) * pageSize;
-      let url = `/admin/community/reports?skip=${skip}&limit=${pageSize}`;
-      if (statusFilter) url += `&status=${statusFilter}`;
-      
-      const response = await api.get(url);
+      const params = new URLSearchParams({ skip: String(skip), limit: String(pageSize) });
+      if (statusFilter) params.set('status', statusFilter);
+      if (categoryFilter.trim()) params.set('category', categoryFilter.trim());
+      if (search.trim()) params.set('search', search.trim());
+      const response = await api.get(`/admin/community/reports?${params.toString()}`);
       setReports(response.data.items);
       setTotal(response.data.total);
       setTotalPages(response.data.total_pages);
@@ -48,7 +53,7 @@ export default function AdminCommunity() {
     } finally {
       setLoading(false);
     }
-  }, [page, pageSize, statusFilter]);
+  }, [page, pageSize, statusFilter, search, categoryFilter]);
 
   useEffect(() => {
     void fetchReports();
@@ -84,7 +89,12 @@ export default function AdminCommunity() {
       </div>
 
       <div className="bg-card rounded-xl shadow-sm border border-border-light p-4 flex flex-col sm:flex-row justify-between items-center gap-4">
-        <div className="flex items-center gap-4 w-full sm:w-auto">
+        <div className="flex w-full flex-col gap-3 sm:w-auto sm:flex-row">
+          <label className="relative w-full sm:w-56">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-text-muted" size={15} />
+            <input value={search} onChange={(event) => { setSearch(event.target.value); setPage(1); }} placeholder="Search reports" aria-label="Search community reports" className="w-full rounded-lg border border-border-light bg-background py-2 pl-9 pr-3 text-sm text-text-main outline-none focus:border-primary" />
+          </label>
+          <input value={categoryFilter} onChange={(event) => { setCategoryFilter(event.target.value); setPage(1); }} placeholder="Category" aria-label="Filter reports by category" className="w-full rounded-lg border border-border-light bg-background px-3 py-2 text-sm text-text-main outline-none focus:border-primary sm:w-40" />
           <select 
             value={statusFilter} 
             onChange={(e) => { setStatusFilter(e.target.value); setPage(1); }}
@@ -208,7 +218,7 @@ export default function AdminCommunity() {
                 )}
               </div>
 
-              {['Pending', 'NEEDS_INFORMATION'].includes(selectedReport.status) ? (
+              {['PENDING', 'NEEDS_INFORMATION'].includes(selectedReport.status.toUpperCase()) ? (
                 <div className="border-t border-border-light pt-4 mt-4 space-y-3">
                   <div>
                     <label className="text-[10px] font-bold text-text-muted uppercase tracking-wider mb-1 block">Moderator Notes (Optional)</label>
@@ -227,7 +237,7 @@ export default function AdminCommunity() {
                       className="flex items-center justify-center gap-2 w-full py-2 bg-success text-white font-bold rounded-lg hover:bg-green-600 disabled:opacity-50 transition-colors"
                     >
                       <CheckCircle className="w-4 h-4" />
-                      Verify & Add to Knowledge
+                      Verify report
                     </button>
                     <div className="flex gap-2">
                       <button 
@@ -246,6 +256,17 @@ export default function AdminCommunity() {
                       </button>
                     </div>
                   </div>
+                </div>
+              ) : selectedReport.status.toUpperCase() === 'VERIFIED' ? (
+                <div className="border-t border-border-light pt-4 mt-4 space-y-3">
+                  <p className="text-sm text-text-secondary">This report is verified. You may separately add its pattern to the trusted knowledge base.</p>
+                  <button
+                    onClick={() => handleAction('CONVERT_TO_KNOWLEDGE')}
+                    disabled={actionLoading}
+                    className="w-full rounded-lg border border-primary/20 bg-primary/10 py-2 text-sm font-bold text-primary hover:bg-primary/20 disabled:opacity-50"
+                  >
+                    {actionLoading ? 'Adding…' : 'Add verified pattern to Knowledge Base'}
+                  </button>
                 </div>
               ) : (
                 <div className="border-t border-border-light pt-4 mt-4">
