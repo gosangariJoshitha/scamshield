@@ -157,7 +157,7 @@ export default function VerifyEmail() {
         </div>
 
         <p className="mb-5 text-sm leading-6 text-text-secondary">
-          Enter the six-digit verification code sent to your email address. You must verify your email before accessing the dashboard and analysis tools.
+          Enter the six-digit code sent during registration. Signing in does not require email verification, but you must verify your address before submitting an analysis.
         </p>
 
         {error && (

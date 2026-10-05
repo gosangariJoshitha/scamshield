@@ -45,6 +45,14 @@ export default function Analyze() {
       navigate(`/results/${res.data.id}`, { state: { result: res.data, from: '/analyze', analysisCreated: true } });
     } catch (err: any) {
       console.error(err);
+      if (
+        err.response?.status === 403
+        && typeof err.response?.data?.detail === 'string'
+        && err.response.data.detail.toLowerCase().includes('verify your email')
+      ) {
+        navigate('/verify-email');
+        return;
+      }
       alert(err.response?.data?.detail || "An error occurred during analysis.");
     } finally {
       setLoading(false);

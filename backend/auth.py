@@ -171,7 +171,7 @@ def _login_for_role(
             detail="Invalid credentials or account access is not permitted for this portal",
             headers={"WWW-Authenticate": "Bearer"},
         )
-    if user.two_factor_enabled:
+    if required_role == "admin" or user.role == "admin":
         challenge_id = _create_email_challenge(db, user, "LOGIN")
         return {
             "requires_two_factor": True,
@@ -311,7 +311,7 @@ def verify_login(data: schemas.LoginVerification, db: Session = Depends(database
         data.code,
         "LOGIN",
     )
-    if not user.two_factor_enabled:
+    if user.role != "admin" and not user.two_factor_enabled:
         raise HTTPException(status_code=400, detail="Two-step verification is no longer enabled.")
     return _create_login_response(user, data.remember_me)
 

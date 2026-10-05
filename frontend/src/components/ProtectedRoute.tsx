@@ -17,10 +17,8 @@ export default function ProtectedRoute({ children }: { children: React.ReactNode
 
     auth.me().then((user) => {
       if (!active) return;
-      if (user?.role === 'user' && user.is_active !== false && user.email_verified === true) {
+      if (user?.role === 'user' && user.is_active !== false) {
         setState('allowed');
-      } else if (user?.role === 'user' && user.is_active !== false && user.email_verified === false) {
-        navigate('/verify-email', { replace: true });
       } else if (user?.role === 'admin' && user.is_active !== false) {
         navigate('/admin', { replace: true });
       } else {

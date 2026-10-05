@@ -37,11 +37,7 @@ export default function AuthPage({ initialMode, adminOnly = false }: AuthPagePro
         if (userData.role === 'admin') {
           navigate('/admin', { replace: true });
         } else if (userData.role === 'user') {
-          if (userData.email_verified === false) {
-            navigate('/verify-email', { replace: true });
-          } else {
-            navigate('/dashboard', { replace: true });
-          }
+          navigate('/dashboard', { replace: true });
         }
       }).catch(() => {
         // Token invalid, stay on auth page
@@ -139,7 +135,7 @@ export default function AuthPage({ initialMode, adminOnly = false }: AuthPagePro
 
         if (userData.role === 'admin') {
           navigate('/admin');
-        } else if (userData.email_verified === false) {
+        } else if (mode === 'signup' && userData.email_verified === false) {
           navigate('/verify-email', {
             state: { challengeId: signupData?.verification_challenge_id || null },
           });
