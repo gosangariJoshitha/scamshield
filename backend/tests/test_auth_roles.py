@@ -1,4 +1,7 @@
 import unittest
+from datetime import datetime
+from types import SimpleNamespace
+from unittest.mock import PropertyMock, patch
 
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
@@ -6,8 +9,10 @@ from sqlalchemy import create_engine, text
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
+import auth
 import database
 import models
+from admin import router as admin_router
 from analysis import router as analysis_router
 from auth import get_password_hash, router as auth_router
 from community import router as community_router
@@ -44,6 +49,7 @@ class AuthRoleBoundaryTests(unittest.TestCase):
                         password_hash=get_password_hash("Test-Admin-Password-2026"),
                         role="admin",
                         is_active=True,
+                        email_verified=True,
                     ),
                     models.User(
                         full_name="Test User",
@@ -51,6 +57,7 @@ class AuthRoleBoundaryTests(unittest.TestCase):
                         password_hash=get_password_hash("Test-User-Password-2026"),
                         role="user",
                         is_active=True,
+                        email_verified=True,
                     ),
                     models.User(
                         full_name="Disabled Admin",
@@ -58,6 +65,7 @@ class AuthRoleBoundaryTests(unittest.TestCase):
                         password_hash=get_password_hash("Test-Disabled-Password-2026"),
                         role="admin",
                         is_active=False,
+                        email_verified=True,
                     ),
                 ]
             )
@@ -71,6 +79,7 @@ class AuthRoleBoundaryTests(unittest.TestCase):
         app.include_router(auth_router, prefix="/api")
         app.include_router(analysis_router, prefix="/api")
         app.include_router(community_router, prefix="/api")
+        app.include_router(admin_router, prefix="/api/admin")
         app.dependency_overrides[database.get_db] = override_get_db
         self.client = TestClient(app)
         self.client.__enter__()
@@ -78,13 +87,14 @@ class AuthRoleBoundaryTests(unittest.TestCase):
     def tearDown(self):
         self.client.__exit__(None, None, None)
 
-    def portal_login(self, portal, email, password):
+    def portal_login(self, portal, email, password, remember_me=False):
         path = "/api/auth/admin/login" if portal == "admin" else "/api/auth/login"
         return self.client.post(
             path,
             files={
                 "username": (None, email),
                 "password": (None, password),
+                "remember_me": (None, str(remember_me).lower()),
             },
         )
 
@@ -114,6 +124,160 @@ class AuthRoleBoundaryTests(unittest.TestCase):
         self.assertEqual(user_response.status_code, 200)
         self.assertEqual(admin_response.status_code, 200)
         self.assertEqual(disabled_response.status_code, 401)
+
+    def test_remember_me_extends_the_access_token_lifetime(self):
+        response = self.portal_login(
+            "user",
+            "user@example.com",
+            "Test-User-Password-2026",
+            remember_me=True,
+        )
+        self.assertEqual(response.status_code, 200)
+        token_payload = auth.jwt.get_unverified_claims(response.json()["access_token"])
+        seconds_until_expiry = token_payload["exp"] - int(datetime.utcnow().timestamp())
+        self.assertGreater(seconds_until_expiry, auth.REMEMBER_ME_EXPIRE_DAYS * 86400 - 10)
+
+    def test_two_factor_login_requires_a_single_use_email_code(self):
+        with self.test_session() as db:
+            user = db.query(models.User).filter_by(email="user@example.com").first()
+            user.two_factor_enabled = True
+            db.commit()
+
+        with (
+            patch.object(
+                type(auth.email_service),
+                "is_configured",
+                new_callable=PropertyMock,
+                return_value=True,
+            ),
+            patch.object(auth.email_service, "send_verification_code") as send_email,
+        ):
+            login = self.portal_login(
+                "user", "user@example.com", "Test-User-Password-2026", remember_me=True
+            )
+            self.assertEqual(login.status_code, 200)
+            self.assertTrue(login.json()["requires_two_factor"])
+            self.assertNotIn("access_token", login.json())
+
+            challenge_id = login.json()["challenge_id"]
+            code = send_email.call_args.args[1]
+            rejected = self.client.post(
+                "/api/auth/login/verify",
+                json={"challenge_id": challenge_id, "code": "000000" if code != "000000" else "000001"},
+            )
+            self.assertEqual(rejected.status_code, 400)
+
+            verified = self.client.post(
+                "/api/auth/login/verify",
+                json={"challenge_id": challenge_id, "code": code, "remember_me": True},
+            )
+            self.assertEqual(verified.status_code, 200)
+            self.assertTrue(verified.json()["access_token"])
+            token_payload = auth.jwt.get_unverified_claims(verified.json()["access_token"])
+            seconds_until_expiry = token_payload["exp"] - int(datetime.utcnow().timestamp())
+            self.assertGreater(seconds_until_expiry, auth.REMEMBER_ME_EXPIRE_DAYS * 86400 - 10)
+
+            reused = self.client.post(
+                "/api/auth/login/verify",
+                json={"challenge_id": challenge_id, "code": code},
+            )
+            self.assertEqual(reused.status_code, 400)
+
+    def test_community_reports_return_reporter_and_source_analysis(self):
+        with self.test_session() as db:
+            user = db.query(models.User).filter_by(email="user@example.com").first()
+            analysis = models.Analysis(
+                user_id=user.id,
+                content="Suspicious message",
+                risk_score=75,
+                risk_level="HIGH",
+                classification="SCAM",
+                ml_probability=0.75,
+                category="Phishing",
+                indicators=[],
+                explanation="Suspicious link",
+                evidence=[],
+                recommended_action="Do not open the link.",
+            )
+            db.add(analysis)
+            db.commit()
+            analysis_id = analysis.id
+            user_id = user.id
+
+        token = auth.create_access_token(
+            {"sub": str(user_id), "email": "user@example.com", "role": "user"},
+            expires_delta=auth.timedelta(minutes=5),
+        )
+        headers = {"Authorization": f"Bearer {token}"}
+        created = self.client.post(
+            "/api/community/reports",
+            headers=headers,
+            json={
+                "content": "Suspicious message",
+                "category": "Phishing",
+                "analysis_id": analysis_id,
+            },
+        )
+        self.assertEqual(created.status_code, 200)
+        self.assertEqual(created.json()["reporter_name"], "Test User")
+        self.assertEqual(created.json()["analysis_id"], analysis_id)
+
+        listed = self.client.get("/api/community/reports", headers=headers)
+        self.assertEqual(listed.status_code, 200)
+        self.assertEqual(listed.json()[0]["reporter_name"], "Test User")
+        self.assertEqual(listed.json()[0]["analysis_id"], analysis_id)
+
+    def test_password_reset_uses_email_code_and_updates_database_password(self):
+        with (
+            patch.object(
+                type(auth.email_service),
+                "is_configured",
+                new_callable=PropertyMock,
+                return_value=True,
+            ),
+            patch.object(auth.email_service, "send_verification_code") as send_email,
+        ):
+            requested = self.client.post(
+                "/api/auth/forgot-password",
+                json={"email": "user@example.com"},
+            )
+            self.assertEqual(requested.status_code, 200)
+            code = send_email.call_args.args[1]
+            reset = self.client.post(
+                "/api/auth/reset-password",
+                json={
+                    "challenge_id": requested.json()["challenge_id"],
+                    "code": code,
+                    "new_password": "Updated-User-Password-2026",
+                },
+            )
+            self.assertEqual(reset.status_code, 200)
+
+        login = self.portal_login(
+            "user", "user@example.com", "Updated-User-Password-2026"
+        )
+        self.assertEqual(login.status_code, 200)
+
+    def test_admin_health_endpoint_returns_measured_checks(self):
+        login = self.portal_login(
+            "admin", "admin@example.com", "Test-Admin-Password-2026"
+        )
+        token = login.json()["access_token"]
+        with patch(
+            "admin.rag_service",
+            SimpleNamespace(collection=SimpleNamespace(count=lambda: 80)),
+        ):
+            response = self.client.get(
+                "/api/admin/health",
+                headers={"Authorization": f"Bearer {token}"},
+            )
+
+        self.assertEqual(response.status_code, 200)
+        health = response.json()
+        self.assertEqual(health["database"]["status"], "up")
+        self.assertTrue(health["database"]["latency"].endswith("ms"))
+        self.assertEqual(health["rag_service"]["status"], "up")
+        self.assertIsNotNone(datetime.fromisoformat(health["system_time"]).tzinfo)
 
     def test_user_me_normalizes_legacy_null_preferences(self):
         with self.test_session() as db:
@@ -177,22 +341,91 @@ class AuthRoleBoundaryTests(unittest.TestCase):
         )
         self.assertEqual(dashboard.status_code, 200)
 
+    def test_unverified_user_is_blocked_from_analysis_routes(self):
+        with self.test_session() as db:
+            user = db.query(models.User).filter_by(email="user@example.com").first()
+            user.email_verified = False
+            db.commit()
+
+        response = self.portal_login(
+            "user", "user@example.com", "Test-User-Password-2026"
+        )
+        self.assertEqual(response.status_code, 200, response.text)
+        token = response.json()["access_token"]
+        dashboard = self.client.get(
+            "/api/analysis/dashboard",
+            headers={"Authorization": "Bearer " + token},
+        )
+        self.assertEqual(dashboard.status_code, 403)
+        self.assertIn("verify your email", dashboard.json()["detail"])
+
     def test_signup_normalizes_email_and_rejects_case_insensitive_duplicate(self):
         payload = {
             "full_name": "New Test User",
             "email": "NewUser@example.com",
             "password": "Strong-Pass-2026",
         }
-        response = self.client.post("/api/auth/signup", json=payload)
+        with (
+            patch.object(
+                type(auth.email_service),
+                "is_configured",
+                new_callable=PropertyMock,
+                return_value=True,
+            ),
+            patch.object(auth.email_service, "send_verification_code"),
+        ):
+            response = self.client.post("/api/auth/signup", json=payload)
         duplicate = self.client.post(
             "/api/auth/signup",
             json={**payload, "email": "NEWUSER@example.com"},
         )
 
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(response.json()["email"], "newuser@example.com")
-        self.assertEqual(response.json()["role"], "user")
+        self.assertTrue(response.json()["account_created"])
+        self.assertTrue(response.json()["verification_email_sent"])
+        self.assertFalse(response.json()["email_verified"])
         self.assertEqual(duplicate.status_code, 409)
+
+    def test_email_verification_unlocks_analysis_routes(self):
+        with (
+            patch.object(
+                type(auth.email_service),
+                "is_configured",
+                new_callable=PropertyMock,
+                return_value=True,
+            ),
+            patch.object(auth.email_service, "send_verification_code") as send_email,
+        ):
+            signup = self.client.post(
+                "/api/auth/signup",
+                json={
+                    "full_name": "Verify Me",
+                    "email": "verify-me@example.com",
+                    "password": "Strong-Pass-2026",
+                },
+            )
+
+        self.assertEqual(signup.status_code, 200)
+        verification = self.client.post(
+            "/api/auth/verify-email",
+            json={
+                "challenge_id": signup.json()["verification_challenge_id"],
+                "code": send_email.call_args.args[1],
+            },
+        )
+        self.assertEqual(verification.status_code, 200)
+
+        login = self.portal_login(
+            "user", "verify-me@example.com", "Strong-Pass-2026"
+        )
+        self.assertEqual(login.status_code, 200, login.text)
+        token = login.json()["access_token"]
+        profile = self.client.get(
+            "/api/auth/me",
+            headers={"Authorization": "Bearer " + token},
+        )
+        self.assertEqual(profile.status_code, 200)
+        self.assertTrue(profile.json()["email_verified"])
 
     def test_signup_can_sign_in_and_load_profile(self):
         signup = self.client.post(

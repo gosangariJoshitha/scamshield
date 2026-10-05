@@ -229,14 +229,31 @@ def start_review(case_id: int, db: Session = Depends(get_db), admin: User = Depe
     r = db.query(ReviewCase).filter(ReviewCase.id == case_id).first()
     if not r:
         raise HTTPException(status_code=404, detail="Case not found")
-        
+
+    if r.status == "IN_REVIEW":
+        return {
+            "success": True,
+            "status": r.status,
+            "assigned_reviewer_id": r.assigned_reviewer_id,
+        }
+    if r.status not in {"PENDING", "ASSIGNED"}:
+        raise HTTPException(
+            status_code=409,
+            detail=f"Review cannot be started while the case is {r.status}.",
+        )
+    if r.assigned_reviewer_id and r.assigned_reviewer_id != admin.id:
+        raise HTTPException(
+            status_code=409,
+            detail="This case is assigned to another reviewer.",
+        )
+
     prev_status = r.status
     r.status = "IN_REVIEW"
     if not r.review_started_at:
         r.review_started_at = datetime.utcnow()
     if not r.assigned_reviewer_id:
         r.assigned_reviewer_id = admin.id
-        
+
     db.commit()
     EscalationService(db).log_event(r.id, admin.id, "CASE_STARTED", prev_status, r.status, "Review started")
     db.add(AuditLog(
@@ -247,7 +264,11 @@ def start_review(case_id: int, db: Session = Depends(get_db), admin: User = Depe
         result="SUCCESS",
     ))
     db.commit()
-    return {"success": True}
+    return {
+        "success": True,
+        "status": r.status,
+        "assigned_reviewer_id": r.assigned_reviewer_id,
+    }
 
 @router.post("/admin/{case_id}/decision")
 def submit_decision(case_id: int, payload: dict, db: Session = Depends(get_db), admin: User = Depends(require_admin)):

@@ -1,19 +1,22 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams } from 'react-router-dom';
 import { 
-  ArrowLeft, ShieldAlert, CheckCircle, AlertTriangle, 
+  ShieldAlert, CheckCircle, AlertTriangle,
   ExternalLink, Database, RefreshCw
 } from 'lucide-react';
 import { reviewService } from '../services/reviewService';
+import { formatRecommendedActions } from '../utils/formatRecommendedActions';
+import AdminBackButton from '../components/AdminBackButton';
 
 export const AdminReviewDetails: React.FC = () => {
   const { id } = useParams<{ id: string }>();
-  const navigate = useNavigate();
   const [caseData, setCaseData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [decision, setDecision] = useState('');
   const [notes, setNotes] = useState('');
+  const [startingReview, setStartingReview] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState<string | null>(null);
   
   const fetchData = useCallback(async () => {
     try {
@@ -33,13 +36,25 @@ export const AdminReviewDetails: React.FC = () => {
   }, [fetchData]);
 
   const handleStartReview = async () => {
+    if (startingReview || !Number.isInteger(Number(id))) return;
+    setStartingReview(true);
     try {
-      await reviewService.startReview(Number(id));
+      const result = await reviewService.startReview(Number(id));
+      setCaseData((current: any) => current ? {
+        ...current,
+        status: result.status,
+        assigned_reviewer_id: result.assigned_reviewer_id,
+      } : current);
       setError(null);
-      fetchData();
+      setSuccess('Review started. You can now record a decision.');
+      await fetchData();
     } catch (err) {
       console.error(err);
-      setError('Unable to start this review.');
+      const detail = (err as { response?: { data?: { detail?: string } } })
+        ?.response?.data?.detail;
+      setError(detail || 'Unable to start this review. Please try again.');
+    } finally {
+      setStartingReview(false);
     }
   };
 
@@ -57,7 +72,10 @@ export const AdminReviewDetails: React.FC = () => {
 
   const handleCreateJira = async () => {
     try {
-      await reviewService.createJiraTicket(Number(id));
+      const result = await reviewService.createJiraTicket(Number(id));
+      setSuccess(result.issue_key
+        ? `Jira ticket ${result.issue_key} created successfully.`
+        : 'Jira ticket created successfully.');
       setError(null);
       fetchData();
     } catch (err) {
@@ -74,7 +92,7 @@ export const AdminReviewDetails: React.FC = () => {
         category: caseData.analysis?.category,
         description: caseData.reviewer_notes,
         indicators: caseData.analysis?.indicators,
-        safe_action: caseData.analysis?.recommended_action
+        safe_action: formatRecommendedActions(caseData.analysis?.recommended_action || '').join('\n')
       });
       setError(null);
       window.alert('Trusted knowledge created successfully.');
@@ -105,12 +123,7 @@ export const AdminReviewDetails: React.FC = () => {
 
   return (
     <div className="space-y-6 max-w-5xl mx-auto pb-10">
-      <button 
-        onClick={() => navigate('/admin/reviews')}
-        className="flex items-center text-sm text-text-muted hover:text-primary transition mb-4"
-      >
-        <ArrowLeft size={16} className="mr-1" /> Back to Review Center
-      </button>
+      <AdminBackButton to="/admin/reviews" label="Back to Human Reviews" />
 
       <div className="flex items-start justify-between">
         <div>
@@ -125,25 +138,33 @@ export const AdminReviewDetails: React.FC = () => {
           </div>
           <p className="text-text-muted text-sm">Escalated due to: {caseData.escalation_reasons?.join(', ') || 'No reason recorded'}</p>
         </div>
-        
-        {caseData.status === 'PENDING' && (
+
+        {['PENDING', 'ASSIGNED'].includes(caseData.status) && (
           <button 
-            onClick={handleStartReview}
-            className="bg-primary hover:bg-primary-hover text-white font-semibold px-4 py-2 rounded-lg transition"
+            type="button"
+            onClick={() => void handleStartReview()}
+            disabled={startingReview}
+            className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 font-semibold text-white transition hover:bg-primary-hover disabled:cursor-not-allowed disabled:opacity-60"
           >
-            Start Review
+            {startingReview && <RefreshCw className="h-4 w-4 animate-spin" aria-hidden="true" />}
+            {startingReview ? 'Starting review…' : 'Start Review'}
           </button>
         )}
       </div>
 
+      {success && (
+        <div className="rounded-xl border border-success/25 bg-success/10 px-4 py-3 text-sm font-semibold text-success" role="status">
+          {success}
+        </div>
+      )}
       {error && (
         <div role="alert" className="rounded-xl border border-danger/20 bg-danger/5 px-4 py-3 text-sm text-danger">
           {error}
         </div>
       )}
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <div className="md:col-span-2 space-y-6">
+      <div className="grid grid-cols-1 @content-md:grid-cols-3 gap-6">
+        <div className="@content-md:col-span-2 space-y-6">
           {/* Analysis Summary */}
           <div className="bg-card border border-border-light rounded-2xl p-6 shadow-sm">
             <h2 className="text-lg font-semibold text-text-main mb-4 flex items-center gap-2">

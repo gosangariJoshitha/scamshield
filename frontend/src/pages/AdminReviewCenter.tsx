@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
-import { AlertTriangle, CheckCircle, ChevronLeft, ChevronRight, Clock, Play, RefreshCw, Search } from 'lucide-react';
+import { AlertTriangle, CheckCircle, ChevronLeft, ChevronRight, Clock, Play, RefreshCw } from 'lucide-react';
 import { reviewService, type ReviewListResponse } from '../services/reviewService';
+import AdminBackButton from '../components/AdminBackButton';
 
 const statusChoices = ['PENDING', 'ASSIGNED', 'IN_REVIEW', 'NEEDS_INFORMATION', 'VERIFIED', 'REJECTED'];
 
@@ -24,7 +25,7 @@ export default function AdminReviewCenter() {
   const [summary, setSummary] = useState<Record<string, number>>({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [search, setSearch] = useState(searchParams.get('search') ?? '');
+  const search = searchParams.get('search') ?? '';
   const [statusFilter, setStatusFilter] = useState('');
   const [page, setPage] = useState(1);
   const [total, setTotal] = useState(0);
@@ -69,22 +70,25 @@ export default function AdminReviewCenter() {
       <header className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <p className="text-xs font-semibold uppercase tracking-wider text-primary">Trust & safety</p>
-          <h2 className="mt-1 text-2xl font-bold tracking-tight text-text-main sm:text-3xl">Human Review</h2>
+          <h2 className="mt-1 text-2xl font-bold tracking-tight text-text-main @content-sm:text-3xl">Human Review</h2>
           <p className="mt-1 text-sm text-text-muted">Investigate escalated and user-submitted analysis cases.</p>
         </div>
-        <button
-          type="button"
-          onClick={() => void fetchReviews()}
-          disabled={loading}
-          className="inline-flex h-10 items-center gap-2 rounded-lg border border-border-light bg-card px-3 text-sm font-semibold text-text-secondary hover:bg-background disabled:opacity-50"
-        >
-          <RefreshCw size={15} className={loading ? 'animate-spin' : ''} /> Refresh
-        </button>
+        <div className="flex items-center gap-2">
+          <AdminBackButton to="/admin" label="Back to Dashboard" />
+          <button
+            type="button"
+            onClick={() => void fetchReviews()}
+            disabled={loading}
+            className="inline-flex h-9 items-center gap-2 rounded-lg border border-border-light bg-card px-3 text-sm font-semibold text-text-secondary hover:bg-background disabled:opacity-50"
+          >
+            <RefreshCw size={15} className={loading ? 'animate-spin' : ''} /> Refresh
+          </button>
+        </div>
       </header>
 
       {error && <div role="alert" className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-danger/20 bg-danger/5 px-4 py-3 text-sm text-danger">{error}<button className="font-semibold underline" onClick={() => void fetchReviews()}>Retry</button></div>}
 
-      <section aria-label="Review case summary" className="grid grid-cols-2 gap-3 xl:grid-cols-4">
+      <section aria-label="Review case summary" className="grid grid-cols-2 gap-3 @content-xl:grid-cols-4">
         {summaryCards.map(({ name, count, icon: Icon, tone }) => (
           <article key={name} className="flex items-center gap-3 rounded-xl border border-border-light bg-card p-4 shadow-sm">
             <span className={`grid h-10 w-10 place-items-center rounded-lg ${tone}`}><Icon size={19} /></span>
@@ -94,23 +98,12 @@ export default function AdminReviewCenter() {
       </section>
 
       <section className="overflow-hidden rounded-xl border border-border-light bg-card shadow-sm">
-        <div className="flex flex-col gap-3 border-b border-border-light bg-background/50 p-4 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex flex-col gap-3 border-b border-border-light bg-background/50 p-4 @content-sm:flex-row @content-sm:items-center @content-sm:justify-between">
           <div>
             <h3 className="font-semibold text-text-main">Review queue</h3>
             <p className="mt-0.5 text-xs text-text-muted">{total.toLocaleString()} matching cases · {summary.TOTAL?.toLocaleString() ?? 0} total</p>
           </div>
-          <div className="flex flex-col gap-2 sm:flex-row">
-            <label className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-text-muted" size={15} />
-              <input
-                type="search"
-                value={search}
-                onChange={(event) => { setSearch(event.target.value); setPage(1); }}
-                placeholder="Search case, reporter, content"
-                aria-label="Search review cases"
-                className="h-10 w-full rounded-lg border border-border-light bg-card pl-9 pr-3 text-sm text-text-main outline-none focus:border-primary sm:w-64"
-              />
-            </label>
+          <div className="flex flex-col gap-2 @content-sm:flex-row">
             <select
               value={statusFilter}
               onChange={(event) => { setStatusFilter(event.target.value); setPage(1); }}
@@ -135,7 +128,20 @@ export default function AdminReviewCenter() {
               </thead>
               <tbody className="divide-y divide-border-light">
                 {reviews.map((review) => (
-                  <tr key={review.id} className="hover:bg-background/60">
+                  <tr
+                    key={review.id}
+                    role="link"
+                    tabIndex={0}
+                    aria-label={`Open review case ${review.id}`}
+                    onClick={() => navigate(`/admin/reviews/${review.id}`)}
+                    onKeyDown={(event) => {
+                      if (event.key === 'Enter' || event.key === ' ') {
+                        event.preventDefault();
+                        navigate(`/admin/reviews/${review.id}`);
+                      }
+                    }}
+                    className="cursor-pointer hover:bg-background/60 focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary"
+                  >
                     <td className="whitespace-nowrap px-4 py-3">
                       <p className="font-semibold text-text-main">RV-{review.id}</p>
                       <p className="text-xs text-text-muted">Analysis #{review.analysis_id}</p>
@@ -147,7 +153,7 @@ export default function AdminReviewCenter() {
                     <td className="max-w-xs px-4 py-3 text-xs text-text-secondary"><p className="line-clamp-2">{review.content_preview || review.escalation_reason || '—'}</p></td>
                     <td className="whitespace-nowrap px-4 py-3"><span className={`rounded-full px-2 py-1 text-[10px] font-semibold ${statusClass(review.status)}`}>{review.status.replaceAll('_', ' ')}</span></td>
                     <td className="max-w-40 truncate px-4 py-3 text-xs text-text-secondary" title={review.reporter}>{review.reporter}</td>
-                    <td className="px-4 py-3 text-right"><button onClick={() => navigate(`/admin/reviews/${review.id}`)} className="rounded-lg bg-primary/10 px-3 py-1.5 text-xs font-semibold text-primary hover:bg-primary/20">View case</button></td>
+                    <td className="px-4 py-3 text-right"><button onClick={(event) => { event.stopPropagation(); navigate(`/admin/reviews/${review.id}`); }} className="rounded-lg bg-primary/10 px-3 py-1.5 text-xs font-semibold text-primary hover:bg-primary/20">View case</button></td>
                   </tr>
                 ))}
               </tbody>

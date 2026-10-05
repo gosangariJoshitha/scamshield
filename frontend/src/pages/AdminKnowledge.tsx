@@ -1,9 +1,10 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { 
-  BookOpen, Plus, Trash2, Check, X, ChevronLeft, ChevronRight, Info, Search
+  BookOpen, Plus, Trash2, Check, X, ChevronLeft, ChevronRight, Info
 } from 'lucide-react';
 import { api } from '../services/api';
+import AdminBackButton from '../components/AdminBackButton';
 
 interface KnowledgeEntry {
   id: number;
@@ -16,6 +17,9 @@ interface KnowledgeEntry {
   pattern: string;
   safe_action: string;
   indicators: string[];
+  description?: string | null;
+  source_type?: string | null;
+  source_reference?: string | null;
 }
 
 export default function AdminKnowledge() {
@@ -30,7 +34,8 @@ export default function AdminKnowledge() {
   const [totalPages, setTotalPages] = useState(1);
   const [statusFilter, setStatusFilter] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('');
-  const [search, setSearch] = useState(searchParams.get('search') ?? '');
+  const search = searchParams.get('search') ?? '';
+  const [selectedEntry, setSelectedEntry] = useState<KnowledgeEntry | null>(null);
   
   const [showAddModal, setShowAddModal] = useState(false);
   const [formData, setFormData] = useState({
@@ -108,18 +113,21 @@ export default function AdminKnowledge() {
   return (
     <div className="space-y-6 max-w-7xl mx-auto pb-10">
       
-      <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
+      <div className="flex flex-col @content-sm:flex-row @content-sm:items-end justify-between gap-4">
         <div>
           <h1 className="text-3xl font-bold text-text-main mb-1">Knowledge Base</h1>
           <p className="text-text-muted">Manage the RAG knowledge entries that power AI verifications.</p>
         </div>
-        <button 
-          onClick={() => setShowAddModal(true)}
-          className="flex items-center gap-2 px-4 py-2 bg-primary text-white font-bold rounded-lg hover:bg-primary-hover transition-colors shadow-lg shadow-primary/20"
-        >
-          <Plus className="w-5 h-5" />
-          Add Entry
-        </button>
+        <div className="flex flex-wrap items-center gap-2">
+          <AdminBackButton to="/admin" label="Back to Dashboard" />
+          <button
+            onClick={() => setShowAddModal(true)}
+            className="flex items-center gap-2 rounded-lg bg-primary px-4 py-2 font-bold text-white shadow-lg shadow-primary/20 transition-colors hover:bg-primary-hover"
+          >
+            <Plus className="w-5 h-5" />
+            Add Entry
+          </button>
+        </div>
       </div>
 
       <div className="rounded-xl border border-primary/20 bg-primary/5 p-5">
@@ -141,16 +149,12 @@ export default function AdminKnowledge() {
         </div>
       </div>
 
-      <div className="bg-card rounded-xl shadow-sm border border-border-light p-4 flex flex-col sm:flex-row justify-between items-center gap-4">
-        <div className="flex items-center gap-4 w-full sm:w-auto">
-          <label className="relative w-full sm:w-64">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-text-muted" size={15} />
-            <input value={search} onChange={(event) => { setSearch(event.target.value); setPage(1); }} placeholder="Search knowledge" aria-label="Search knowledge entries" className="w-full rounded-lg border border-border-light bg-background py-2 pl-9 pr-3 text-sm text-text-main outline-none focus:border-primary" />
-          </label>
+      <div className="bg-card rounded-xl shadow-sm border border-border-light p-4 flex flex-col @content-sm:flex-row justify-between items-center gap-4">
+        <div className="flex items-center gap-4 w-full @content-sm:w-auto">
           <select 
             value={statusFilter} 
             onChange={(e) => { setStatusFilter(e.target.value); setPage(1); }}
-            className="px-3 py-2 bg-background border border-border-light rounded-lg text-sm text-text-main focus:outline-none focus:border-primary w-full sm:w-auto"
+            className="px-3 py-2 bg-background border border-border-light rounded-lg text-sm text-text-main focus:outline-none focus:border-primary w-full @content-sm:w-auto"
           >
             <option value="">All Statuses</option>
             <option value="APPROVED">Approved</option>
@@ -162,7 +166,7 @@ export default function AdminKnowledge() {
             value={categoryFilter}
             onChange={(e) => { setCategoryFilter(e.target.value); setPage(1); }}
             aria-label="Filter knowledge by category"
-            className="px-3 py-2 bg-background border border-border-light rounded-lg text-sm text-text-main focus:outline-none focus:border-primary w-full sm:w-auto"
+            className="px-3 py-2 bg-background border border-border-light rounded-lg text-sm text-text-main focus:outline-none focus:border-primary w-full @content-sm:w-auto"
           >
             <option value="">All Categories</option>
             <option value="PHISHING">Phishing</option>
@@ -204,7 +208,20 @@ export default function AdminKnowledge() {
                   </tr>
                 ) : (
                   entries.map((item) => (
-                    <tr key={item.id} className="hover:bg-background/50 transition-colors">
+                    <tr
+                      key={item.id}
+                      role="button"
+                      tabIndex={0}
+                      aria-label={`Open knowledge article: ${item.title}`}
+                      onClick={() => setSelectedEntry(item)}
+                      onKeyDown={(event) => {
+                        if (event.key === 'Enter' || event.key === ' ') {
+                          event.preventDefault();
+                          setSelectedEntry(item);
+                        }
+                      }}
+                      className="cursor-pointer transition-colors hover:bg-background/50 focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary"
+                    >
                       <td className="px-6 py-4">
                         <div className="flex items-center space-x-3">
                           <BookOpen className="w-4 h-4 text-primary shrink-0" />
@@ -236,7 +253,7 @@ export default function AdminKnowledge() {
                       <td className="px-6 py-4 text-right space-x-2">
                         {item.status !== 'APPROVED' && (
                           <button 
-                            onClick={() => handleApprove(item.id)}
+                            onClick={(event) => { event.stopPropagation(); void handleApprove(item.id); }}
                             className="p-1.5 text-success hover:bg-success/10 rounded transition-colors"
                             title="Approve"
                           >
@@ -244,7 +261,7 @@ export default function AdminKnowledge() {
                           </button>
                         )}
                         <button 
-                          onClick={() => handleDelete(item.id)}
+                          onClick={(event) => { event.stopPropagation(); void handleDelete(item.id); }}
                           className="p-1.5 text-danger hover:bg-danger/10 rounded transition-colors"
                           title="Delete"
                         >
@@ -285,6 +302,78 @@ export default function AdminKnowledge() {
           </div>
         )}
       </div>
+
+      {selectedEntry && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+          onMouseDown={(event) => {
+            if (event.target === event.currentTarget) setSelectedEntry(null);
+          }}
+        >
+          <section
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="knowledge-entry-title"
+            className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-2xl border border-border-light bg-card p-6 shadow-xl"
+          >
+            <div className="flex items-start justify-between gap-4">
+              <div className="min-w-0">
+                <p className="text-xs font-semibold uppercase tracking-wide text-primary">Knowledge article · #{selectedEntry.id}</p>
+                <h2 id="knowledge-entry-title" className="mt-1 text-xl font-bold text-text-main">{selectedEntry.title}</h2>
+              </div>
+              <button
+                type="button"
+                onClick={() => setSelectedEntry(null)}
+                aria-label="Close knowledge article"
+                className="rounded-lg p-2 text-text-muted hover:bg-background hover:text-text-main"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            <div className="mt-5 grid grid-cols-2 gap-3 @content-sm:grid-cols-4">
+              {[
+                ['Category', selectedEntry.category],
+                ['Risk level', selectedEntry.risk_level],
+                ['Status', selectedEntry.status],
+                ['Source', selectedEntry.source],
+              ].map(([label, value]) => (
+                <div key={label} className="rounded-xl border border-border-light bg-background p-3">
+                  <p className="text-[10px] font-bold uppercase text-text-muted">{label}</p>
+                  <p className="mt-1 break-words text-sm font-semibold text-text-main">{value || 'Not recorded'}</p>
+                </div>
+              ))}
+            </div>
+            <div className="mt-5 space-y-4">
+              <div>
+                <h3 className="text-sm font-bold text-text-main">Pattern / article content</h3>
+                <p className="mt-2 whitespace-pre-wrap break-words rounded-xl border border-border-light bg-background p-4 text-sm leading-relaxed text-text-secondary">{selectedEntry.pattern || 'No pattern content recorded.'}</p>
+              </div>
+              <div>
+                <h3 className="text-sm font-bold text-text-main">Description</h3>
+                <p className="mt-2 whitespace-pre-wrap break-words rounded-xl border border-border-light bg-background p-4 text-sm leading-relaxed text-text-secondary">{selectedEntry.description || 'No description recorded.'}</p>
+              </div>
+              <div>
+                <h3 className="text-sm font-bold text-text-main">Warning indicators</h3>
+                {selectedEntry.indicators?.length ? (
+                  <ul className="mt-2 flex flex-wrap gap-2">
+                    {selectedEntry.indicators.map((indicator) => (
+                      <li key={indicator} className="rounded-full bg-warning/10 px-3 py-1 text-xs font-medium text-warning">{indicator}</li>
+                    ))}
+                  </ul>
+                ) : <p className="mt-2 text-sm text-text-muted">No indicators recorded.</p>}
+              </div>
+              <div>
+                <h3 className="text-sm font-bold text-text-main">Recommended safe action</h3>
+                <p className="mt-2 whitespace-pre-wrap break-words rounded-xl border border-success/20 bg-success/5 p-4 text-sm leading-relaxed text-text-secondary">{selectedEntry.safe_action || 'No action recorded.'}</p>
+              </div>
+              <div className="border-t border-border-light pt-3 text-xs text-text-muted">
+                <p>Origin: {selectedEntry.source_type || 'Not recorded'}{selectedEntry.source_reference ? ` · ${selectedEntry.source_reference}` : ''}</p>
+                <p className="mt-1">Added {new Date(selectedEntry.created_at).toLocaleString()}</p>
+              </div>
+            </div>
+          </section>
+        </div>
+      )}
 
       {/* Add Modal */}
       {showAddModal && (

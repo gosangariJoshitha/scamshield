@@ -1,8 +1,8 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import axios from 'axios';
 import { auth } from '../services/auth';
-import { storeToken } from '../services/token';
+import { hasToken, storeToken } from '../services/token';
 import { ShieldCheck, Eye, EyeOff, Loader2, Check, Lock, Moon, Sun } from 'lucide-react';
 import { useTheme } from '../hooks/useTheme';
 
@@ -22,11 +22,32 @@ export default function AuthPage({ initialMode, adminOnly = false }: AuthPagePro
   const [fullName, setFullName] = useState('');
   const [rememberMe, setRememberMe] = useState(false);
   const [agreedToTerms, setAgreedToTerms] = useState(false);
+  const [challengeId, setChallengeId] = useState('');
+  const [verificationCode, setVerificationCode] = useState('');
   
   // UI states
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+
+  useEffect(() => {
+    if (hasToken()) {
+      auth.me().then((userData) => {
+        if (!userData || userData.is_active === false) return;
+        if (userData.role === 'admin') {
+          navigate('/admin', { replace: true });
+        } else if (userData.role === 'user') {
+          if (userData.email_verified === false) {
+            navigate('/verify-email', { replace: true });
+          } else {
+            navigate('/dashboard', { replace: true });
+          }
+        }
+      }).catch(() => {
+        // Token invalid, stay on auth page
+      });
+    }
+  }, [navigate]);
 
   const toggleMode = (newMode: 'login' | 'signup') => {
     if (newMode === mode) return;
@@ -69,8 +90,9 @@ export default function AuthPage({ initialMode, adminOnly = false }: AuthPagePro
     let tokenStored = false;
     
     try {
+      let signupData: Awaited<ReturnType<typeof auth.signup>> | undefined;
       if (mode === 'signup') {
-        await auth.signup({
+        signupData = await auth.signup({
           email: email.trim(),
           password,
           full_name: fullName.trim(),
@@ -81,18 +103,49 @@ export default function AuthPage({ initialMode, adminOnly = false }: AuthPagePro
         const loginData = await auth.login(
           { email: email.trim(), password },
           adminOnly ? 'admin' : 'user',
+          rememberMe,
         );
+        if (loginData.requires_two_factor) {
+          if (!loginData.challenge_id) {
+            throw new Error('The verification challenge was not returned.');
+          }
+          setChallengeId(loginData.challenge_id);
+          return;
+        }
+        if (!loginData.access_token) {
+          throw new Error('The authentication service returned no access token.');
+        }
         storeToken(loginData.access_token, rememberMe);
         tokenStored = true;
         const userData = await auth.me();
-        const expectedRole = adminOnly ? 'admin' : 'user';
-        if (!userData || userData.role !== expectedRole || userData.is_active === false) {
+        if (!userData || userData.is_active === false) {
           auth.logout();
           tokenStored = false;
-          setError(`This account cannot sign in to the ${adminOnly ? 'admin' : 'user'} portal.`);
+          setError('Unable to access account. Please check your credentials.');
           return;
         }
-        navigate(adminOnly ? '/admin' : '/dashboard');
+        if (adminOnly && userData.role !== 'admin') {
+          auth.logout();
+          tokenStored = false;
+          setError('This account does not have administrator privileges.');
+          return;
+        }
+        if (!adminOnly && userData.role !== 'user' && userData.role !== 'admin') {
+          auth.logout();
+          tokenStored = false;
+          setError('This account cannot sign in to the user portal.');
+          return;
+        }
+
+        if (userData.role === 'admin') {
+          navigate('/admin');
+        } else if (userData.email_verified === false) {
+          navigate('/verify-email', {
+            state: { challengeId: signupData?.verification_challenge_id || null },
+          });
+        } else {
+          navigate('/dashboard');
+        }
       }
     } catch (err: unknown) {
       if (tokenStored) auth.logout();
@@ -124,6 +177,47 @@ export default function AuthPage({ initialMode, adminOnly = false }: AuthPagePro
       } else {
         console.error('Authentication failed', err);
         setError('An unexpected authentication error occurred. Please try again.');
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleVerifyTwoFactor = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    setError('');
+    setLoading(true);
+    let tokenStored = false;
+    try {
+      const loginData = await auth.verifyLogin(challengeId, verificationCode, rememberMe);
+      storeToken(loginData.access_token, rememberMe);
+      tokenStored = true;
+      const userData = await auth.me();
+      if (!userData || userData.is_active === false) {
+        auth.logout();
+        setError('Unable to access account.');
+        return;
+      }
+      if (adminOnly && userData.role !== 'admin') {
+        auth.logout();
+        setError('This account does not have administrator privileges.');
+        return;
+      }
+      if (userData.role === 'admin') {
+        navigate('/admin');
+      } else if (userData.email_verified === false) {
+        navigate('/verify-email');
+      } else {
+        navigate('/dashboard');
+      }
+    } catch (err: unknown) {
+      if (tokenStored) auth.logout();
+      if (axios.isAxiosError(err)) {
+        const detail = err.response?.data?.detail;
+        setError(typeof detail === 'string' ? detail : 'The verification code is invalid or expired.');
+      } else {
+        console.error('Two-step verification failed', err);
+        setError('Could not verify this sign-in. Please try again.');
       }
     } finally {
       setLoading(false);
@@ -220,9 +314,52 @@ export default function AuthPage({ initialMode, adminOnly = false }: AuthPagePro
               </div>
             )}
 
+            {challengeId ? (
+              <form onSubmit={handleVerifyTwoFactor} className="flex flex-col">
+                <div className="mb-5">
+                  <h3 className="font-semibold text-text-main">Check your email</h3>
+                  <p className="mt-1 text-sm text-text-muted">
+                    Enter the 6-digit verification code sent to {email}.
+                  </p>
+                </div>
+                <label htmlFor="login-verification-code" className="mb-1.5 text-sm font-medium text-text-main">
+                  Verification code
+                </label>
+                <input
+                  id="login-verification-code"
+                  type="text"
+                  inputMode="numeric"
+                  autoComplete="one-time-code"
+                  pattern="[0-9]{6}"
+                  maxLength={6}
+                  required
+                  value={verificationCode}
+                  onChange={(event) => setVerificationCode(event.target.value.replace(/\D/g, '').slice(0, 6))}
+                  className="mb-5 h-11 rounded-xl border border-border-main bg-card px-4 text-center text-lg tracking-[0.4em] text-text-main focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
+                />
+                <button
+                  type="submit"
+                  disabled={loading || verificationCode.length !== 6}
+                  className="h-11 rounded-xl bg-primary font-semibold text-white transition-colors hover:bg-primary-hover disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  {loading ? <Loader2 className="mx-auto h-5 w-5 animate-spin" /> : 'Verify and sign in'}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setChallengeId('');
+                    setVerificationCode('');
+                    setError('');
+                  }}
+                  className="mt-3 text-sm font-semibold text-primary hover:text-primary-hover"
+                >
+                  Use a different account
+                </button>
+              </form>
+            ) : (
             <form onSubmit={handleSubmit} className="flex flex-col">
               {/* Full Name - Only for Signup */}
-              {!adminOnly && <div className={`overflow-hidden transition-all duration-300 ${mode === 'signup' ? 'max-h-24 opacity-100 mb-5' : 'max-h-0 opacity-0 mb-0'}`}>
+              {!adminOnly && <div hidden={mode !== 'signup'} className={`overflow-hidden transition-all duration-300 ${mode === 'signup' ? 'max-h-24 opacity-100 mb-5' : 'max-h-0 opacity-0 mb-0'}`}>
                 <label className="block text-text-main mb-1.5 text-sm font-medium">Full Name</label>
                 <input 
                   type="text" 
@@ -274,7 +411,7 @@ export default function AuthPage({ initialMode, adminOnly = false }: AuthPagePro
               </div>
 
               {/* Password Validation Feedback - Only for Signup */}
-              {!adminOnly && <div className={`overflow-hidden transition-all duration-300 ${mode === 'signup' ? 'max-h-32 opacity-100 mb-5 mt-2' : 'max-h-0 opacity-0 mb-0'}`}>
+              {!adminOnly && <div hidden={mode !== 'signup'} className={`overflow-hidden transition-all duration-300 ${mode === 'signup' ? 'max-h-32 opacity-100 mb-5 mt-2' : 'max-h-0 opacity-0 mb-0'}`}>
                 {isPasswordValid && password.length > 0 ? (
                   <div className="text-xs text-success flex items-center space-x-1 font-medium">
                     <Check className="w-3.5 h-3.5" />
@@ -330,7 +467,7 @@ export default function AuthPage({ initialMode, adminOnly = false }: AuthPagePro
               )}
 
               {/* Confirm Password - Only for Signup */}
-              {!adminOnly && <div className={`overflow-hidden transition-all duration-300 ${mode === 'signup' ? 'max-h-24 opacity-100 mb-5' : 'max-h-0 opacity-0 mb-0'}`}>
+              {!adminOnly && <div hidden={mode !== 'signup'} className={`overflow-hidden transition-all duration-300 ${mode === 'signup' ? 'max-h-24 opacity-100 mb-5' : 'max-h-0 opacity-0 mb-0'}`}>
                 <label className="block text-text-main mb-1.5 text-sm font-medium">Confirm Password</label>
                 <input 
                   type={showPassword ? "text" : "password"} 
@@ -344,7 +481,7 @@ export default function AuthPage({ initialMode, adminOnly = false }: AuthPagePro
               </div>}
 
               {/* Terms - Only for Signup */}
-              {!adminOnly && <div className={`overflow-hidden transition-all duration-300 ${mode === 'signup' ? 'max-h-12 opacity-100 mb-6 mt-1' : 'max-h-0 opacity-0 mb-0'}`}>
+              {!adminOnly && <div hidden={mode !== 'signup'} className={`overflow-hidden transition-all duration-300 ${mode === 'signup' ? 'max-h-12 opacity-100 mb-6 mt-1' : 'max-h-0 opacity-0 mb-0'}`}>
                 <label className="flex items-start space-x-2 cursor-pointer group">
                   <div className="relative flex items-center justify-center mt-0.5 shrink-0">
                     <input 
@@ -378,8 +515,9 @@ export default function AuthPage({ initialMode, adminOnly = false }: AuthPagePro
                 )}
               </button>
             </form>
+            )}
 
-            {!adminOnly && <div className="mt-8 text-center text-sm font-medium">
+            {!challengeId && !adminOnly && <div className="mt-8 text-center text-sm font-medium">
               <span className="text-text-secondary">
                 {mode === 'login' ? "Don't have an account? " : "Already have an account? "}
               </span>
@@ -392,13 +530,19 @@ export default function AuthPage({ initialMode, adminOnly = false }: AuthPagePro
               </button>
             </div>}
 
-            {!adminOnly && (
+            {!challengeId && !adminOnly && (
               <div className="mt-4 text-center text-sm font-medium text-text-secondary">
                 Not a user? <Link to="/admin/login" className="font-semibold text-primary hover:text-primary-hover">Admin sign in</Link>
               </div>
             )}
 
-            {adminOnly && (
+            {challengeId && !adminOnly && (
+              <div className="mt-5 text-center text-sm">
+                <Link to="/admin/login" className="font-semibold text-primary hover:text-primary-hover">Admin sign in</Link>
+              </div>
+            )}
+
+            {!challengeId && adminOnly && (
               <div className="mt-8 text-center text-sm font-medium text-text-secondary">
                 Not an administrator? <Link to="/login" className="font-semibold text-primary hover:text-primary-hover">Go to user login</Link>
               </div>

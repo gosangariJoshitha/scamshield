@@ -7,11 +7,25 @@ from app.services.audio_service import AudioService
 import json
 
 logger = logging.getLogger(__name__)
+MAX_UPLOAD_BYTES = 50 * 1024 * 1024
 
 # Instantiate services globally so models are loaded once
 pdf_service = PDFService()
 ocr_service = OCRService()
 audio_service = AudioService()
+
+
+async def _read_upload(file: UploadFile) -> bytes:
+    file_bytes = await file.read(MAX_UPLOAD_BYTES + 1)
+    if not file_bytes:
+        raise HTTPException(status_code=400, detail="Uploaded file is empty.")
+    if len(file_bytes) > MAX_UPLOAD_BYTES:
+        raise HTTPException(
+            status_code=413,
+            detail="Uploaded file exceeds the 50 MiB size limit.",
+        )
+    return file_bytes
+
 
 class InputRouter:
     async def route_and_extract(
@@ -56,7 +70,7 @@ class InputRouter:
                 raise HTTPException(status_code=400, detail="PDF file is required")
             
             original_filename = file.filename
-            file_bytes = await file.read()
+            file_bytes = await _read_upload(file)
             
             extracted_text, metadata = pdf_service.extract_text(file_bytes)
             
@@ -66,7 +80,7 @@ class InputRouter:
                 raise HTTPException(status_code=400, detail="Image file is required")
             
             original_filename = file.filename
-            file_bytes = await file.read()
+            file_bytes = await _read_upload(file)
             
             extracted_text, metadata = ocr_service.extract_text(file_bytes, image_language)
             
@@ -75,7 +89,7 @@ class InputRouter:
                 raise HTTPException(status_code=400, detail="Audio file is required")
             
             original_filename = file.filename
-            file_bytes = await file.read()
+            file_bytes = await _read_upload(file)
             audio_extension = {
                 "audio/mpeg": ".mp3",
                 "audio/wav": ".wav",

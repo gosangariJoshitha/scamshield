@@ -49,7 +49,7 @@ export default function AdminSystemHealth() {
   return (
     <div className="space-y-6 max-w-5xl mx-auto pb-10">
       
-      <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
+      <div className="flex flex-col @content-sm:flex-row @content-sm:items-end justify-between gap-4">
         <div>
           <h1 className="text-3xl font-bold text-text-main mb-1">System Health</h1>
           <p className="text-text-muted">Real-time status of ScamShield services and integrations.</p>
@@ -78,7 +78,7 @@ export default function AdminSystemHealth() {
           <button onClick={fetchHealth} className="mt-3 underline underline-offset-2">Retry</button>
         </div>
       ) : health ? (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 @content-sm:grid-cols-2 @content-lg:grid-cols-4 gap-4">
           
           <div className="bg-card rounded-xl shadow-sm border border-border-light p-6 flex flex-col items-center text-center">
             <div className="mb-4 bg-background p-3 rounded-full border border-border-light">

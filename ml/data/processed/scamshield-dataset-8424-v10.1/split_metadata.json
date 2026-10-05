@@ -1,0 +1,119 @@
+{
+  "dataset_version": "scamshield-dataset-8424-v10.1",
+  "source_dataset": "ml/data/raw/scamshield_dataset.csv",
+  "source_dataset_rows": 8424,
+  "generated_at": "2026-10-05T09:46:53+00:00",
+  "random_seed": 42,
+  "split_strategy": "canonical pattern_id-grouped stratified 70/15/15; 20 stratified group folds, 3 held-out folds each for validation and test",
+  "group_field": "pattern_id",
+  "row_count": 8424,
+  "columns": [
+    "sample_id",
+    "text",
+    "label",
+    "category",
+    "pattern_name",
+    "pattern_id",
+    "language",
+    "indicators",
+    "expected_action",
+    "resolution_steps",
+    "severity",
+    "priority",
+    "notes",
+    "input_channel",
+    "category_type",
+    "scam_category",
+    "source",
+    "data_origin",
+    "processed_text"
+  ],
+  "normalizer": "backend.app.services.text_service.preprocess_text",
+  "replacements": {
+    "sample_id": 0,
+    "text": 0,
+    "label": 0,
+    "category": 0,
+    "pattern_name": 0,
+    "pattern_id": 0,
+    "language": 0,
+    "indicators": 0,
+    "expected_action": 0,
+    "resolution_steps": 0,
+    "severity": 4212,
+    "priority": 0,
+    "notes": 0,
+    "input_channel": 0,
+    "category_type": 0,
+    "scam_category": 0,
+    "source": 0,
+    "data_origin": 0,
+    "genuine_severity_to_LOW": 0,
+    "genuine_priority_to_P4": 0
+  },
+  "splits": {
+    "train": {
+      "file": "train.csv",
+      "row_count": 5916,
+      "label_distribution": {
+        "genuine": 2952,
+        "scam": 2964
+      },
+      "language_distribution": {
+        "en": 1981,
+        "hi": 1975,
+        "te": 1960
+      },
+      "label_language_distribution": {
+        "genuine:en": 981,
+        "genuine:hi": 986,
+        "genuine:te": 985,
+        "scam:en": 1000,
+        "scam:hi": 989,
+        "scam:te": 975
+      }
+    },
+    "validation": {
+      "file": "val.csv",
+      "row_count": 1249,
+      "label_distribution": {
+        "genuine": 625,
+        "scam": 624
+      },
+      "language_distribution": {
+        "en": 424,
+        "hi": 406,
+        "te": 419
+      },
+      "label_language_distribution": {
+        "genuine:en": 220,
+        "genuine:hi": 199,
+        "genuine:te": 206,
+        "scam:en": 204,
+        "scam:hi": 207,
+        "scam:te": 213
+      }
+    },
+    "test": {
+      "file": "test.csv",
+      "row_count": 1259,
+      "label_distribution": {
+        "genuine": 635,
+        "scam": 624
+      },
+      "language_distribution": {
+        "en": 403,
+        "hi": 427,
+        "te": 429
+      },
+      "label_language_distribution": {
+        "genuine:en": 203,
+        "genuine:hi": 219,
+        "genuine:te": 213,
+        "scam:en": 200,
+        "scam:hi": 208,
+        "scam:te": 216
+      }
+    }
+  }
+}

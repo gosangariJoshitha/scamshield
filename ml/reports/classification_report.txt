@@ -1,11 +1,15 @@
-Classification Report on Test Set
-=================================
+Offline Classification Report on the Held-Out Test Split
+========================================================
+Dataset: scamshield-dataset-8424-v10.1
+Model: scamshield-classifier-v5
+Test rows: 1259
+This is an offline benchmark, not real-world accuracy.
 
               precision    recall  f1-score   support
 
-     genuine       0.99      1.00      1.00       150
-        scam       1.00      0.99      1.00       150
+     genuine       1.00      1.00      1.00       635
+        scam       1.00      1.00      1.00       624
 
-    accuracy                           1.00       300
-   macro avg       1.00      1.00      1.00       300
-weighted avg       1.00      1.00      1.00       300
+    accuracy                           1.00      1259
+   macro avg       1.00      1.00      1.00      1259
+weighted avg       1.00      1.00      1.00      1259

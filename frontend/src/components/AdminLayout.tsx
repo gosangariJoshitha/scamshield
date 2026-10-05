@@ -1,8 +1,8 @@
-import { FormEvent, useEffect, useMemo, useRef, useState } from 'react';
+import { FormEvent, useEffect, useRef, useState } from 'react';
 import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import {
-  Activity, BookOpen, ChevronDown, ClipboardList, LayoutDashboard,
-  LogOut, Menu, Moon, Search, Settings, ShieldAlert, ShieldCheck, Sun, Users, UserRound, X
+  Activity, BookOpen, ClipboardList, LayoutDashboard, LogOut, Menu, Moon,
+  PanelLeftClose, Search, Settings, ShieldAlert, ShieldCheck, Sun, User, Users, UserRound, X
 } from 'lucide-react';
 import { auth } from '../services/auth';
 import { hasToken } from '../services/token';
@@ -17,35 +17,55 @@ type AdminUser = {
 
 const navigation = [
   { name: 'Dashboard', path: '/admin', icon: LayoutDashboard },
+  { name: 'Analyses', path: '/admin/analyses', icon: ClipboardList },
   { name: 'Human Review', path: '/admin/reviews', icon: ShieldAlert },
   { name: 'Community', path: '/admin/community', icon: Users },
   { name: 'Knowledge Base', path: '/admin/knowledge', icon: BookOpen },
   { name: 'Users', path: '/admin/users', icon: UserRound },
   { name: 'Monitoring', path: '/admin/monitoring', icon: Activity },
+  { name: 'Audit Log', path: '/admin/audit', icon: ClipboardList },
 ];
 
-function getPageTitle(pathname: string) {
-  const selected = navigation.find((item) =>
-    item.path === '/admin' ? pathname === item.path : pathname.startsWith(item.path)
-  );
-  if (pathname.startsWith('/admin/settings')) return 'Settings';
-  if (pathname.startsWith('/admin/audit')) return 'Audit Log';
-  if (pathname.startsWith('/admin/analyses')) return 'Analysis Details';
-  return selected?.name ?? 'Admin Portal';
+function isNavigationItemActive(pathname: string, itemPath: string) {
+  if (itemPath === '/admin') return pathname === itemPath;
+  return pathname === itemPath || pathname.startsWith(`${itemPath}/`);
 }
 
 export default function AdminLayout() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-  const [showProfileMenu, setShowProfileMenu] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(
+    () => window.localStorage.getItem('scamshield-sidebar-collapsed') !== 'false'
+  );
   const [user, setUser] = useState<AdminUser | null>(null);
   const [authLoading, setAuthLoading] = useState(true);
   const [authError, setAuthError] = useState<string | null>(null);
   const [searchValue, setSearchValue] = useState('');
+  const [showProfileMenu, setShowProfileMenu] = useState(false);
+  const profileRef = useRef<HTMLDivElement>(null);
   const location = useLocation();
   const navigate = useNavigate();
   const { theme, toggleTheme } = useTheme();
-  const profileMenuRef = useRef<HTMLDivElement>(null);
-  const pageTitle = useMemo(() => getPageTitle(location.pathname), [location.pathname]);
+
+  useEffect(() => {
+    window.localStorage.setItem('scamshield-sidebar-collapsed', String(sidebarCollapsed));
+  }, [sidebarCollapsed]);
+
+  useEffect(() => {
+    setSearchValue(new URLSearchParams(location.search).get('search') ?? '');
+  }, [location.search]);
+
+  // Handle clicking outside to close profile dropdown
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (profileRef.current && !profileRef.current.contains(event.target as Node)) {
+        setShowProfileMenu(false);
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, []);
 
   useEffect(() => {
     let active = true;
@@ -80,32 +100,30 @@ export default function AdminLayout() {
     return () => { active = false; };
   }, [navigate]);
 
-  useEffect(() => {
-    function handleClickOutside(event: MouseEvent) {
-      if (profileMenuRef.current && !profileMenuRef.current.contains(event.target as Node)) {
-        setShowProfileMenu(false);
-      }
-    }
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, []);
-
   const handleLogout = () => {
     auth.logout();
     navigate('/admin/login', { replace: true });
   };
 
-  const submitSearch = (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
+  const positionCollapsedTooltip = (trigger: HTMLElement) => {
+    const tooltip = trigger.querySelector<HTMLElement>('.sidebar-layout__tooltip');
+    if (!tooltip) return;
+    const bounds = trigger.getBoundingClientRect();
+    tooltip.style.left = `${bounds.right + 12}px`;
+    tooltip.style.top = `${bounds.top + bounds.height / 2}px`;
+  };
+
+  const submitSearch = (event?: FormEvent<HTMLFormElement> | React.KeyboardEvent | React.MouseEvent) => {
+    if (event && 'preventDefault' in event) event.preventDefault();
     const query = searchValue.trim();
-    if (!query) return;
     const pathname = location.pathname;
     const target = pathname.startsWith('/admin/users') ? '/admin/users'
       : pathname.startsWith('/admin/community') ? '/admin/community'
       : pathname.startsWith('/admin/reviews') ? '/admin/reviews'
       : pathname.startsWith('/admin/knowledge') ? '/admin/knowledge'
+      : pathname.startsWith('/admin/audit') ? '/admin/audit'
       : '/admin/analyses';
-    navigate(`${target}?search=${encodeURIComponent(query)}`);
+    navigate(query ? `${target}?search=${encodeURIComponent(query)}` : target);
     setIsMobileMenuOpen(false);
   };
 
@@ -141,190 +159,219 @@ export default function AdminLayout() {
   }
 
   return (
-    <div className="flex min-h-screen overflow-hidden bg-background text-text-main">
+    <div className="flex h-screen overflow-hidden bg-background text-text-main">
       {isMobileMenuOpen && (
         <button
           type="button"
-          aria-label="Close navigation"
-          className="fixed inset-0 z-40 bg-midnight/60 backdrop-blur-sm lg:hidden"
+          aria-label="Close navigation menu"
+          className="fixed inset-0 z-40 bg-midnight/60 backdrop-blur-sm md:hidden"
           onClick={() => setIsMobileMenuOpen(false)}
         />
       )}
 
-      <aside className={`fixed inset-y-0 left-0 z-50 flex w-56 flex-col bg-midnight text-slate-100 transition-transform duration-200 lg:static lg:translate-x-0 ${
+      <aside data-collapsed={sidebarCollapsed} className={`sidebar-layout__sidebar admin-layout__sidebar fixed inset-y-0 left-0 z-50 flex h-full w-72 shrink-0 flex-col border-r border-slate-700/70 bg-midnight text-slate-100 shadow-sm transition-[width,transform] duration-200 ease-in-out md:translate-x-0 ${
         isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full'
       }`}>
-        <div className="flex h-[68px] items-center gap-3 border-b border-slate-700/70 px-5">
-          <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary/15 text-primary-light">
-            <ShieldCheck size={22} aria-hidden="true" />
-          </div>
-          <div className="min-w-0">
-            <p className="truncate text-sm font-extrabold tracking-wide text-white">ScamShield</p>
-            <p className="text-[11px] font-medium text-slate-400">Admin Portal</p>
+        <div className="sidebar-layout__header admin-layout__brand-header group relative mb-2 flex min-h-20 items-center justify-between gap-2 border-b border-slate-700/70 px-4">
+          <div aria-label="ScamShield admin portal" className="sidebar-layout__brand flex min-w-0 items-center gap-2 rounded-lg px-2 py-2">
+            <ShieldCheck className="sidebar-layout__brand-icon h-8 w-8 shrink-0 text-primary-light" aria-hidden="true" />
+            <span className="sidebar-layout__brand-label min-w-0">
+              <span className="block truncate text-sm font-extrabold tracking-wide text-white">ScamShield</span>
+              <span className="block text-[11px] font-medium text-slate-400">Admin Portal</span>
+            </span>
           </div>
           <button
             type="button"
-            className="ml-auto rounded-md p-1 text-slate-400 hover:bg-slate-800 lg:hidden"
+            className="rounded-lg p-2 text-slate-400 transition-colors hover:bg-slate-800 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary md:hidden"
             onClick={() => setIsMobileMenuOpen(false)}
-            aria-label="Close menu"
+            aria-label="Close navigation menu"
           >
-            <X size={17} />
+            <X className="h-5 w-5" />
           </button>
+          <div className="admin-layout__toggle-slot hidden md:grid" aria-label="Sidebar controls">
+            <button
+              type="button"
+              onClick={() => setSidebarCollapsed((collapsed) => !collapsed)}
+              aria-label={sidebarCollapsed ? 'Open sidebar' : 'Close sidebar'}
+              aria-expanded={!sidebarCollapsed}
+              onMouseEnter={(event) => positionCollapsedTooltip(event.currentTarget)}
+              onFocus={(event) => positionCollapsedTooltip(event.currentTarget)}
+              className="sidebar-layout__toggle group relative rounded-full p-2 text-slate-400 transition-colors hover:bg-slate-800 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+            >
+              <PanelLeftClose
+                className={`h-5 w-5 transition-transform duration-200 ${sidebarCollapsed ? 'rotate-180' : ''}`}
+                aria-hidden="true"
+              />
+              <span role="tooltip" className="sidebar-layout__tooltip pointer-events-none fixed left-0 top-0 z-50 -translate-y-1/2 translate-x-1 whitespace-nowrap rounded-md bg-slate-950 px-2.5 py-1.5 text-xs font-semibold text-white opacity-0 shadow-lg transition duration-150 group-hover:translate-x-0 group-hover:opacity-100 group-focus-visible:translate-x-0 group-focus-visible:opacity-100">
+                {sidebarCollapsed ? 'Open sidebar' : 'Close sidebar'}
+              </span>
+            </button>
+          </div>
         </div>
 
-        <nav aria-label="Admin navigation" className="flex-1 space-y-1 overflow-y-auto px-3 py-5">
+        <nav aria-label="Admin navigation" className="sidebar-layout__nav admin-layout__nav flex-1 space-y-1 overflow-x-hidden overflow-y-auto px-3 py-2">
           {navigation.map(({ name, path, icon: Icon }) => {
-            const active = path === '/admin'
-              ? location.pathname === path
-              : location.pathname.startsWith(path);
+            const active = isNavigationItemActive(location.pathname, path);
             return (
               <Link
                 key={path}
                 to={path}
                 onClick={() => setIsMobileMenuOpen(false)}
                 aria-current={active ? 'page' : undefined}
-                className={`flex items-center gap-3 rounded-lg px-3 py-2.5 text-[13px] font-semibold transition-colors ${
+                onMouseEnter={(event) => positionCollapsedTooltip(event.currentTarget)}
+                onFocus={(event) => positionCollapsedTooltip(event.currentTarget)}
+                aria-label={name}
+                className={`sidebar-layout__nav-link group relative flex h-12 items-center gap-3 rounded-xl border border-transparent px-3 text-sm font-semibold transition-colors hover:bg-slate-800/80 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary ${
                   active
-                    ? 'bg-primary/20 text-primary-light'
-                    : 'text-slate-300 hover:bg-slate-800/80 hover:text-white'
+                    ? 'border-primary/20 bg-primary/20 font-bold text-white before:absolute before:bottom-2 before:left-0 before:top-2 before:w-0.5 before:rounded-full before:bg-primary-light'
+                    : 'text-slate-300'
                 }`}
               >
-                <Icon size={18} aria-hidden="true" />
-                <span>{name}</span>
+                <Icon className={`h-6 w-6 shrink-0 transition-colors ${
+                  active ? 'text-primary-light' : 'text-slate-400 group-hover:text-white'
+                }`} aria-hidden="true" />
+                <span className="sidebar-layout__nav-label truncate">{name}</span>
+                {sidebarCollapsed && (
+                  <span role="tooltip" className="sidebar-layout__tooltip pointer-events-none fixed left-0 top-0 z-50 -translate-y-1/2 translate-x-1 whitespace-nowrap rounded-md bg-slate-950 px-2.5 py-1.5 text-xs font-semibold text-white opacity-0 shadow-lg transition duration-150 group-hover:translate-x-0 group-hover:opacity-100 group-focus-visible:translate-x-0 group-focus-visible:opacity-100">
+                    {name}
+                  </span>
+                )}
               </Link>
             );
           })}
         </nav>
 
-        <div className="space-y-3 border-t border-slate-700/70 p-3">
+        <div className="mt-auto space-y-3 border-t border-slate-700/70 p-3">
           <Link
             to="/admin/settings"
             onClick={() => setIsMobileMenuOpen(false)}
-            className={`flex items-center gap-3 rounded-lg px-3 py-2.5 text-[13px] font-semibold transition-colors ${
-              location.pathname.startsWith('/admin/settings')
-                ? 'bg-primary/20 text-primary-light'
-                : 'text-slate-300 hover:bg-slate-800/80 hover:text-white'
+            aria-current={isNavigationItemActive(location.pathname, '/admin/settings') ? 'page' : undefined}
+            onMouseEnter={(event) => positionCollapsedTooltip(event.currentTarget)}
+            onFocus={(event) => positionCollapsedTooltip(event.currentTarget)}
+            aria-label="Settings"
+            className={`sidebar-layout__nav-link group relative flex h-12 items-center gap-3 rounded-xl border border-transparent px-3 text-sm font-semibold transition-colors hover:bg-slate-800/80 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary ${
+              isNavigationItemActive(location.pathname, '/admin/settings')
+                ? 'border-primary/20 bg-primary/20 font-bold text-white before:absolute before:bottom-2 before:left-0 before:top-2 before:w-0.5 before:rounded-full before:bg-primary-light'
+                : 'text-slate-300'
             }`}
           >
-            <Settings size={18} aria-hidden="true" />
-            Settings
+            <Settings className={`h-6 w-6 shrink-0 transition-colors ${
+              isNavigationItemActive(location.pathname, '/admin/settings')
+                ? 'text-primary-light'
+                : 'text-slate-400 group-hover:text-white'
+            }`} aria-hidden="true" />
+            <span className="sidebar-layout__nav-label">Settings</span>
+            {sidebarCollapsed && (
+              <span role="tooltip" className="sidebar-layout__tooltip pointer-events-none fixed left-0 top-0 z-50 -translate-y-1/2 translate-x-1 whitespace-nowrap rounded-md bg-slate-950 px-2.5 py-1.5 text-xs font-semibold text-white opacity-0 shadow-lg transition duration-150 group-hover:translate-x-0 group-hover:opacity-100 group-focus-visible:translate-x-0 group-focus-visible:opacity-100">
+                Settings
+              </span>
+            )}
           </Link>
 
-          <div className="flex items-center gap-2 rounded-lg border border-slate-700 bg-slate-900/70 p-2.5">
-            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary/20 text-sm font-bold text-primary-light">
-              {(user.full_name || user.email || 'A').charAt(0).toUpperCase()}
-            </div>
-            <div className="min-w-0 flex-1">
-              <p className="truncate text-xs font-semibold text-white">{user.full_name || 'Administrator'}</p>
-              <p className="truncate text-[10px] text-slate-400">{user.email}</p>
-            </div>
-            <button
-              type="button"
-              onClick={handleLogout}
-              title="Log out"
-              aria-label="Log out"
-              className="rounded-md p-1.5 text-slate-400 transition hover:bg-slate-800 hover:text-white"
-            >
-              <LogOut size={16} />
-            </button>
-          </div>
+          <button
+            type="button"
+            onClick={handleLogout}
+            onMouseEnter={(event) => positionCollapsedTooltip(event.currentTarget)}
+            onFocus={(event) => positionCollapsedTooltip(event.currentTarget)}
+            aria-label="Log out"
+            className="sidebar-layout__nav-link group relative flex h-12 w-full items-center gap-3 rounded-xl px-3 text-slate-300 transition-colors hover:bg-danger/10 hover:text-danger focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+          >
+            <LogOut className="h-6 w-6 shrink-0" aria-hidden="true" />
+            <span className="sidebar-layout__nav-label text-sm font-semibold">Log out</span>
+            {sidebarCollapsed && (
+              <span role="tooltip" className="sidebar-layout__tooltip pointer-events-none fixed left-0 top-0 z-50 -translate-y-1/2 translate-x-1 whitespace-nowrap rounded-md bg-slate-950 px-2.5 py-1.5 text-xs font-semibold text-white opacity-0 shadow-lg transition duration-150 group-hover:translate-x-0 group-hover:opacity-100 group-focus-visible:translate-x-0 group-focus-visible:opacity-100">
+                Log out
+              </span>
+            )}
+          </button>
         </div>
       </aside>
 
-      <main className="flex min-w-0 flex-1 flex-col">
-        <header className="sticky top-0 z-30 flex h-[68px] shrink-0 items-center justify-between gap-3 border-b border-border-light bg-card/95 px-4 backdrop-blur sm:px-6">
-          <div className="flex min-w-0 items-center gap-3">
-            <button
-              type="button"
-              onClick={() => setIsMobileMenuOpen(true)}
-              aria-label="Open navigation"
-              className="rounded-lg p-2 text-text-secondary hover:bg-background lg:hidden"
-            >
-              <Menu size={19} />
-            </button>
-            <form onSubmit={submitSearch} role="search" className="relative hidden w-full max-w-lg sm:block">
-              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-text-muted" />
+      <main className={`@container flex h-screen min-w-0 flex-1 flex-col overflow-x-hidden transition-[margin] duration-200 ease-in-out ${sidebarCollapsed ? 'md:ml-20' : 'md:ml-[17rem]'}`}>
+        <div className="sidebar-layout__topbar relative sticky top-0 z-30 flex h-16 shrink-0 items-center justify-between gap-3 border-b border-border-light bg-card px-4 shadow-sm @content-sm:px-8">
+          <button
+            type="button"
+            onClick={() => setIsMobileMenuOpen(true)}
+            aria-label="Open navigation menu"
+            aria-expanded={isMobileMenuOpen}
+            className="p-2 -ml-2 text-text-muted hover:bg-background hover:text-text-main rounded-lg transition-colors md:hidden"
+          >
+            <Menu className="w-5 h-5" />
+          </button>
+
+          {/* Top Header Search */}
+          <div className="sidebar-layout__search flex min-w-0 flex-1 items-center justify-center">
+            <div className="relative w-full max-w-[520px]">
               <input
+                type="text"
                 value={searchValue}
-                onChange={(event) => setSearchValue(event.target.value)}
-                aria-label={`Search ${pageTitle.toLowerCase()}`}
-                placeholder={`Search ${pageTitle.toLowerCase()}…`}
-                className="h-10 w-full rounded-lg border border-border-light bg-background pl-9 pr-3 text-sm text-text-main outline-none transition placeholder:text-text-muted focus:border-primary focus:ring-2 focus:ring-primary/15"
+                onChange={(e) => setSearchValue(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    submitSearch(e);
+                  }
+                }}
+                aria-label="Search analyses, reviews, users, or anything"
+                placeholder="Search analyses, reviews, users, or anything..."
+                className="block w-full pl-4 pr-12 py-2 border border-border-light rounded-xl leading-5 bg-background placeholder:text-text-muted focus:outline-none focus:bg-card focus:ring-[3px] focus:ring-primary/20 focus:border-primary @content-sm:text-sm font-semibold transition-colors text-text-main"
               />
-            </form>
-            <h1 className="truncate text-sm font-bold text-text-main sm:hidden">{pageTitle}</h1>
+              <div className="absolute inset-y-0 right-0 pr-2 flex items-center">
+                <button
+                  type="button"
+                  onClick={(e) => submitSearch(e)}
+                  aria-label="Search"
+                  className="p-1.5 hover:bg-border-light text-text-muted hover:text-primary rounded-lg transition-colors focus:outline-none"
+                  title="Search"
+                >
+                  <Search className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
           </div>
 
-          <div className="flex shrink-0 items-center gap-2 sm:gap-3">
+          <div className="ml-auto flex shrink-0 items-center space-x-2 sm:space-x-6">
+            {/* Theme Toggle */}
             <button
-              type="button"
               onClick={toggleTheme}
-              aria-label={`Switch to ${theme === 'dark' ? 'light' : 'dark'} theme`}
-              title={`Switch to ${theme === 'dark' ? 'light' : 'dark'} theme`}
-              className="rounded-lg border border-border-light p-2 text-text-secondary transition hover:bg-background hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+              className="p-2 text-text-muted hover:bg-background hover:text-text-main rounded-full transition-colors"
+              aria-label="Toggle Dark Mode"
             >
-              {theme === 'dark' ? <Sun size={17} /> : <Moon size={17} />}
+              {theme === 'dark' ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
             </button>
-            <span className="hidden text-sm font-semibold text-text-main md:inline">{pageTitle}</span>
-            <div className="relative" ref={profileMenuRef}>
+
+            {/* Admin Profile Dropdown */}
+            <div className="relative" ref={profileRef}>
               <button
                 type="button"
-                onClick={() => setShowProfileMenu((open) => !open)}
-                aria-expanded={showProfileMenu}
-                aria-label="Open admin profile menu"
-                className="flex items-center gap-2 rounded-lg p-1.5 text-text-secondary transition hover:bg-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                onClick={() => setShowProfileMenu(!showProfileMenu)}
+                className="w-10 h-10 rounded-full bg-primary/10 text-primary flex items-center justify-center font-bold hover:bg-primary/20 transition-colors focus:outline-none"
+                aria-label="Admin Profile Menu"
               >
-                <span className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/15 text-sm font-bold text-primary">
-                  {(user.full_name || user.email || 'A').charAt(0).toUpperCase()}
-                </span>
-                <ChevronDown size={15} className="hidden sm:block" />
+                {user?.full_name ? user.full_name.charAt(0).toUpperCase() : <User className="w-5 h-5" />}
               </button>
+
               {showProfileMenu && (
-                <div className="absolute right-0 mt-2 w-60 rounded-xl border border-border-light bg-card p-2 shadow-xl">
-                  <div className="border-b border-border-light px-3 py-2">
-                    <p className="truncate text-sm font-semibold text-text-main">{user.full_name || 'Administrator'}</p>
-                    <p className="truncate text-xs text-text-muted">{user.email}</p>
+                <div className="absolute right-0 mt-2 w-48 bg-card rounded-xl shadow-lg border border-border-light py-1 z-50">
+                  <div className="px-4 py-2 border-b border-border-light mb-1">
+                    <p className="text-sm font-bold text-text-main truncate">{user?.full_name || 'Admin'}</p>
+                    <p className="text-xs font-medium text-text-muted truncate">{user?.email || ''}</p>
                   </div>
-                  <Link
-                    to="/admin/settings"
-                    onClick={() => setShowProfileMenu(false)}
-                    className="mt-1 flex items-center gap-2 rounded-lg px-3 py-2 text-sm text-text-secondary hover:bg-background hover:text-primary"
-                  >
-                    <Settings size={16} /> Settings
+                  <Link to="/admin/settings" onClick={() => setShowProfileMenu(false)} className="flex items-center px-4 py-2 text-sm font-semibold text-text-secondary hover:bg-background hover:text-primary transition-colors">
+                    <Settings className="w-4 h-4 mr-3" />
+                    Settings
                   </Link>
-                  <Link
-                    to="/admin/audit"
-                    onClick={() => setShowProfileMenu(false)}
-                    className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm text-text-secondary hover:bg-background hover:text-primary"
-                  >
-                    <ClipboardList size={16} /> Audit log
-                  </Link>
-                  <button
-                    type="button"
-                    onClick={handleLogout}
-                    className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm text-danger hover:bg-danger/5"
-                  >
-                    <LogOut size={16} /> Log out
+                  <button onClick={handleLogout} className="w-full flex items-center px-4 py-2 text-sm font-semibold text-danger hover:bg-danger/5 transition-colors mt-1 border-t border-border-light pt-2">
+                    <LogOut className="w-4 h-4 mr-3" />
+                    Logout
                   </button>
                 </div>
               )}
             </div>
           </div>
-        </header>
-
-        <form onSubmit={submitSearch} role="search" className="relative mx-4 mt-3 sm:hidden">
-          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-text-muted" />
-          <input
-            value={searchValue}
-            onChange={(event) => setSearchValue(event.target.value)}
-            aria-label={`Search ${pageTitle.toLowerCase()}`}
-            placeholder={`Search ${pageTitle.toLowerCase()}…`}
-            className="h-10 w-full rounded-lg border border-border-light bg-card pl-9 pr-3 text-sm text-text-main outline-none placeholder:text-text-muted focus:border-primary focus:ring-2 focus:ring-primary/15"
-          />
-        </form>
+        </div>
 
         <div className="min-h-0 flex-1 overflow-auto">
-          <div className="mx-auto w-full max-w-[1600px] p-4 sm:p-6 xl:p-7">
+          <div className="mx-auto w-full max-w-[1600px] p-4 @content-sm:p-6 @content-xl:p-7">
             <Outlet key={`${location.pathname}${location.search}`} />
           </div>
         </div>

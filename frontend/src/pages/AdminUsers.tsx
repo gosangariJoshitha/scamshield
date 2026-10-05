@@ -1,10 +1,11 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { 
-  ChevronLeft, ChevronRight, UserX, UserCheck, CheckCircle, XCircle, X, Search
+  ChevronLeft, ChevronRight, UserX, UserCheck, CheckCircle, XCircle, X
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { api } from '../services/api';
+import AdminBackButton from '../components/AdminBackButton';
 
 interface User {
   id: number;
@@ -41,7 +42,7 @@ export default function AdminUsers() {
   const [totalPages, setTotalPages] = useState(1);
   const [roleFilter, setRoleFilter] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
-  const [search, setSearch] = useState(searchParams.get('search') ?? '');
+  const search = searchParams.get('search') ?? '';
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [userDetails, setUserDetails] = useState<UserDetails | null>(null);
   const [detailsLoading, setDetailsLoading] = useState(false);
@@ -78,6 +79,9 @@ export default function AdminUsers() {
       await api.patch(`/admin/users/${user.id}/status`, {
         is_active: !user.is_active
       });
+      setSelectedUser((current) => current?.id === user.id
+        ? { ...current, is_active: !user.is_active }
+        : current);
       await fetchUsers();
     } catch {
       alert("Failed to update user status");
@@ -121,23 +125,20 @@ export default function AdminUsers() {
 
   return (
     <div className="space-y-6 max-w-7xl mx-auto pb-10">
-      <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
+      <div className="flex flex-col @content-sm:flex-row @content-sm:items-end justify-between gap-4">
         <div>
           <h1 className="text-3xl font-bold text-text-main mb-1">User Management</h1>
           <p className="text-text-muted">Manage system users, roles, and access controls.</p>
         </div>
+        <AdminBackButton to="/admin" label="Back to Dashboard" />
       </div>
 
-      <div className="bg-card rounded-xl shadow-sm border border-border-light p-4 flex flex-col sm:flex-row justify-between items-center gap-4">
-        <div className="flex w-full flex-col gap-3 sm:w-auto sm:flex-row">
-          <label className="relative w-full sm:w-64">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-text-muted" size={15} />
-            <input value={search} onChange={(event) => { setSearch(event.target.value); setPage(1); }} placeholder="Search name, email or ID" aria-label="Search users" className="w-full rounded-lg border border-border-light bg-background py-2 pl-9 pr-3 text-sm text-text-main outline-none focus:border-primary" />
-          </label>
+      <div className="bg-card rounded-xl shadow-sm border border-border-light p-4 flex flex-col @content-sm:flex-row justify-between items-center gap-4">
+        <div className="flex w-full flex-col gap-3 @content-sm:w-auto @content-sm:flex-row">
           <select 
             value={roleFilter} 
             onChange={(e) => { setRoleFilter(e.target.value); setPage(1); }}
-            className="px-3 py-2 bg-background border border-border-light rounded-lg text-sm text-text-main focus:outline-none focus:border-primary w-full sm:w-auto"
+            className="px-3 py-2 bg-background border border-border-light rounded-lg text-sm text-text-main focus:outline-none focus:border-primary w-full @content-sm:w-auto"
           >
             <option value="">All Roles</option>
             <option value="user">User</option>
@@ -146,7 +147,7 @@ export default function AdminUsers() {
           <select 
             value={statusFilter} 
             onChange={(e) => { setStatusFilter(e.target.value); setPage(1); }}
-            className="px-3 py-2 bg-background border border-border-light rounded-lg text-sm text-text-main focus:outline-none focus:border-primary w-full sm:w-auto"
+            className="px-3 py-2 bg-background border border-border-light rounded-lg text-sm text-text-main focus:outline-none focus:border-primary w-full @content-sm:w-auto"
           >
             <option value="">All Statuses</option>
             <option value="ACTIVE">Active</option>
@@ -181,7 +182,20 @@ export default function AdminUsers() {
                   </tr>
                 ) : (
                   users.map((item) => (
-                    <tr key={item.id} className="hover:bg-background/50 transition-colors">
+                    <tr
+                      key={item.id}
+                      role="button"
+                      tabIndex={0}
+                      aria-label={`Open details for ${item.full_name || item.email}`}
+                      onClick={() => void openUserDetails(item)}
+                      onKeyDown={(event) => {
+                        if (event.key === 'Enter' || event.key === ' ') {
+                          event.preventDefault();
+                          void openUserDetails(item);
+                        }
+                      }}
+                      className="cursor-pointer transition-colors hover:bg-background/50 focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary"
+                    >
                       <td className="px-6 py-4">
                         <div className="flex items-center space-x-3">
                           <div className="w-8 h-8 rounded-full bg-primary/20 text-primary flex items-center justify-center font-bold text-xs shrink-0">
@@ -190,7 +204,7 @@ export default function AdminUsers() {
                           <div>
                             <button
                               type="button"
-                              onClick={() => openUserDetails(item)}
+                              onClick={(event) => { event.stopPropagation(); void openUserDetails(item); }}
                               className="text-left text-sm font-bold text-text-main hover:text-primary"
                               aria-label={`View details for ${item.full_name || item.email}`}
                             >
@@ -206,7 +220,8 @@ export default function AdminUsers() {
                       <td className="px-6 py-4">
                         <select
                           value={item.role}
-                          onChange={(e) => handleRoleChange(item, e.target.value)}
+                          onClick={(event) => event.stopPropagation()}
+                          onChange={(e) => void handleRoleChange(item, e.target.value)}
                           className={`text-xs font-bold px-2 py-1 rounded bg-background border ${item.role === 'admin' ? 'border-primary/50 text-primary' : 'border-border-light text-text-secondary'}`}
                         >
                           <option value="user">USER</option>
@@ -223,7 +238,7 @@ export default function AdminUsers() {
                       </td>
                       <td className="px-6 py-4 text-right space-x-2">
                         <button 
-                          onClick={() => handleToggleStatus(item)}
+                          onClick={(event) => { event.stopPropagation(); void handleToggleStatus(item); }}
                           className={`p-1.5 rounded transition-colors ${
                             item.is_active ? 'text-danger hover:bg-danger/10' : 'text-success hover:bg-success/10'
                           }`}
@@ -299,7 +314,25 @@ export default function AdminUsers() {
               </button>
             </div>
 
-            <div className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
+            <div className="mt-4 flex flex-col gap-3 rounded-xl border border-warning/20 bg-warning/5 p-4 @content-sm:flex-row @content-sm:items-center @content-sm:justify-between">
+              <p className="text-sm text-text-secondary">
+                Account access can be disabled and restored. Permanent deletion is not available here so user history and audit records remain intact.
+              </p>
+              <button
+                type="button"
+                onClick={() => void handleToggleStatus(selectedUser)}
+                className={`inline-flex shrink-0 items-center justify-center gap-2 rounded-lg px-3 py-2 text-sm font-semibold ${
+                  selectedUser.is_active
+                    ? 'bg-danger/10 text-danger hover:bg-danger/15'
+                    : 'bg-success/10 text-success hover:bg-success/15'
+                }`}
+              >
+                {selectedUser.is_active ? <UserX size={16} /> : <UserCheck size={16} />}
+                {selectedUser.is_active ? 'Deactivate account' : 'Reactivate account'}
+              </button>
+            </div>
+
+            <div className="mt-6 grid grid-cols-2 gap-3 @content-sm:grid-cols-4">
               <div className="rounded-xl border border-border-light bg-background p-3">
                 <p className="text-[10px] font-bold uppercase text-text-muted">User ID</p>
                 <p className="mt-1 font-mono text-sm text-text-main">#{selectedUser.id}</p>

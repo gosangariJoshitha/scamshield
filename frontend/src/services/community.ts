@@ -6,6 +6,8 @@ export interface CommunityReport {
   category: string;
   description?: string;
   evidence?: string;
+  analysis_id?: number | null;
+  reporter_name?: string | null;
   status: string;
   created_at: string;
 }
@@ -15,6 +17,7 @@ export interface CommunityReportCreate {
   category: string;
   description?: string;
   evidence?: string;
+  analysis_id?: number;
 }
 
 export const communityService = {

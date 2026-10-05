@@ -1,15 +1,19 @@
 from fastapi import APIRouter, Depends, HTTPException
+import logging
 import os
+import time
 from datetime import datetime, timedelta, timezone
 from sqlalchemy.orm import Session
-from sqlalchemy import String, cast, desc, func, or_
+from sqlalchemy import String, cast, desc, func, or_, text
 from typing import List, Dict, Any
 
 from database import get_db
 import models
 from auth import get_current_user
+from app.services.classifier_service import classifier_service
 from app.services.rag_service import rag_service
 
+logger = logging.getLogger(__name__)
 router = APIRouter()
 
 def require_admin(current_user: models.User = Depends(get_current_user)):
@@ -233,6 +237,7 @@ def get_admin_analysis(analysis_id: int, db: Session = Depends(get_db), current_
 def get_admin_community_reports(
     skip: int = 0,
     limit: int = 50,
+    report_id: int | None = None,
     status: str = None,
     category: str = None,
     search: str = None,
@@ -240,6 +245,8 @@ def get_admin_community_reports(
     current_admin: models.User = Depends(require_admin)
 ):
     query = db.query(models.CommunityReport)
+    if report_id is not None:
+        query = query.filter(models.CommunityReport.id == report_id)
     if status:
         query = query.filter(models.CommunityReport.status == status)
     if category:
@@ -743,24 +750,45 @@ def get_admin_audit_logs(
         "total_pages": (total + limit - 1) // limit
     }
 
-import datetime
 @router.get("/health")
 def get_admin_system_health(db: Session = Depends(get_db), current_admin: models.User = Depends(require_admin)):
-    # Basic health checks
     jira_enabled = (
         os.getenv("JIRA_ENABLED", "false").lower() == "true"
-        and all(os.getenv(key) for key in (
-            "JIRA_BASE_URL",
-            "JIRA_EMAIL",
-            "JIRA_API_TOKEN",
-            "JIRA_PROJECT_KEY",
-        ))
+        and bool(os.getenv("JIRA_URL") or os.getenv("JIRA_BASE_URL"))
+        and all(
+            os.getenv(key)
+            for key in ("JIRA_EMAIL", "JIRA_API_TOKEN", "JIRA_PROJECT_KEY")
+        )
+        and os.getenv("JIRA_PROJECT_KEY") == "SCAM"
     )
+    db_started = time.perf_counter()
     health = {
-        "database": {"status": "up", "latency": "12ms"},
-        "ml_engine": {"status": "up", "latency": "45ms"},
-        "rag_service": {"status": "up", "latency": "30ms"},
-        "jira_integration": {"status": "up" if jira_enabled else "down", "latency": "-"},
-        "system_time": datetime.datetime.utcnow().isoformat()
+        "database": {"status": "unknown", "latency": None},
+        "ml_engine": {"status": "up" if classifier_service.clf is not None and classifier_service.vectorizer is not None else "down", "latency": None},
+        "rag_service": {"status": "unknown", "latency": None},
+        "jira_integration": {"status": "up" if jira_enabled else "not_configured", "latency": None},
+        "system_time": datetime.now(timezone.utc).isoformat()
     }
+
+    try:
+        db.execute(text("SELECT 1"))
+        health["database"] = {
+            "status": "up",
+            "latency": f"{(time.perf_counter() - db_started) * 1000:.2f}ms",
+        }
+    except Exception:
+        logger.exception("Admin database health check failed.")
+        health["database"]["status"] = "down"
+
+    rag_started = time.perf_counter()
+    try:
+        rag_service.collection.count()
+        health["rag_service"] = {
+            "status": "up",
+            "latency": f"{(time.perf_counter() - rag_started) * 1000:.2f}ms",
+        }
+    except Exception:
+        logger.exception("Admin RAG health check failed.")
+        health["rag_service"]["status"] = "down"
+
     return health

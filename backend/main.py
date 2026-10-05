@@ -1,11 +1,12 @@
 import os
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from sqlalchemy import func
 from dotenv import load_dotenv
 from urllib.parse import urlsplit
 
 import models
-from database import engine
+from database import SessionLocal
 from auth import router as auth_router
 from analysis import router as analysis_router
 from community import router as community_router
@@ -15,13 +16,8 @@ from admin import router as admin_router
 
 load_dotenv()
 
-from database import SessionLocal
-
-# Create tables
-models.Base.metadata.create_all(bind=engine)
-
 def init_admin():
-    admin_email = os.getenv("ADMIN_EMAIL")
+    admin_email = os.getenv("ADMIN_EMAIL", "").strip().lower()
     admin_pass = os.getenv("ADMIN_PASSWORD")
     if not admin_email or not admin_pass:
         if admin_email or admin_pass:
@@ -30,17 +26,45 @@ def init_admin():
 
     db = SessionLocal()
     try:
-        from auth import get_password_hash
-        admin = db.query(models.User).filter(models.User.email == admin_email).first()
+        from auth import get_password_hash, verify_password
+        admin = db.query(models.User).filter(
+            func.lower(models.User.email) == admin_email
+        ).first()
         if not admin:
             admin = models.User(
                 email=admin_email,
                 password_hash=get_password_hash(admin_pass),
                 full_name="System Admin",
                 role="admin",
-                is_active=True
+                is_active=True,
+                email_verified=True,
+                two_factor_enabled=True,
             )
             db.add(admin)
+            db.commit()
+            return
+
+        changed = False
+        if admin.email != admin_email:
+            admin.email = admin_email
+            changed = True
+        if admin.role != "admin":
+            admin.role = "admin"
+            changed = True
+        if not admin.email_verified:
+            admin.email_verified = True
+            changed = True
+        try:
+            password_matches = verify_password(admin_pass, admin.password_hash)
+        except (TypeError, ValueError):
+            password_matches = False
+        if not password_matches:
+            admin.password_hash = get_password_hash(admin_pass)
+            changed = True
+        if not admin.two_factor_enabled:
+            admin.two_factor_enabled = True
+            changed = True
+        if changed:
             db.commit()
     finally:
         db.close()

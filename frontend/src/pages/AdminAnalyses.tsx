@@ -1,8 +1,9 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { useSearchParams } from 'react-router-dom';
-import { Search, ChevronLeft, ChevronRight, Eye } from 'lucide-react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
+import { ChevronLeft, ChevronRight, Eye } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { api } from '../services/api';
+import AdminBackButton from '../components/AdminBackButton';
 
 interface AnalysisItem {
   id: number;
@@ -31,7 +32,8 @@ export default function AdminAnalyses() {
   const [classificationFilter, setClassificationFilter] = useState('');
   const [riskFilter, setRiskFilter] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
-  const [search, setSearch] = useState(searchParams.get('search') ?? '');
+  const search = searchParams.get('search') ?? '';
+  const navigate = useNavigate();
 
   const fetchAnalyses = useCallback(async () => {
     try {
@@ -73,34 +75,21 @@ export default function AdminAnalyses() {
     <div className="space-y-6 max-w-7xl mx-auto pb-10">
       
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
+      <div className="flex flex-col @content-sm:flex-row @content-sm:items-end justify-between gap-4">
         <div>
           <h1 className="text-3xl font-bold text-text-main mb-1">Analysis Management</h1>
           <p className="text-text-muted">View and search through all system analyses.</p>
         </div>
+        <AdminBackButton to="/admin" label="Back to Dashboard" />
       </div>
 
       {/* Filters */}
-      <div className="bg-card rounded-xl shadow-sm border border-border-light p-4 flex flex-col sm:flex-row gap-4 items-center justify-between">
-        <div className="flex items-center gap-4 w-full sm:w-auto">
-          <div className="relative flex-1 sm:w-64">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-text-muted" />
-            <input 
-              type="text" 
-              value={search}
-              onChange={(e) => { setSearch(e.target.value); setPage(1); }}
-              placeholder="Search ID, user, or category..." 
-              aria-label="Search analyses"
-              className="w-full pl-9 pr-4 py-2 bg-background border border-border-light rounded-lg text-sm focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all"
-            />
-          </div>
-        </div>
-        
-        <div className="flex items-center gap-3 w-full sm:w-auto">
+      <div className="bg-card rounded-xl shadow-sm border border-border-light p-4 flex flex-col @content-sm:flex-row gap-4 items-center justify-between">
+        <div className="flex items-center gap-3 w-full @content-sm:w-auto">
           <select 
             value={classificationFilter} 
             onChange={(e) => { setClassificationFilter(e.target.value); setPage(1); }}
-            className="px-3 py-2 bg-background border border-border-light rounded-lg text-sm text-text-main focus:outline-none focus:border-primary w-full sm:w-auto"
+            className="px-3 py-2 bg-background border border-border-light rounded-lg text-sm text-text-main focus:outline-none focus:border-primary w-full @content-sm:w-auto"
           >
             <option value="">All Classifications</option>
             <option value="SCAM">Scam</option>
@@ -110,7 +99,7 @@ export default function AdminAnalyses() {
           <select 
             value={riskFilter} 
             onChange={(e) => { setRiskFilter(e.target.value); setPage(1); }}
-            className="px-3 py-2 bg-background border border-border-light rounded-lg text-sm text-text-main focus:outline-none focus:border-primary w-full sm:w-auto"
+            className="px-3 py-2 bg-background border border-border-light rounded-lg text-sm text-text-main focus:outline-none focus:border-primary w-full @content-sm:w-auto"
           >
             <option value="">All Risks</option>
             <option value="CRITICAL">Critical</option>
@@ -122,7 +111,7 @@ export default function AdminAnalyses() {
             value={statusFilter}
             onChange={(e) => { setStatusFilter(e.target.value); setPage(1); }}
             aria-label="Filter by processing status"
-            className="px-3 py-2 bg-background border border-border-light rounded-lg text-sm text-text-main focus:outline-none focus:border-primary w-full sm:w-auto"
+            className="px-3 py-2 bg-background border border-border-light rounded-lg text-sm text-text-main focus:outline-none focus:border-primary w-full @content-sm:w-auto"
           >
             <option value="">All Statuses</option>
             <option value="COMPLETED">Completed</option>
@@ -148,6 +137,7 @@ export default function AdminAnalyses() {
                   <th className="px-6 py-4 font-bold">ID</th>
                   <th className="px-6 py-4 font-bold">Date</th>
                   <th className="px-6 py-4 font-bold">Type</th>
+                  <th className="px-6 py-4 font-bold">Category</th>
                   <th className="px-6 py-4 font-bold">Classification</th>
                   <th className="px-6 py-4 font-bold">Risk</th>
                   <th className="px-6 py-4 font-bold">User</th>
@@ -158,13 +148,26 @@ export default function AdminAnalyses() {
               <tbody className="divide-y divide-border-light">
                 {analyses.length === 0 ? (
                   <tr>
-                    <td colSpan={8} className="px-6 py-12 text-center text-text-muted">
+                    <td colSpan={9} className="px-6 py-12 text-center text-text-muted">
                       No analyses found matching your criteria.
                     </td>
                   </tr>
                 ) : (
                   analyses.map((item) => (
-                    <tr key={item.id} className="hover:bg-background/50 transition-colors">
+                    <tr
+                      key={item.id}
+                      role="link"
+                      tabIndex={0}
+                      aria-label={`Open analysis ${item.id}`}
+                      onClick={() => navigate(`/admin/analyses/${item.id}`)}
+                      onKeyDown={(event) => {
+                        if (event.key === 'Enter' || event.key === ' ') {
+                          event.preventDefault();
+                          navigate(`/admin/analyses/${item.id}`);
+                        }
+                      }}
+                      className="cursor-pointer transition-colors hover:bg-background/70 focus-within:bg-background/70 focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary"
+                    >
                       <td className="px-6 py-4 font-mono font-medium">
                         <Link to={`/admin/analyses/${item.id}`} className="text-primary hover:underline">
                           #ANL_{item.id}
@@ -176,6 +179,7 @@ export default function AdminAnalyses() {
                           {item.input_type}
                         </span>
                       </td>
+                      <td className="px-6 py-4 text-text-secondary">{item.category || 'Uncategorized'}</td>
                       <td className="px-6 py-4">
                         <span className={`px-2.5 py-1 rounded-full text-[11px] font-bold uppercase tracking-wider ${
                           item.classification === 'SCAM' ? 'bg-danger/10 text-danger' : 
@@ -201,6 +205,7 @@ export default function AdminAnalyses() {
                       <td className="px-6 py-4 text-right">
                         <Link 
                           to={`/admin/analyses/${item.id}`}
+                          onClick={(event) => event.stopPropagation()}
                           className="inline-flex items-center justify-center p-2 text-text-muted hover:text-primary hover:bg-primary/10 rounded-lg transition-colors"
                           title="View Details"
                         >

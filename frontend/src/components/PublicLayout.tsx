@@ -89,7 +89,7 @@ export default function PublicLayout() {
             </Link>
           </div>
           
-          <div className="hidden lg:flex items-center space-x-8 h-full">
+          <div className="hidden xl:flex items-center space-x-8 h-full">
             {navItems.map(item => (
               <a 
                 key={item.id}
@@ -109,7 +109,7 @@ export default function PublicLayout() {
             ))}
           </div>
 
-          <div className="hidden lg:flex items-center space-x-4">
+          <div className="hidden xl:flex items-center space-x-4">
             <button
               type="button"
               onClick={toggleTheme}
@@ -128,7 +128,7 @@ export default function PublicLayout() {
             </Link>
           </div>
 
-          <div className="lg:hidden flex items-center gap-2">
+          <div className="xl:hidden flex items-center gap-2">
             <button
               type="button"
               onClick={toggleTheme}
@@ -138,14 +138,20 @@ export default function PublicLayout() {
             >
               {theme === 'dark' ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
             </button>
-            <button onClick={() => setMobileMenuOpen(!mobileMenuOpen)} className="text-text-main p-2">
+            <button
+              type="button"
+              onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+              aria-label={mobileMenuOpen ? 'Close navigation menu' : 'Open navigation menu'}
+              aria-expanded={mobileMenuOpen}
+              className="text-text-main p-2"
+            >
               {mobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
             </button>
           </div>
         </div>
 
         {mobileMenuOpen && (
-          <div className="lg:hidden absolute top-full left-0 right-0 bg-card border-b border-border-light p-4 shadow-xl flex flex-col space-y-2">
+          <div className="xl:hidden absolute top-full left-0 right-0 bg-card border-b border-border-light p-4 shadow-xl flex flex-col space-y-2">
             {navItems.map(item => (
               <a 
                 key={item.id}

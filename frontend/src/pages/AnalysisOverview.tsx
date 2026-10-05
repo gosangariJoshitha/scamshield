@@ -7,9 +7,12 @@ import {
 } from 'lucide-react';
 import { PieChart, Pie, Cell } from 'recharts';
 import { analysisService, type AnalysisResult } from '../services/analysis';
+import { formatRecommendedActions } from '../utils/formatRecommendedActions';
+import RecommendedActions from '../components/RecommendedActions';
+import { communityService } from '../services/community';
 
 type AnalysisItem = AnalysisResult & {
-  original_text?: string;
+  original_text?: string | null;
 };
 
 export default function AnalysisOverview() {
@@ -19,12 +22,16 @@ export default function AnalysisOverview() {
   const routeAnalysisId = Number(id);
   const possibleStateResult = location.state?.result as AnalysisItem | undefined;
   const stateResult = possibleStateResult?.id === routeAnalysisId ? possibleStateResult : undefined;
+  const analysisCreated = location.state?.analysisCreated === true;
   const [result, setResult] = useState<AnalysisItem | undefined>(stateResult);
   const [loading, setLoading] = useState(!stateResult);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [showAllIndicators, setShowAllIndicators] = useState(false);
   const [reviewRequested, setReviewRequested] = useState(false);
   const [reviewPending, setReviewPending] = useState(false);
+  const [communityShareState, setCommunityShareState] = useState<'idle' | 'sending' | 'done'>('idle');
+  const [communityShareError, setCommunityShareError] = useState<string | null>(null);
+  const [communityPromptDismissed, setCommunityPromptDismissed] = useState(false);
 
   useEffect(() => {
     if (stateResult) {
@@ -59,6 +66,42 @@ export default function AnalysisOverview() {
     return () => { active = false; };
   }, [id, stateResult, routeAnalysisId]);
 
+  useEffect(() => {
+    if (!result || (
+      result.email_notification_status !== 'PENDING'
+      && result.jira_status !== 'PENDING'
+    )) {
+      return;
+    }
+
+    let active = true;
+    let attempts = 0;
+    let timer: number | undefined;
+    const refreshStatuses = async () => {
+      if (!active || attempts >= 20) return;
+      attempts += 1;
+      try {
+        const refreshed = await analysisService.getAnalysis(routeAnalysisId);
+        if (!active) return;
+        setResult((current) => current ? { ...current, ...refreshed } : refreshed);
+        if (
+          refreshed.email_notification_status === 'PENDING'
+          || refreshed.jira_status === 'PENDING'
+        ) {
+          timer = window.setTimeout(refreshStatuses, 1500);
+        }
+      } catch (error) {
+        console.error('Unable to refresh notification status', error);
+        if (active && attempts < 20) timer = window.setTimeout(refreshStatuses, 3000);
+      }
+    };
+    timer = window.setTimeout(refreshStatuses, 1000);
+    return () => {
+      active = false;
+      if (timer !== undefined) window.clearTimeout(timer);
+    };
+  }, [result?.email_notification_status, result?.jira_status, routeAnalysisId]);
+
   if (loading) {
     return <div className="p-8 text-center text-text-muted" role="status">Loading analysis…</div>;
   }
@@ -76,6 +119,8 @@ export default function AnalysisOverview() {
   const isScam = result.classification === 'SCAM';
   const riskColor = result.risk_level === 'HIGH' || result.risk_level === 'CRITICAL' ? 'red' : 
                    result.risk_level === 'MEDIUM' ? 'orange' : 'green';
+  const recommendedActions = result.safe_actions?.canonical
+    ?? formatRecommendedActions(result.recommended_action);
 
   const dateStr = new Date(result.created_at).toLocaleString('en-US', {
     month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit'
@@ -102,13 +147,50 @@ export default function AnalysisOverview() {
 
   return (
     <div className="space-y-6 max-w-5xl mx-auto">
+      {analysisCreated && (
+        <div
+          className="flex items-center gap-2 rounded-xl border border-success/25 bg-success/10 px-4 py-3 text-sm font-semibold text-success"
+          role="status"
+        >
+          <CheckCircle className="h-5 w-5 shrink-0" />
+          Analysis created successfully.
+        </div>
+      )}
+      <section className="grid gap-3 rounded-2xl border border-border-light bg-card p-4 shadow-sm @content-sm:grid-cols-2" aria-label="Analysis notifications">
+        <div className="rounded-xl bg-background p-4">
+          <p className="text-xs font-bold uppercase tracking-wide text-text-muted">Analysis email</p>
+          <p className="mt-1 font-semibold text-text-main">
+            {result.email_notification_status === 'SENT' ? 'Sent' :
+              result.email_notification_status === 'FAILED' ? 'Failed to send' :
+                result.email_notification_status === 'PENDING' ? 'Sending…' : 'Not required'}
+          </p>
+        </div>
+        <div className="rounded-xl bg-background p-4">
+          <p className="text-xs font-bold uppercase tracking-wide text-text-muted">Jira escalation</p>
+          {result.jira_issue_key && result.jira_issue_url ? (
+            <a
+              href={result.jira_issue_url}
+              target="_blank"
+              rel="noreferrer"
+              className="mt-1 inline-flex font-semibold text-primary hover:text-primary-hover"
+            >
+              {result.jira_issue_key} · View incident
+            </a>
+          ) : (
+            <p className="mt-1 font-semibold text-text-main">
+              {result.jira_status === 'PENDING' ? 'Creating incident…' :
+                result.jira_status === 'FAILED' ? 'Incident creation failed' : 'Not required'}
+            </p>
+          )}
+        </div>
+      </section>
       {/* Step Indicator */}
       <div className="flex items-center justify-center space-x-4 mb-4">
         <div className="flex items-center space-x-2 text-primary font-bold text-sm">
           <div className="w-6 h-6 rounded-full bg-primary text-white flex items-center justify-center text-xs">1</div>
           <span>Overview</span>
         </div>
-        <div className="w-16 h-px bg-border-main hidden sm:block"></div>
+        <div className="w-16 h-px bg-border-main hidden @content-sm:block"></div>
         <div className="flex items-center space-x-2 text-text-muted font-bold text-sm">
           <div className="w-6 h-6 rounded-full border-2 border-border-main flex items-center justify-center text-xs">2</div>
           <span>Detailed Analysis</span>
@@ -116,15 +198,15 @@ export default function AnalysisOverview() {
       </div>
 
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
+      <div className="flex flex-col justify-between gap-4 @content-xl:flex-row @content-xl:items-end">
         <div>
           <h1 className="text-3xl font-bold text-text-main mb-1">Analysis Result</h1>
           <p className="text-text-muted text-base">Here's what we found and why this content might be risky.</p>
         </div>
-        <div className="flex items-center space-x-3 shrink-0">
+        <div className="flex w-full min-w-0 flex-col items-stretch gap-3 @content-xl:w-auto @content-xl:flex-row @content-xl:flex-wrap @content-xl:items-center @content-xl:shrink-0">
           <button 
             onClick={() => {
-              const report = `ScamShield Analysis Report\n\nID: ANL_${result.id}\nDate: ${dateStr}\n\nClassification: ${result.classification}\nRisk Score: ${result.risk_score}/100 (${result.risk_level} RISK)\nCategory: ${result.category || 'Unknown'}\nInput Type: ${result.input_type || 'Text'}\n\nAnalyzed Content:\n${result.original_text || result.content}\n\nIndicators:\n${result.indicators.join('\n')}\n\nRecommended Action:\n${result.recommended_action}`;
+              const report = `ScamShield Analysis Report\n\nID: ANL_${result.id}\nDate: ${dateStr}\n\nClassification: ${result.classification}\nRisk Score: ${result.risk_score}/100 (${result.risk_level} RISK)\nCategory: ${result.category || 'Unknown'}\nInput Type: ${result.input_type || 'Text'}\n\nAnalyzed Content:\n${result.original_text || result.content}\n\nIndicators:\n${result.indicators.join('\n')}\n\nRecommended Actions:\n${recommendedActions.join('\n')}`;
               const blob = new Blob([report], { type: 'text/plain' });
               const url = URL.createObjectURL(blob);
               const a = document.createElement('a');
@@ -133,9 +215,9 @@ export default function AnalysisOverview() {
               document.body.appendChild(a);
               a.click();
               document.body.removeChild(a);
-              URL.revokeObjectURL(url);
+              window.setTimeout(() => URL.revokeObjectURL(url), 1000);
             }}
-            className="flex items-center space-x-2 bg-card border border-border-light hover:border-border-main text-text-secondary font-semibold py-2 px-4 rounded-lg shadow-sm transition"
+            className="flex w-full items-center justify-center space-x-2 whitespace-nowrap bg-card border border-border-light hover:border-border-main text-text-secondary font-semibold py-2 px-4 rounded-lg shadow-sm transition @content-xl:w-auto"
           >
             <Download className="w-4 h-4" />
             <span>Download Report</span>
@@ -157,26 +239,89 @@ export default function AnalysisOverview() {
                 setReviewPending(false);
               }
             }}
-            className="flex items-center space-x-2 bg-amber-500 hover:bg-amber-600 disabled:cursor-not-allowed disabled:opacity-60 text-white font-semibold py-2 px-4 rounded-lg shadow-sm transition"
+            className="flex w-full items-center justify-center space-x-2 whitespace-nowrap bg-amber-500 hover:bg-amber-600 disabled:cursor-not-allowed disabled:opacity-60 text-white font-semibold py-2 px-4 rounded-lg shadow-sm transition @content-xl:w-auto"
           >
             {reviewRequested ? <CheckCircle className="w-4 h-4" /> : <ShieldAlert className="w-4 h-4" />}
             <span>{reviewPending ? 'Submitting…' : reviewRequested ? 'Review Requested' : 'Request Human Review'}</span>
           </button>
-          <button onClick={() => navigate('/analyze')} className="flex items-center space-x-2 bg-primary hover:bg-primary-hover text-white font-semibold py-2 px-4 rounded-lg shadow-sm transition">
+          <button onClick={() => navigate('/analyze')} className="flex w-full items-center justify-center space-x-2 whitespace-nowrap bg-primary hover:bg-primary-hover text-white font-semibold py-2 px-4 rounded-lg shadow-sm transition @content-xl:w-auto">
             <Plus className="w-4 h-4" />
             <span>Analyze New Content</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => navigate('/history')}
+            className="flex w-full items-center justify-center gap-2 whitespace-nowrap rounded-lg border border-border-light bg-card px-4 py-2 font-semibold text-text-secondary shadow-sm transition hover:border-primary hover:text-primary @content-xl:w-auto"
+          >
+            <ArrowRight className="h-4 w-4 rotate-180" />
+            <span>Back to History</span>
           </button>
         </div>
       </div>
 
+      {!communityPromptDismissed && communityShareState !== 'done' && (
+        <section className="rounded-2xl border border-primary/20 bg-primary/5 p-4 @content-sm:p-5" aria-label="Share analysis with the community">
+          <div className="flex flex-col gap-3 @content-sm:flex-row @content-sm:items-center @content-sm:justify-between">
+            <div className="min-w-0">
+              <h2 className="font-bold text-text-main">Would you like to share this with the community?</h2>
+              <p className="mt-1 text-sm text-text-muted">
+                Sharing makes the message and its category visible to signed-in ScamShield users. Remove personal details before sharing.
+              </p>
+            </div>
+            <div className="flex shrink-0 gap-2">
+              <button
+                type="button"
+                disabled={communityShareState === 'sending'}
+                onClick={async () => {
+                  setCommunityShareError(null);
+                  setCommunityShareState('sending');
+                  try {
+                    await communityService.createReport({
+                      content: result.original_text || result.content,
+                      category: result.category || 'Other',
+                      description: `Shared from analysis #${result.id}. Classification: ${result.classification}; risk: ${result.risk_level}.`,
+                      evidence: `Analysis #${result.id}; risk score ${result.risk_score}/100.`,
+                      analysis_id: result.id,
+                    });
+                    setCommunityShareState('done');
+                  } catch (error) {
+                    console.error('Failed to share analysis with the community', error);
+                    setCommunityShareState('idle');
+                    setCommunityShareError('Could not share this analysis. Please try again.');
+                  }
+                }}
+                className="rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-white transition hover:bg-primary-hover disabled:cursor-wait disabled:opacity-60"
+              >
+                {communityShareState === 'sending' ? 'Sharing…' : 'Share with Community'}
+              </button>
+              <button
+                type="button"
+                onClick={() => setCommunityPromptDismissed(true)}
+                className="rounded-lg border border-border-light bg-card px-4 py-2 text-sm font-semibold text-text-secondary transition hover:text-text-main"
+              >
+                Not now
+              </button>
+            </div>
+          </div>
+          {communityShareError && <p className="mt-3 text-sm font-semibold text-danger" role="alert">{communityShareError}</p>}
+        </section>
+      )}
+      {communityShareState === 'done' && (
+        <div className="flex items-center gap-2 rounded-xl border border-success/25 bg-success/10 px-4 py-3 text-sm font-semibold text-success" role="status">
+          <CheckCircle className="h-5 w-5 shrink-0" />
+          Shared with the community successfully.
+          <button type="button" onClick={() => navigate('/community')} className="ml-auto underline underline-offset-2">View community</button>
+        </div>
+      )}
+
       {/* Top Card */}
-      <div className={`bg-card rounded-2xl shadow-sm border ${riskColor === 'red' ? 'border-red-100 ring-1 ring-red-50' : 'border-border-light'} p-6 sm:p-8`}>
-        <div className="flex flex-col md:flex-row items-center md:items-stretch justify-between gap-8">
+      <div className={`bg-card rounded-2xl shadow-sm border ${riskColor === 'red' ? 'border-red-100 ring-1 ring-red-50' : 'border-border-light'} p-6 @content-sm:p-8`}>
+        <div className="flex flex-col items-center justify-between gap-8 @content-xl:flex-row @content-xl:items-stretch">
           
-          <div className="flex items-center space-x-6 sm:space-x-8 flex-1 w-full sm:w-auto">
+          <div className="flex items-center space-x-6 @content-sm:space-x-8 flex-1 w-full @content-sm:w-auto">
             {/* Gauge */}
-            <div className="relative w-28 h-28 sm:w-32 sm:h-32 shrink-0">
-              <PieChart width={128} height={128} className="scale-90 sm:scale-100 origin-top-left">
+            <div className="relative w-28 h-28 @content-sm:w-32 @content-sm:h-32 shrink-0">
+              <PieChart width={128} height={128} className="scale-90 @content-sm:scale-100 origin-top-left">
                 <Pie
                   data={data}
                   cx={64}
@@ -195,26 +340,26 @@ export default function AnalysisOverview() {
                 </Pie>
               </PieChart>
               <div className="absolute inset-0 flex flex-col items-center justify-center -mt-2">
-                <span className="text-2xl sm:text-3xl font-bold text-text-main leading-none">{result.risk_score}</span>
+                <span className="text-2xl @content-sm:text-3xl font-bold text-text-main leading-none">{result.risk_score}</span>
                 <span className="text-[10px] text-text-muted font-bold">/100</span>
               </div>
               <div className="absolute -bottom-2 w-full text-center">
-                <span className="text-xs sm:text-sm font-bold text-text-main">Risk Score</span>
+                <span className="text-xs @content-sm:text-sm font-bold text-text-main">Risk Score</span>
               </div>
             </div>
 
             {/* Title & Desc */}
             <div className="flex-1">
               <div className="flex items-center space-x-2 mb-2">
-                <AlertTriangle className={`w-5 h-5 sm:w-6 sm:h-6 ${riskColor === 'red' ? 'text-danger' : riskColor === 'orange' ? 'text-warning' : 'text-success'}`} />
+                <AlertTriangle className={`w-5 h-5 @content-sm:w-6 @content-sm:h-6 ${riskColor === 'red' ? 'text-danger' : riskColor === 'orange' ? 'text-warning' : 'text-success'}`} />
                 <span className={`text-[10px] font-bold px-2.5 py-1 rounded-full uppercase tracking-wider ${riskColor === 'red' ? 'bg-danger/100 text-white' : riskColor === 'orange' ? 'bg-warning/100 text-white' : 'bg-success/100 text-white'}`}>
                   {result.risk_level} RISK
                 </span>
               </div>
-              <h2 className="text-xl sm:text-2xl font-bold text-text-main mb-2 leading-tight">
+              <h2 className="text-xl @content-sm:text-2xl font-bold text-text-main mb-2 leading-tight">
                 {result.classification === 'SCAM' ? `${result.category === 'Unknown' || !result.category ? 'Suspicious' : result.category} Scam` : (result.category === 'Unknown' || !result.category ? 'Normal Message' : result.category)}
               </h2>
-              <p className="text-sm sm:text-base text-text-muted mb-3 max-w-sm">
+              <p className="text-sm @content-sm:text-base text-text-muted mb-3 max-w-sm">
                 {(result.risk_level === 'HIGH' || result.risk_level === 'CRITICAL') ? 'This content shows strong indicators of a potential scam.' : 
                  result.risk_level === 'MEDIUM' ? 'This content shows some suspicious patterns.' :
                  'This content appears to be safe and genuine.'}
@@ -222,10 +367,10 @@ export default function AnalysisOverview() {
             </div>
           </div>
 
-          <div className="hidden md:block w-px bg-background shrink-0"></div>
+          <div className="hidden w-px shrink-0 bg-background @content-xl:block"></div>
 
           {/* Metadata Grid */}
-          <div className="grid grid-cols-2 gap-x-8 sm:gap-x-12 gap-y-6 shrink-0 w-full md:w-auto mt-4 md:mt-0">
+          <div className="mt-4 grid w-full shrink-0 grid-cols-2 gap-x-8 gap-y-6 @content-xl:mt-0 @content-xl:w-auto @content-sm:gap-x-12">
             <div>
               <div className="flex items-center space-x-2 text-text-muted mb-1.5">
                 <Activity className="w-3.5 h-3.5" />
@@ -266,9 +411,9 @@ export default function AnalysisOverview() {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 @content-lg:grid-cols-2 gap-6">
         {/* Analyzed Content */}
-        <div className="bg-card rounded-2xl shadow-sm border border-border-light p-6 flex flex-col h-full">
+        <div className="min-w-0 bg-card rounded-2xl shadow-sm border border-border-light p-6 flex flex-col h-full">
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center space-x-2">
               <FileText className="w-5 h-5 text-primary" />
@@ -279,26 +424,26 @@ export default function AnalysisOverview() {
             </span>
           </div>
           
-          <div className="bg-background rounded-xl p-4 mb-6 flex-1 border border-border-light">
-            <p className="text-base text-text-secondary font-mono whitespace-pre-wrap break-all sm:break-normal max-h-60 overflow-y-auto custom-scrollbar">
+          <div className="mb-6 min-w-0 max-w-full flex-1 overflow-hidden rounded-xl border border-border-light bg-background p-4">
+            <p className="max-h-60 max-w-full overflow-x-hidden overflow-y-auto whitespace-pre-wrap break-words [overflow-wrap:anywhere] text-base font-mono text-text-secondary custom-scrollbar">
               {result.original_text || result.content}
             </p>
           </div>
 
-          <div className="grid grid-cols-3 gap-4 pt-4 border-t border-border-light">
-            <div>
+          <div className="grid grid-cols-1 gap-4 border-t border-border-light pt-4 @content-sm:grid-cols-3">
+            <div className="min-w-0">
               <div className="text-[10px] text-text-muted font-semibold mb-1 uppercase tracking-wider">Characters</div>
               <div className="text-sm font-bold text-text-main">{(result.original_text || result.content).length}</div>
             </div>
-            <div>
+            <div className="min-w-0">
               <div className="text-[10px] text-text-muted font-semibold mb-1 uppercase tracking-wider">Analysis ID</div>
               <div className="text-sm font-bold text-text-main">#ANL_{result.id}</div>
             </div>
-            <div>
+            <div className="min-w-0">
               <div className="text-[10px] text-text-muted font-semibold mb-1 uppercase tracking-wider">Status</div>
-              <div className="text-sm font-bold text-success flex items-center space-x-1">
-                <CheckCircle className="w-3 h-3" />
-                <span>{result.processing_status || 'COMPLETED'}</span>
+              <div className={`flex min-w-0 items-start gap-1 text-xs font-bold ${result.processing_status === 'COMPLETED_WITH_LIMITATIONS' ? 'text-warning' : 'text-success'}`}>
+                <CheckCircle className="mt-0.5 h-3 w-3 shrink-0" />
+                <span className="break-words">{(result.processing_status || 'COMPLETED').replaceAll('_', ' ').toLocaleLowerCase()}</span>
               </div>
             </div>
           </div>
@@ -319,7 +464,7 @@ export default function AnalysisOverview() {
           
           <div className="space-y-3">
             {result.indicators.length > 0 ? (showAllIndicators ? result.indicators : result.indicators.slice(0, 4)).map((indicator, idx) => (
-              <div key={idx} className="bg-danger/10/50 border border-red-100 rounded-xl p-3 sm:p-4 flex items-start space-x-3">
+              <div key={idx} className="bg-danger/10/50 border border-red-100 rounded-xl p-3 @content-sm:p-4 flex items-start space-x-3">
                 <AlertCircle className="w-4 h-4 text-danger shrink-0 mt-0.5" />
                 <div className="flex-1">
                   <h4 className="font-bold text-text-main text-sm mb-0.5 capitalize">
@@ -354,35 +499,38 @@ export default function AnalysisOverview() {
       </div>
 
       {/* Quick Safe Action */}
-      <div className="bg-[#f0fdf4] border border-[#bbf7d0] rounded-2xl p-6 sm:p-8">
+      <div className="w-full rounded-2xl border border-[#bbf7d0] bg-[#f0fdf4] p-6 @content-sm:p-8">
         <div className="flex items-center space-x-2 mb-3">
           <ShieldCheck className="w-6 h-6 text-success" />
           <h3 className="text-lg font-bold text-success">Recommended Action</h3>
         </div>
-        <p className="text-base sm:text-lg text-success font-semibold leading-relaxed max-w-3xl ml-8">
-          {result.recommended_action}
-        </p>
+        <RecommendedActions
+          key={result.id}
+          recommendedAction={result.recommended_action}
+          safeActions={result.safe_actions}
+          analyzedText={result.original_text || result.content}
+        />
       </div>
 
       {/* Primary CTA to Page 2 */}
       <div className="mt-8 pt-4">
-        <div className="bg-primary/5 border border-primary/20 rounded-2xl p-6 sm:p-10 flex flex-col sm:flex-row sm:items-center justify-between gap-6 relative overflow-hidden group hover:border-primary/40 transition-colors">
+        <div className="min-w-0 bg-primary/5 border border-primary/20 rounded-2xl p-6 @content-sm:p-10 flex flex-col justify-between gap-6 relative overflow-hidden group hover:border-primary/40 transition-colors @content-lg:flex-row @content-lg:items-center">
           <div className="absolute -right-10 -top-10 w-40 h-40 bg-primary/10 rounded-full blur-3xl group-hover:bg-primary/20 transition-all duration-500"></div>
           
-          <div className="relative z-10 max-w-2xl">
-            <h3 className="text-2xl font-bold text-text-main mb-2 flex items-center space-x-2">
-              <span className="text-2xl">✨</span>
-              <span>Understand the Analysis</span>
+          <div className="relative z-10 min-w-0 w-full max-w-2xl @content-lg:w-auto">
+            <h3 className="mb-2 flex min-w-0 flex-wrap items-center gap-x-2 text-xl font-bold text-text-main @content-sm:text-2xl">
+              <span aria-hidden="true" className="shrink-0 text-2xl">✨</span>
+              <span className="min-w-0">Understand the Analysis</span>
             </h3>
             <p className="text-text-muted text-base">
               Explore how ScamShield reached this result using ML prediction, AI reasoning and retrieved evidence from our knowledge base.
             </p>
           </div>
           
-          <div className="relative z-10 shrink-0">
+          <div className="relative z-10 w-full @content-lg:w-auto">
             <button 
               onClick={() => navigate(`/results/${result.id}/details`, { state: { result } })}
-              className="w-full sm:w-auto bg-primary hover:bg-primary-hover text-white px-8 py-4 rounded-xl font-bold flex items-center justify-center space-x-3 transition shadow-sm"
+              className="flex w-full items-center justify-center space-x-3 rounded-xl bg-primary px-5 py-4 font-bold text-white shadow-sm transition hover:bg-primary-hover @content-lg:w-auto @content-lg:px-8"
             >
               <span>View Detailed AI Analysis</span>
               <ArrowRight className="w-5 h-5" />

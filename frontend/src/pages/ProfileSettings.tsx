@@ -60,7 +60,7 @@ export default function ProfileSettings() {
     }
   };
 
-  const updatePreference = async (key: 'email_notifications' | 'community_updates' | 'marketing_updates') => {
+  const updatePreference = async (key: 'email_notifications' | 'community_updates' | 'marketing_updates' | 'two_factor_enabled') => {
     setSettingsError(null);
     setSavingPreference(key);
     try {
@@ -154,7 +154,7 @@ export default function ProfileSettings() {
       </div>
 
       {/* Content Area */}
-      <div className="bg-card rounded-2xl shadow-sm border border-border-light p-6 min-h-[400px]">
+      <div className="mx-auto min-h-0 max-w-5xl rounded-2xl border border-border-light bg-card p-4 shadow-sm @content-sm:p-5">
         
         {/* Account Tab */}
         {activeTab === 'account' && (
@@ -173,12 +173,12 @@ export default function ProfileSettings() {
             </div>
 
             <div className="space-y-6">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-border-light pb-4">
+              <div className="flex flex-col @content-sm:flex-row @content-sm:items-center justify-between gap-2 border-b border-border-light pb-4">
                 <div className="text-text-muted text-sm font-semibold">Full Name</div>
                 <div className="text-text-main font-bold">{user.full_name}</div>
               </div>
               
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-border-light pb-4">
+              <div className="flex flex-col @content-sm:flex-row @content-sm:items-center justify-between gap-2 border-b border-border-light pb-4">
                 <div>
                   <div className="text-text-muted text-sm font-semibold">Email Address</div>
                   <div className="text-[11px] text-text-muted mt-1">Used for login and account communication.</div>
@@ -186,19 +186,19 @@ export default function ProfileSettings() {
                 <div className="text-text-main font-bold">{user.email}</div>
               </div>
               
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-border-light pb-4">
+              <div className="flex flex-col @content-sm:flex-row @content-sm:items-center justify-between gap-2 border-b border-border-light pb-4">
                 <div className="text-text-muted text-sm font-semibold">Role</div>
                 <div className="bg-primary/10 text-primary px-2.5 py-1 rounded text-xs font-bold uppercase tracking-wider">{user.role}</div>
               </div>
 
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-border-light pb-4">
+              <div className="flex flex-col @content-sm:flex-row @content-sm:items-center justify-between gap-2 border-b border-border-light pb-4">
                 <div className="text-text-muted text-sm font-semibold">Account Status</div>
                 <div className={user.is_active ? "bg-success/20 text-success px-2.5 py-1 rounded text-xs font-bold uppercase tracking-wider" : "bg-danger/20 text-danger px-2.5 py-1 rounded text-xs font-bold uppercase tracking-wider"}>
                   {user.is_active ? 'Active' : 'Inactive'}
                 </div>
               </div>
 
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-border-light pb-4">
+              <div className="flex flex-col @content-sm:flex-row @content-sm:items-center justify-between gap-2 border-b border-border-light pb-4">
                 <div className="text-text-muted text-sm font-semibold">Member Since</div>
                 <div className="text-text-main font-bold">{memberSince}</div>
               </div>
@@ -232,27 +232,46 @@ export default function ProfileSettings() {
               <div className="flex items-center justify-between p-5">
                 <div>
                   <div className="text-base font-bold text-text-main">Email</div>
-                  <div className="text-sm text-text-muted">Your email is used for authentication. Verification is not configured.</div>
+                  <div className="text-sm text-text-muted">Your account email receives password reset and sign-in verification codes.</div>
                 </div>
-                <div className="bg-background text-text-muted px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider">
-                  Not configured
-                </div>
+                <span className="rounded-full bg-background px-3 py-1 text-xs font-bold uppercase tracking-wider text-text-secondary">Email</span>
               </div>
 
-              <div className="flex items-center justify-between p-5">
+              <div className="flex flex-col gap-3 p-5 @content-sm:flex-row @content-sm:items-center @content-sm:justify-between">
                 <div>
                   <div className="text-base font-bold text-text-main">Two-Factor Authentication</div>
-                  <div className="text-sm text-text-muted">Multi-factor sign-in is not implemented, so this setting cannot be enabled.</div>
+                  <div className="text-sm text-text-muted">Require a one-time email code after entering your password.</div>
                 </div>
-                <span className="bg-background text-text-muted px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider">Unavailable</span>
+                <button
+                  type="button"
+                  onClick={() => void updatePreference('two_factor_enabled')}
+                  disabled={savingPreference === 'two_factor_enabled'}
+                  aria-pressed={Boolean(user.two_factor_enabled)}
+                  className={`rounded-lg px-4 py-2 text-sm font-semibold transition disabled:cursor-wait disabled:opacity-60 ${
+                    user.two_factor_enabled
+                      ? 'bg-success/10 text-success hover:bg-success/20'
+                      : 'bg-primary/10 text-primary hover:bg-primary/20'
+                  }`}
+                >
+                  {savingPreference === 'two_factor_enabled'
+                    ? 'Saving…'
+                    : user.two_factor_enabled
+                      ? 'Enabled · turn off'
+                      : 'Enable'}
+                </button>
               </div>
+              {settingsError && (
+                <div role="alert" className="mx-5 mb-4 rounded-lg border border-danger/20 bg-danger/5 px-4 py-3 text-sm font-semibold text-danger">
+                  {settingsError}
+                </div>
+              )}
 
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between p-5 gap-4">
+              <div className="flex flex-col @content-sm:flex-row @content-sm:items-center justify-between p-5 gap-4">
                 <div>
                   <div className="text-base font-bold text-text-main">Active Sessions</div>
                   <div className="text-sm text-text-muted">Manage your active login sessions.</div>
                 </div>
-                <div className="bg-card border border-border-light p-3 rounded-lg flex items-center space-x-3 text-sm flex-1 sm:max-w-xs shadow-sm">
+                <div className="bg-card border border-border-light p-3 rounded-lg flex items-center space-x-3 text-sm flex-1 @content-sm:max-w-xs shadow-sm">
                   <Monitor className="w-5 h-5 text-primary shrink-0" />
                   <div className="min-w-0">
                     <div className="font-semibold text-text-main truncate">This browser</div>

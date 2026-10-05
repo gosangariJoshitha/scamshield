@@ -3,6 +3,8 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { FileText, Image as ImageIcon, File, Mic, Trash2, Search, Lock, Mail, Link as LinkIcon, MessageSquare, Briefcase, Phone, Smartphone, AlertTriangle } from 'lucide-react';
 import { api } from '../services/api';
 
+const MAX_UPLOAD_BYTES = 50 * 1024 * 1024;
+
 export default function Analyze() {
   const location = useLocation();
   const [type, setType] = useState((location.state as any)?.tab || 'text');
@@ -40,7 +42,7 @@ export default function Analyze() {
           }
         });
       }
-      navigate(`/results/${res.data.id}`, { state: { result: res.data, from: '/analyze' } });
+      navigate(`/results/${res.data.id}`, { state: { result: res.data, from: '/analyze', analysisCreated: true } });
     } catch (err: any) {
       console.error(err);
       alert(err.response?.data?.detail || "An error occurred during analysis.");
@@ -62,7 +64,7 @@ export default function Analyze() {
       </div>
 
       {/* Tabs */}
-      <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+      <div className="grid grid-cols-1 @content-md:grid-cols-5 gap-4">
         <button 
           onClick={() => selectType('text')}
           aria-pressed={type === 'text'}
@@ -134,9 +136,9 @@ export default function Analyze() {
         </button>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+      <div className="grid grid-cols-1 @content-lg:grid-cols-12 gap-6">
         {/* Main Work Area */}
-        <div className="lg:col-span-8 space-y-6">
+        <div className="@content-lg:col-span-8 space-y-6">
           <div className="bg-card rounded-2xl shadow-sm border border-border-light p-6">
             
             {type === 'text' && (
@@ -247,9 +249,8 @@ export default function Analyze() {
                     className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
                     onChange={(e) => {
                       const selectedFile = e.target.files?.[0] || null;
-                      const maxSize = type === 'audio' ? 25 * 1024 * 1024 : 10 * 1024 * 1024;
-                      if (selectedFile && selectedFile.size > maxSize) {
-                        alert(`File is too large. Maximum size is ${type === 'audio' ? '25MB' : '10MB'}.`);
+                      if (selectedFile && selectedFile.size > MAX_UPLOAD_BYTES) {
+                        alert('File is too large. Maximum size is 50 MiB.');
                         e.target.value = '';
                         setFile(null);
                         return;
@@ -271,9 +272,9 @@ export default function Analyze() {
                       </div>
                       <h4 className="font-bold text-text-secondary text-base mb-1">Click to upload or drag and drop</h4>
                       <p className="text-sm text-text-muted">
-                        {type === 'image' && 'JPG, PNG, GIF (Max 10MB)'}
-                        {type === 'pdf' && 'PDF (Max 10MB)'}
-                        {type === 'audio' && 'MP3, WAV, M4A (Max 25MB)'}
+                        {type === 'image' && 'JPG, PNG, GIF (Max 50 MiB)'}
+                        {type === 'pdf' && 'PDF (Max 50 MiB)'}
+                        {type === 'audio' && 'MP3, WAV, M4A (Max 50 MiB)'}
                       </p>
                     </>
                   ) : (
@@ -309,7 +310,7 @@ export default function Analyze() {
               </button>
             </div>
             
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="grid grid-cols-1 @content-sm:grid-cols-2 @content-lg:grid-cols-4 gap-4">
               <div onClick={() => setExample("Your account will be blocked in 24 hours. Verify your KYC now: https://...")} className="border border-border-light rounded-xl p-4 hover:border-border-main hover:bg-background transition cursor-pointer">
                 <div className="flex items-center space-x-2 mb-3">
                   <div className="w-8 h-8 bg-danger/10 text-danger rounded-lg flex items-center justify-center shrink-0">
@@ -367,7 +368,7 @@ export default function Analyze() {
         </div>
 
         {/* Right Info Column */}
-        <div className="lg:col-span-4">
+        <div className="@content-lg:col-span-4">
           <div className="bg-background/80 rounded-2xl border border-border-light p-6 h-full flex flex-col">
             <div className="flex items-center space-x-3 mb-4">
               <div className="w-8 h-8 bg-primary/10 text-primary rounded-full flex items-center justify-center shrink-0">

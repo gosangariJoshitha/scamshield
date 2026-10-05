@@ -60,14 +60,12 @@ export default function Dashboard() {
     { name: 'Safe / Genuine', value: safeCount, color: '#16A34A' } // green-500
   ].filter(d => d.value > 0);
 
-  // If all 0, show a dummy ring
   const hasData = pieData.length > 0;
-  const displayPieData = hasData ? pieData : [{ name: 'No Data', value: 1, color: '#e2e8f0' }];
 
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-8 gap-4">
+      <div className="flex flex-col @content-sm:flex-row @content-sm:items-center @content-sm:justify-between mb-8 gap-4">
         <div>
           <h1 className="text-3xl font-bold text-text-main mb-2 flex items-center">
             {getGreeting()}, {firstName}! <span className="ml-2">👋</span>
@@ -84,7 +82,7 @@ export default function Dashboard() {
       </div>
 
       {/* KPI Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 @content-md:grid-cols-4 gap-4">
         <div className="bg-card p-5 rounded-2xl shadow-sm border border-border-light flex items-start space-x-4">
           <div className="w-12 h-12 bg-primary/10 text-primary rounded-2xl flex items-center justify-center shrink-0">
             <FileText className="w-6 h-6" />
@@ -139,10 +137,10 @@ export default function Dashboard() {
       </div>
 
       {/* Main Content Grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+      <div className="grid grid-cols-1 @content-lg:grid-cols-12 gap-6">
         
         {/* Left Column */}
-        <div className="lg:col-span-5 space-y-6">
+        <div className="@content-lg:col-span-5 space-y-6">
           {/* Risk Distribution */}
           <div className="bg-card rounded-2xl shadow-sm border border-border-light p-6 h-80 flex flex-col">
             <h3 className="font-bold text-text-main text-lg">Risk Distribution</h3>
@@ -150,27 +148,35 @@ export default function Dashboard() {
             
             <div className="flex-1 flex items-center justify-between">
               <div className="w-40 h-40 relative">
-                <ResponsiveContainer width="100%" height="100%">
-                  <PieChart>
-                    <Pie
-                      data={displayPieData}
-                      innerRadius={45}
-                      outerRadius={75}
-                      paddingAngle={5}
-                      dataKey="value"
-                      stroke="none"
-                    >
-                      {displayPieData.map((entry, index) => (
-                        <Cell key={`cell-${index}`} fill={entry.color} />
-                      ))}
-                    </Pie>
-                    {hasData && <Tooltip />}
-                  </PieChart>
-                </ResponsiveContainer>
-                <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-                  <span className="text-2xl font-bold text-text-main">{stats?.total_analyses || 0}</span>
-                  <span className="text-sm text-text-muted">Total</span>
-                </div>
+                {hasData ? (
+                  <>
+                    <ResponsiveContainer width="100%" height="100%">
+                      <PieChart>
+                        <Pie
+                          data={pieData}
+                          innerRadius={45}
+                          outerRadius={75}
+                          paddingAngle={5}
+                          dataKey="value"
+                          stroke="none"
+                        >
+                          {pieData.map((entry, index) => (
+                            <Cell key={`cell-${index}`} fill={entry.color} />
+                          ))}
+                        </Pie>
+                        <Tooltip />
+                      </PieChart>
+                    </ResponsiveContainer>
+                    <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
+                      <span className="text-2xl font-bold text-text-main">{stats?.total_analyses || 0}</span>
+                      <span className="text-sm text-text-muted">Total</span>
+                    </div>
+                  </>
+                ) : (
+                  <div className="flex h-full items-center justify-center rounded-full border border-dashed border-border-light px-3 text-center text-xs text-text-muted">
+                    No analyses yet
+                  </div>
+                )}
               </div>
               
               <div className="flex-1 pl-6 space-y-3">
@@ -225,7 +231,7 @@ export default function Dashboard() {
         </div>
 
         {/* Right Column (Recent Analyses) */}
-        <div className="lg:col-span-7">
+        <div className="@content-lg:col-span-7">
           <div className="bg-card rounded-2xl shadow-sm border border-border-light h-full flex flex-col">
             <div className="p-6 border-b border-border-light flex justify-between items-center">
               <h3 className="font-bold text-text-main text-lg">Recent Analyses</h3>
@@ -345,7 +351,7 @@ export default function Dashboard() {
           </div>
         </div>
         
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 @content-md:grid-cols-2 @content-lg:grid-cols-4 gap-4">
           {/* Text */}
           <div onClick={() => navigate('/analyze', { state: { tab: 'text' } })} className="border border-border-light rounded-xl p-5 hover:border-blue-200 hover:shadow-md transition cursor-pointer flex items-start space-x-4">
             <div className="w-12 h-12 bg-primary/10 text-primary rounded-xl flex items-center justify-center shrink-0">

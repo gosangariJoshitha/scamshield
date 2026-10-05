@@ -54,7 +54,7 @@ export default function Profile() {
   return (
     <div className="space-y-6 max-w-4xl mx-auto">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 mb-2">
+      <div className="flex flex-col @content-sm:flex-row @content-sm:items-end justify-between gap-4 mb-2">
         <div>
           <h1 className="text-3xl font-bold text-text-main mb-2">My Profile</h1>
           <p className="text-text-muted text-base">Your account at a glance.</p>
@@ -64,39 +64,39 @@ export default function Profile() {
       {/* Profile Hero Card */}
       <div className="bg-card rounded-2xl shadow-sm border border-border-light overflow-hidden relative">
         <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-primary to-purple-500"></div>
-        <div className="p-8 flex flex-col sm:flex-row items-center sm:items-start space-y-4 sm:space-y-0 sm:space-x-6">
+        <div className="p-8 flex flex-col @content-sm:flex-row items-center @content-sm:items-start space-y-4 @content-sm:space-y-0 @content-sm:space-x-6">
           <div className="shrink-0">
             <div className="w-20 h-20 bg-primary/10 text-primary rounded-full flex items-center justify-center text-3xl font-bold border border-primary/20">
               {initials}
             </div>
           </div>
-          <div className="flex-1 text-center sm:text-left min-w-0">
-            <div className="flex flex-col sm:flex-row sm:items-center sm:space-x-3 mb-2 gap-y-2">
+          <div className="flex-1 text-center @content-sm:text-left min-w-0">
+            <div className="flex flex-col @content-sm:flex-row @content-sm:items-center @content-sm:space-x-3 mb-2 gap-y-2">
               <h2 className="text-2xl font-bold text-text-main truncate">{user.full_name}</h2>
               {user.is_active && (
-                <span className="inline-flex items-center text-[10px] font-bold px-2 py-0.5 rounded-full bg-success/20 text-success uppercase tracking-wider mx-auto sm:mx-0">
+                <span className="inline-flex items-center text-[10px] font-bold px-2 py-0.5 rounded-full bg-success/20 text-success uppercase tracking-wider mx-auto @content-sm:mx-0">
                   <span className="w-1.5 h-1.5 rounded-full bg-success mr-1.5 animate-pulse"></span>
                   Active
                 </span>
               )}
             </div>
             <div className="space-y-1 mt-3">
-              <div className="flex items-center justify-center sm:justify-start space-x-2 text-sm text-text-secondary">
+              <div className="flex items-center justify-center @content-sm:justify-start space-x-2 text-sm text-text-secondary">
                 <User className="w-4 h-4 text-text-muted shrink-0" />
                 <span className="capitalize">{user.role}</span>
               </div>
-              <div className="flex items-center justify-center sm:justify-start space-x-2 text-sm text-text-secondary">
+              <div className="flex items-center justify-center @content-sm:justify-start space-x-2 text-sm text-text-secondary">
                 <Shield className="w-4 h-4 text-text-muted shrink-0" />
                 <span className="truncate">{user.email}</span>
               </div>
-              <div className="flex items-center justify-center sm:justify-start space-x-2 text-sm text-text-secondary">
+              <div className="flex items-center justify-center @content-sm:justify-start space-x-2 text-sm text-text-secondary">
                 <Calendar className="w-4 h-4 text-text-muted shrink-0" />
                 <span>Member since {memberSince}</span>
               </div>
             </div>
           </div>
           
-          <div className="shrink-0 pt-2 sm:pt-0">
+          <div className="shrink-0 pt-2 @content-sm:pt-0">
             <button onClick={() => navigate('/profile/settings', { state: { tab: 'account', openEditModal: true } })} className="border border-border-main hover:bg-background text-text-main font-bold py-2 px-6 rounded-xl transition text-sm flex items-center space-x-2 shadow-sm">
               <span>Edit Profile</span>
             </button>
@@ -107,7 +107,7 @@ export default function Profile() {
       {/* Activity Summary */}
       <div className="space-y-4 pt-2">
         <h3 className="text-lg font-bold text-text-main">Your Activity</h3>
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <div className="grid grid-cols-2 @content-md:grid-cols-4 gap-4">
           <div className="bg-card border border-border-light rounded-xl p-5 shadow-sm text-center">
             <div className="flex justify-center mb-2"><FileText className="w-5 h-5 text-primary" /></div>
             <div className="text-3xl font-bold text-text-main leading-none mb-1">{stats?.total_analyses ?? '—'}</div>
@@ -131,7 +131,7 @@ export default function Profile() {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-2">
+      <div className="grid grid-cols-1 @content-md:grid-cols-2 gap-6 pt-2">
         {/* Security Status */}
         <div className="space-y-4">
           <h3 className="text-lg font-bold text-text-main">Security Status</h3>
@@ -169,7 +169,7 @@ export default function Profile() {
 
       {/* Primary CTA */}
       <div className="mt-8">
-        <div className="bg-primary/5 border border-primary/20 rounded-2xl p-6 sm:p-8 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div className="bg-primary/5 border border-primary/20 rounded-2xl p-6 @content-sm:p-8 flex flex-col @content-sm:flex-row @content-sm:items-center justify-between gap-4">
           <div>
             <h3 className="text-xl font-bold text-primary mb-1">Manage your account</h3>
             <p className="text-text-muted text-sm">Account information, security & preferences</p>

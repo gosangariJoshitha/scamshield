@@ -10,6 +10,7 @@ import { dashboardService, type DashboardStats } from '../services/dashboard';
 import { ErrorState } from '../components/common/ErrorState';
 
 export default function History() {
+  const today = new Date().toLocaleDateString('en-CA');
   const navigate = useNavigate();
   const location = useLocation();
   const [history, setHistory] = useState<AnalysisResult[]>([]);
@@ -22,7 +23,7 @@ export default function History() {
   const [riskFilter, setRiskFilter] = useState('All Risks');
   const [classificationFilter, setClassificationFilter] = useState('All');
   const [inputTypeFilter, setInputTypeFilter] = useState('All Types');
-  const [dateRange, setDateRange] = useState({ start: '', end: '' });
+  const [dateRange, setDateRange] = useState({ start: '', end: today });
   const [showDatePicker, setShowDatePicker] = useState(false);
 
   const fetchData = async () => {
@@ -112,13 +113,13 @@ export default function History() {
     setRiskFilter('All Risks');
     setClassificationFilter('All');
     setInputTypeFilter('All Types');
-    setDateRange({ start: '', end: '' });
+    setDateRange({ start: '', end: today });
   };
 
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 mb-2">
+      <div className="flex flex-col @content-sm:flex-row @content-sm:items-end justify-between gap-4 mb-2">
         <div>
           <h1 className="text-3xl font-bold text-text-main mb-2">Analysis History</h1>
           <p className="text-text-muted text-base">View and manage all your previous analyses.</p>
@@ -127,18 +128,18 @@ export default function History() {
           <div className="relative">
             <button onClick={() => setShowDatePicker(!showDatePicker)} className="flex items-center space-x-2 bg-card border border-border-light hover:border-border-main text-text-secondary font-semibold py-2 px-4 rounded-lg shadow-sm transition">
               <Calendar className="w-4 h-4 text-primary" />
-              <span>{dateRange.start || dateRange.end ? 'Date Filtered' : 'Date Range'}</span>
+              <span>{dateRange.start || dateRange.end !== today ? 'Date Filtered' : 'Date Range'}</span>
             </button>
             {showDatePicker && (
               <div className="absolute right-0 mt-2 bg-card border border-border-light shadow-lg rounded-xl p-4 z-50 w-64">
                 <div className="space-y-3">
                   <div>
                     <label className="block text-xs font-bold text-text-muted mb-1">Start Date</label>
-                    <input type="date" value={dateRange.start} onChange={e => setDateRange({...dateRange, start: e.target.value})} className="w-full border border-border-light rounded px-2 py-1 bg-background text-sm text-text-main focus:outline-none" />
+                    <input type="date" max={dateRange.end || today} value={dateRange.start} onChange={e => setDateRange({...dateRange, start: e.target.value})} className="w-full border border-border-light rounded px-2 py-1 bg-background text-sm text-text-main focus:outline-none" />
                   </div>
                   <div>
                     <label className="block text-xs font-bold text-text-muted mb-1">End Date</label>
-                    <input type="date" value={dateRange.end} onChange={e => setDateRange({...dateRange, end: e.target.value})} className="w-full border border-border-light rounded px-2 py-1 bg-background text-sm text-text-main focus:outline-none" />
+                    <input type="date" min={dateRange.start || undefined} max={today} value={dateRange.end} onChange={e => setDateRange({...dateRange, end: e.target.value})} className="w-full border border-border-light rounded px-2 py-1 bg-background text-sm text-text-main focus:outline-none" />
                   </div>
                   <button onClick={() => setShowDatePicker(false)} className="w-full bg-primary hover:bg-primary-hover text-white text-sm font-bold py-1.5 rounded transition">Apply</button>
                 </div>
@@ -153,7 +154,7 @@ export default function History() {
       </div>
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 @content-md:grid-cols-4 gap-4">
         <div className="bg-card p-5 rounded-2xl shadow-sm border border-border-light flex items-start space-x-4">
           <div className="w-12 h-12 bg-primary/10 text-primary rounded-full flex items-center justify-center shrink-0">
             <FileText className="w-6 h-6" />
@@ -206,8 +207,8 @@ export default function History() {
       {/* Filters & Table container */}
       <div className="bg-card rounded-2xl shadow-sm border border-border-light overflow-hidden flex flex-col">
         {/* Filter Bar */}
-        <div className="p-4 border-b border-border-light flex flex-col lg:flex-row items-center gap-4 bg-background/50">
-          <div className="relative w-full lg:max-w-md">
+        <div className="p-4 border-b border-border-light flex flex-col @content-lg:flex-row items-center gap-4 bg-background/50">
+          <div className="relative w-full @content-lg:max-w-md">
             <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
               <Search className="h-4 w-4 text-text-muted" />
             </div>
@@ -216,11 +217,11 @@ export default function History() {
               value={searchQuery}
               onChange={e => setSearchQuery(e.target.value)}
               placeholder="Search by keywords, content, or category..."
-              className="block w-full pl-10 pr-3 py-2.5 border border-border-light rounded-xl leading-5 bg-card placeholder-slate-400 focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary sm:text-base transition-colors text-text-main"
+              className="block w-full pl-10 pr-3 py-2.5 border border-border-light rounded-xl leading-5 bg-card placeholder-slate-400 focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary @content-sm:text-base transition-colors text-text-main"
             />
           </div>
           
-          <div className="flex-1 flex flex-wrap lg:flex-nowrap items-center gap-3 w-full lg:w-auto">
+          <div className="flex-1 flex flex-wrap @content-lg:flex-nowrap items-center gap-3 w-full @content-lg:w-auto">
             <div className="flex-1 min-w-[120px]">
               <div className="text-[10px] text-text-muted font-bold uppercase tracking-wider mb-1 ml-1">Risk Level</div>
               <div className="relative">
@@ -346,6 +347,28 @@ export default function History() {
                             </div>
                             <div className="text-xs text-text-muted mt-0.5 max-w-[200px] truncate">
                               {item.original_filename || 'Direct Input'}
+                            </div>
+                            <div className="mt-1 flex flex-wrap gap-1 text-[10px] font-semibold">
+                              <span className={`rounded px-1.5 py-0.5 ${
+                                item.email_notification_status === 'SENT'
+                                  ? 'bg-success/10 text-success'
+                                  : item.email_notification_status === 'FAILED'
+                                    ? 'bg-danger/10 text-danger'
+                                    : 'bg-background text-text-muted'
+                              }`}>
+                                Email: {item.email_notification_status || 'Unknown'}
+                              </span>
+                              {item.jira_status !== 'NOT_REQUIRED' && (
+                                <span className={`rounded px-1.5 py-0.5 ${
+                                  item.jira_status === 'CREATED'
+                                    ? 'bg-success/10 text-success'
+                                    : item.jira_status === 'FAILED'
+                                      ? 'bg-danger/10 text-danger'
+                                      : 'bg-background text-text-muted'
+                                }`}>
+                                  Jira: {item.jira_issue_key || item.jira_status || 'Unknown'}
+                                </span>
+                              )}
                             </div>
                           </div>
                         </div>

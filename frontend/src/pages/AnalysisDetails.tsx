@@ -5,6 +5,7 @@ import {
   Database, ShieldCheck, Fingerprint, FileText
 } from 'lucide-react';
 import { analysisService, type AnalysisResult } from '../services/analysis';
+import RecommendedActions from '../components/RecommendedActions';
 
 type AnalysisItem = AnalysisResult;
 
@@ -19,6 +20,8 @@ export default function AnalysisDetails() {
   const [loading, setLoading] = useState(!stateResult);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [expandedSection, setExpandedSection] = useState<string>('');
+  const [showFullReasoning, setShowFullReasoning] = useState(false);
+  const [showAllEvidence, setShowAllEvidence] = useState(false);
 
   useEffect(() => {
     if (stateResult) {
@@ -71,15 +74,6 @@ export default function AnalysisDetails() {
   const riskColor = result.risk_level === 'HIGH' || result.risk_level === 'CRITICAL' ? 'red' : 
                    result.risk_level === 'MEDIUM' ? 'orange' : 'green';
 
-  const formatResolutionSteps = (text: string) => {
-    // If backend returns numbered steps naturally, or we split by sentences
-    const steps = text.split(/(?:\d+\. )|(?:\n)/).filter(s => s.trim().length > 5);
-    if (steps.length === 0) return [text];
-    return steps;
-  };
-
-  const resolutionSteps = formatResolutionSteps(result.recommended_action);
-
   return (
     <div className="space-y-6 max-w-6xl mx-auto pb-10">
       {/* Step Indicator */}
@@ -92,7 +86,7 @@ export default function AnalysisDetails() {
           </div>
           <span>Overview</span>
         </div>
-        <div className="w-16 h-px bg-border-main hidden sm:block"></div>
+        <div className="w-16 h-px bg-border-main hidden @content-sm:block"></div>
         <div className="flex items-center space-x-2 text-primary font-bold text-sm">
           <div className="w-6 h-6 rounded-full bg-primary text-white flex items-center justify-center text-xs">2</div>
           <span>Detailed Analysis</span>
@@ -103,11 +97,11 @@ export default function AnalysisDetails() {
       <div className="flex items-center justify-between">
         <div>
           <button 
-            onClick={() => navigate(`/results/${result.id}`, { state: { result } })}
+            onClick={() => navigate('/history')}
             className="flex items-center space-x-2 text-text-muted hover:text-text-main transition mb-4 text-sm font-bold"
           >
             <ArrowLeft className="w-4 h-4" />
-            <span>Back to Overview</span>
+            <span>Back to History</span>
           </button>
           <h1 className="text-3xl font-bold text-text-main mb-1">Detailed AI Analysis</h1>
           <p className="text-text-muted text-base max-w-2xl">
@@ -117,7 +111,7 @@ export default function AnalysisDetails() {
       </div>
 
       {/* Context Bar */}
-      <div className="sticky top-[73px] z-20 bg-background/95 backdrop-blur-md border border-border-light rounded-xl shadow-sm p-4 flex items-center justify-between mb-8">
+      <div className="flex items-center justify-between rounded-xl border border-border-light bg-background p-4 shadow-sm">
         <div className="flex items-center space-x-4">
           <div className={`w-12 h-12 rounded-full flex items-center justify-center shrink-0 border ${riskColor === 'red' ? 'bg-danger/10 border-danger/30 text-danger' : riskColor === 'orange' ? 'bg-warning/10 border-warning/30 text-warning' : 'bg-success/10 border-success/30 text-success'}`}>
             <span className="font-bold text-lg leading-none">{result.risk_score}</span>
@@ -132,7 +126,7 @@ export default function AnalysisDetails() {
             <p className="text-sm text-text-muted mt-0.5">{result.category || 'Unknown Pattern'}</p>
           </div>
         </div>
-        <div className="hidden sm:block">
+        <div className="hidden @content-sm:block">
            <button 
             onClick={() => navigate(`/results/${result.id}`, { state: { result } })}
             className="text-sm font-bold text-primary hover:text-primary-hover px-4 py-2 border border-border-light rounded-lg bg-card"
@@ -143,10 +137,10 @@ export default function AnalysisDetails() {
       </div>
 
       {/* Two Column Layout */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 relative z-10">
+      <div className="grid grid-cols-1 gap-8 @content-lg:grid-cols-12">
         
         {/* Left Column */}
-        <div className="lg:col-span-7 space-y-6">
+        <div className="@content-lg:col-span-7 space-y-6">
           
           {/* AI Analysis & Reasoning */}
           <div className="bg-card rounded-2xl shadow-sm border border-border-light overflow-hidden">
@@ -164,9 +158,18 @@ export default function AnalysisDetails() {
             <div className="p-6">
               {result.llm_reasoning || result.explanation ? (
                 <>
-                  <div className="prose prose-sm dark:prose-invert max-w-none text-text-secondary leading-relaxed mb-6">
-                    <p className="text-[15px]">{result.llm_reasoning || result.explanation}</p>
+                  <div className="prose prose-sm dark:prose-invert max-w-none break-words text-text-secondary leading-relaxed mb-4 [overflow-wrap:anywhere]">
+                    <p className={`text-[15px] ${showFullReasoning ? '' : 'line-clamp-6'}`}>{result.llm_reasoning || result.explanation}</p>
                   </div>
+                  {(result.llm_reasoning || result.explanation).length > 650 && (
+                    <button
+                      type="button"
+                      onClick={() => setShowFullReasoning((expanded) => !expanded)}
+                      className="mb-5 text-sm font-semibold text-primary hover:text-primary-hover"
+                    >
+                      {showFullReasoning ? 'Show less reasoning' : 'Read full reasoning'}
+                    </button>
+                  )}
                   
                   {result.indicators && result.indicators.length > 0 && (
                     <div className="bg-background border border-border-light rounded-xl p-5">
@@ -183,8 +186,9 @@ export default function AnalysisDetails() {
                   )}
                 </>
               ) : (
-                <div className="text-warning text-sm font-semibold p-4 bg-warning/10 rounded-xl border border-warning/20">
-                  AI explanation is temporarily unavailable. The classification and evidence-based assessment are still valid.
+                <div className="rounded-xl border border-warning/20 bg-warning/10 p-4 text-sm text-text-secondary">
+                  <p className="font-semibold text-warning">AI explanation was not generated for this analysis.</p>
+                  <p className="mt-1">The ML classification and retrieved evidence are still available. If this keeps happening, ask an administrator to check the OpenRouter configuration and backend logs.</p>
                 </div>
               )}
             </div>
@@ -194,7 +198,7 @@ export default function AnalysisDetails() {
           <div className="bg-card rounded-2xl shadow-sm border border-border-light overflow-hidden">
             <button 
               onClick={() => setExpandedSection(expandedSection === 'ml' ? '' : 'ml')}
-              className="w-full flex items-center justify-between p-5 sm:p-6 bg-background hover:bg-card transition text-left group"
+              className="w-full flex items-center justify-between p-5 @content-sm:p-6 bg-background hover:bg-card transition text-left group"
             >
               <div className="flex items-center space-x-4">
                 <div className="w-10 h-10 rounded-xl bg-background border border-border-light flex items-center justify-center text-text-muted group-hover:text-primary transition-colors">
@@ -243,7 +247,7 @@ export default function AnalysisDetails() {
           <div className="bg-card rounded-2xl shadow-sm border border-border-light overflow-hidden">
             <button 
               onClick={() => setExpandedSection(expandedSection === 'details' ? '' : 'details')}
-              className="w-full flex items-center justify-between p-5 sm:p-6 bg-background hover:bg-card transition text-left group"
+              className="w-full flex items-center justify-between p-5 @content-sm:p-6 bg-background hover:bg-card transition text-left group"
             >
               <div className="flex items-center space-x-4">
                 <div className="w-10 h-10 rounded-xl bg-background border border-border-light flex items-center justify-center text-text-muted group-hover:text-primary transition-colors">
@@ -259,7 +263,7 @@ export default function AnalysisDetails() {
             
             {expandedSection === 'details' && (
               <div className="p-6 border-t border-border-light bg-card">
-                <div className="grid grid-cols-2 sm:grid-cols-3 gap-6">
+                <div className="grid grid-cols-2 @content-sm:grid-cols-3 gap-6">
                   <div>
                     <div className="text-[10px] uppercase font-bold text-text-muted tracking-wider mb-1">Analysis ID</div>
                     <div className="text-sm font-semibold text-text-main">#ANL_{result.id}</div>
@@ -293,7 +297,7 @@ export default function AnalysisDetails() {
         </div>
 
         {/* Right Column */}
-        <div className="lg:col-span-5 space-y-6">
+        <div className="min-w-0 space-y-6 @content-lg:col-span-5">
           
           {/* Retrieved Evidence */}
           <div className="bg-card rounded-2xl shadow-sm border border-border-light p-6">
@@ -309,15 +313,18 @@ export default function AnalysisDetails() {
 
             <div className="space-y-4">
               {result.retrieved_evidence_data && result.retrieved_evidence_data.length > 0 ? (
-                result.retrieved_evidence_data.map((item, idx) => (
-                  <div key={idx} className="border border-border-light rounded-xl p-4 bg-background">
-                    <div className="flex items-start justify-between mb-2">
-                      <h4 className="font-bold text-sm text-text-main pr-4">{item.title || 'Known Pattern'}</h4>
+                result.retrieved_evidence_data.slice(
+                  0,
+                  showAllEvidence ? result.retrieved_evidence_data.length : 2,
+                ).map((item, idx) => (
+                  <div key={idx} className="min-w-0 border border-border-light rounded-xl p-4 bg-background">
+                    <div className="flex min-w-0 items-start justify-between gap-3 mb-2">
+                      <h4 className="min-w-0 break-words font-bold text-sm text-text-main [overflow-wrap:anywhere]">{item.title || 'Known Pattern'}</h4>
                       <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-background border border-border-light text-text-secondary shrink-0 whitespace-nowrap">
                         Similarity: {Math.round(item.similarity_score * 100)}%
                       </span>
                     </div>
-                    <div className="text-xs text-text-muted mb-3 flex items-center space-x-2">
+                    <div className="flex min-w-0 flex-wrap items-center gap-2 break-words text-xs text-text-muted mb-3 [overflow-wrap:anywhere]">
                       <span className="bg-border-light/50 px-2 py-0.5 rounded">{item.category || 'Scam'}</span>
                       <span>•</span>
                       <span>{item.source || 'ScamShield Knowledge Base'}</span>
@@ -330,37 +337,38 @@ export default function AnalysisDetails() {
                   <p className="text-sm text-text-muted">No sufficiently similar scam patterns were found.</p>
                 </div>
               )}
-            </div>
-          </div>
-
-          {/* What You Should Do */}
-          <div className="bg-card rounded-2xl shadow-sm border border-border-light p-6">
-            <div className="flex items-center space-x-3 mb-6">
-              <div className="w-10 h-10 rounded-xl bg-success/10 text-success flex items-center justify-center">
-                <ShieldCheck className="w-5 h-5" />
-              </div>
-              <div>
-                <h3 className="font-bold text-lg text-text-main">What You Should Do</h3>
-                <p className="text-xs text-text-muted">Resolution steps</p>
-              </div>
-            </div>
-
-            <div className="space-y-4">
-              {resolutionSteps.map((step, idx) => (
-                <div key={idx} className="flex items-start space-x-4">
-                  <div className="w-7 h-7 rounded-full bg-background border border-border-light flex items-center justify-center shrink-0 mt-0.5">
-                    <span className="text-xs font-bold text-text-muted">0{idx + 1}</span>
-                  </div>
-                  <p className="text-sm text-text-secondary pt-1 leading-relaxed">
-                    {step.trim()}
-                  </p>
-                </div>
-              ))}
+              {result.retrieved_evidence_data && result.retrieved_evidence_data.length > 2 && (
+                <button
+                  type="button"
+                  onClick={() => setShowAllEvidence((expanded) => !expanded)}
+                  className="text-sm font-semibold text-primary hover:text-primary-hover"
+                >
+                  {showAllEvidence ? 'Show fewer matches' : `Show ${result.retrieved_evidence_data.length - 2} more matches`}
+                </button>
+              )}
             </div>
           </div>
 
         </div>
       </div>
+
+      <section className="w-full rounded-2xl border border-border-light bg-card p-6 shadow-sm @content-sm:p-8">
+        <div className="mb-6 flex items-center gap-3">
+          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-success/10 text-success">
+            <ShieldCheck className="h-5 w-5" />
+          </div>
+          <div>
+            <h3 className="text-lg font-bold text-text-main">What You Should Do</h3>
+            <p className="text-xs text-text-muted">Recommended steps, one action per line</p>
+          </div>
+        </div>
+        <RecommendedActions
+          key={result.id}
+          recommendedAction={result.recommended_action}
+          safeActions={result.safe_actions}
+          analyzedText={result.original_text || result.content}
+        />
+      </section>
     </div>
   );
 }

@@ -9,5 +9,6 @@ python-jose[cryptography]
 python-multipart
 python-dotenv
 joblib
-scikit-learn
+scikit-learn==1.5.2
 scipy
+requests

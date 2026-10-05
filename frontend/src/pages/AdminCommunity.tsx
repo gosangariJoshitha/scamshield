@@ -1,9 +1,10 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import {
-  Users, ChevronLeft, ChevronRight, CheckCircle, Search
+  Users, ChevronLeft, ChevronRight, CheckCircle
 } from 'lucide-react';
 import { api } from '../services/api';
+import AdminBackButton from '../components/AdminBackButton';
 
 interface CommunityReport {
   id: number;
@@ -17,7 +18,7 @@ interface CommunityReport {
 }
 
 export default function AdminCommunity() {
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [reports, setReports] = useState<CommunityReport[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -27,7 +28,7 @@ export default function AdminCommunity() {
   const [total, setTotal] = useState(0);
   const [totalPages, setTotalPages] = useState(1);
   const [statusFilter, setStatusFilter] = useState('');
-  const [search, setSearch] = useState(searchParams.get('search') ?? '');
+  const search = searchParams.get('search') ?? '';
   const [categoryFilter, setCategoryFilter] = useState('');
   
   const [selectedReport, setSelectedReport] = useState<CommunityReport | null>(null);
@@ -39,11 +40,17 @@ export default function AdminCommunity() {
       setLoading(true);
       const skip = (page - 1) * pageSize;
       const params = new URLSearchParams({ skip: String(skip), limit: String(pageSize) });
+      const reportId = searchParams.get('report');
+      if (reportId) params.set('report_id', reportId);
       if (statusFilter) params.set('status', statusFilter);
       if (categoryFilter.trim()) params.set('category', categoryFilter.trim());
       if (search.trim()) params.set('search', search.trim());
       const response = await api.get(`/admin/community/reports?${params.toString()}`);
       setReports(response.data.items);
+      if (reportId) {
+        const selected = response.data.items.find((report: CommunityReport) => String(report.id) === reportId);
+        if (selected) setSelectedReport(selected);
+      }
       setTotal(response.data.total);
       setTotalPages(response.data.total_pages);
       setError(null);
@@ -53,7 +60,7 @@ export default function AdminCommunity() {
     } finally {
       setLoading(false);
     }
-  }, [page, pageSize, statusFilter, search, categoryFilter]);
+  }, [page, pageSize, statusFilter, search, categoryFilter, searchParams]);
 
   useEffect(() => {
     void fetchReports();
@@ -70,7 +77,13 @@ export default function AdminCommunity() {
       });
       setSelectedReport(null);
       setActionNotes('');
-      await fetchReports();
+      if (searchParams.has('report')) {
+        const nextParams = new URLSearchParams(searchParams);
+        nextParams.delete('report');
+        setSearchParams(nextParams, { replace: true });
+      } else {
+        await fetchReports();
+      }
     } catch (err) {
       console.error("Action failed:", err);
       alert("Failed to process action");
@@ -81,24 +94,21 @@ export default function AdminCommunity() {
 
   return (
     <div className="space-y-6 max-w-7xl mx-auto pb-10">
-      <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
+      <div className="flex flex-col @content-sm:flex-row @content-sm:items-end justify-between gap-4">
         <div>
           <h1 className="text-3xl font-bold text-text-main mb-1">Community Moderation</h1>
           <p className="text-text-muted">Review, verify or reject user-submitted scam reports.</p>
         </div>
+        <AdminBackButton to="/admin" label="Back to Dashboard" />
       </div>
 
-      <div className="bg-card rounded-xl shadow-sm border border-border-light p-4 flex flex-col sm:flex-row justify-between items-center gap-4">
-        <div className="flex w-full flex-col gap-3 sm:w-auto sm:flex-row">
-          <label className="relative w-full sm:w-56">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-text-muted" size={15} />
-            <input value={search} onChange={(event) => { setSearch(event.target.value); setPage(1); }} placeholder="Search reports" aria-label="Search community reports" className="w-full rounded-lg border border-border-light bg-background py-2 pl-9 pr-3 text-sm text-text-main outline-none focus:border-primary" />
-          </label>
-          <input value={categoryFilter} onChange={(event) => { setCategoryFilter(event.target.value); setPage(1); }} placeholder="Category" aria-label="Filter reports by category" className="w-full rounded-lg border border-border-light bg-background px-3 py-2 text-sm text-text-main outline-none focus:border-primary sm:w-40" />
+      <div className="bg-card rounded-xl shadow-sm border border-border-light p-4 flex flex-col @content-sm:flex-row justify-between items-center gap-4">
+        <div className="flex w-full flex-col gap-3 @content-sm:w-auto @content-sm:flex-row">
+          <input value={categoryFilter} onChange={(event) => { setCategoryFilter(event.target.value); setPage(1); }} placeholder="Category" aria-label="Filter reports by category" className="w-full rounded-lg border border-border-light bg-background px-3 py-2 text-sm text-text-main outline-none focus:border-primary @content-sm:w-40" />
           <select 
             value={statusFilter} 
             onChange={(e) => { setStatusFilter(e.target.value); setPage(1); }}
-            className="px-3 py-2 bg-background border border-border-light rounded-lg text-sm text-text-main focus:outline-none focus:border-primary w-full sm:w-auto"
+            className="px-3 py-2 bg-background border border-border-light rounded-lg text-sm text-text-main focus:outline-none focus:border-primary w-full @content-sm:w-auto"
           >
             <option value="">All Statuses</option>
             <option value="Pending">Pending</option>
@@ -110,10 +120,10 @@ export default function AdminCommunity() {
         <span className="text-sm text-text-muted">{total} reports</span>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 @content-lg:grid-cols-3 gap-6">
         
         {/* Table Area */}
-        <div className={`bg-card rounded-2xl shadow-sm border border-border-light overflow-hidden ${selectedReport ? 'hidden lg:block lg:col-span-2' : 'lg:col-span-3'}`}>
+        <div className={`bg-card rounded-2xl shadow-sm border border-border-light overflow-hidden ${selectedReport ? 'hidden @content-lg:block @content-lg:col-span-2' : '@content-lg:col-span-3'}`}>
           {loading && reports.length === 0 ? (
             <div className="p-12 flex justify-center">
               <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin"></div>
@@ -127,6 +137,7 @@ export default function AdminCommunity() {
                   <tr>
                     <th className="px-6 py-4 font-bold">ID</th>
                     <th className="px-6 py-4 font-bold">Category</th>
+                    <th className="px-6 py-4 font-bold">Reported by</th>
                     <th className="px-6 py-4 font-bold">Status</th>
                     <th className="px-6 py-4 font-bold">Date</th>
                     <th className="px-6 py-4 font-bold">Action</th>
@@ -135,19 +146,29 @@ export default function AdminCommunity() {
                 <tbody className="divide-y divide-border-light">
                   {reports.length === 0 ? (
                     <tr>
-                      <td colSpan={5} className="px-6 py-12 text-center text-text-muted">No reports found.</td>
+                      <td colSpan={6} className="px-6 py-12 text-center text-text-muted">No reports found.</td>
                     </tr>
                   ) : (
                     reports.map(r => (
                       <tr 
                         key={r.id} 
+                        role="button"
+                        tabIndex={0}
+                        aria-label={`Open report ${r.id} submitted by ${r.reporter || 'unknown user'}`}
                         className={`hover:bg-background/50 cursor-pointer transition-colors ${selectedReport?.id === r.id ? 'bg-primary/5' : ''}`}
                         onClick={() => setSelectedReport(r)}
+                        onKeyDown={(event) => {
+                          if (event.key === 'Enter' || event.key === ' ') {
+                            event.preventDefault();
+                            setSelectedReport(r);
+                          }
+                        }}
                       >
                         <td className="px-6 py-4 font-mono font-medium">#REP_{r.id}</td>
                         <td className="px-6 py-4">
                           <span className="bg-primary/10 text-primary px-2 py-1 rounded text-xs font-bold">{r.category}</span>
                         </td>
+                        <td className="px-6 py-4 text-text-secondary">{r.reporter || 'Unknown user'}</td>
                         <td className="px-6 py-4">
                           <span className={`px-2.5 py-1 rounded-full text-[11px] font-bold uppercase tracking-wider ${
                             r.status === 'VERIFIED' ? 'bg-success/10 text-success' : 
@@ -188,10 +209,10 @@ export default function AdminCommunity() {
 
         {/* Detail Panel */}
         {selectedReport && (
-          <div className="bg-card rounded-2xl shadow-sm border border-border-light flex flex-col h-fit lg:col-span-1">
+          <div className="bg-card rounded-2xl shadow-sm border border-border-light flex flex-col h-fit @content-lg:col-span-1">
             <div className="p-4 border-b border-border-light flex items-center justify-between bg-background/50 rounded-t-2xl">
               <h3 className="font-bold text-text-main">Review Report #{selectedReport.id}</h3>
-              <button onClick={() => setSelectedReport(null)} className="text-text-muted hover:text-text-main lg:hidden">Close</button>
+              <button onClick={() => setSelectedReport(null)} className="text-text-muted hover:text-text-main @content-lg:hidden">Close</button>
             </div>
             <div className="p-4 space-y-4 max-h-[60vh] overflow-y-auto custom-scrollbar">
               

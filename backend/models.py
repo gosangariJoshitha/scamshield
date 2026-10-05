@@ -12,6 +12,7 @@ class User(Base):
     password_hash = Column(String, nullable=False)
     role = Column(String, default="user")
     is_active = Column(Boolean, default=True)
+    email_verified = Column(Boolean, nullable=False, default=False)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
     
@@ -50,18 +51,29 @@ class Analysis(Base):
     processing_status = Column(String, default="COMPLETED")
     model_version = Column(String, nullable=True)
     rag_version = Column(String, nullable=True)
+    escalation_status = Column(String, nullable=False, default="NOT_ESCALATED")
+    email_notification_status = Column(String, nullable=False, default="PENDING")
+    jira_status = Column(String, nullable=False, default="NOT_REQUIRED")
+    jira_issue_key = Column(String, nullable=True)
+    jira_issue_url = Column(String, nullable=True)
     
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     
     user = relationship("User", back_populates="analyses")
     retrieved_evidences = relationship("AnalysisEvidence", back_populates="analysis")
     review_case = relationship("ReviewCase", back_populates="analysis", uselist=False)
+    community_reports = relationship("CommunityReport", back_populates="analysis")
+
+    @property
+    def review_case_id(self):
+        return self.review_case.id if self.review_case else None
 
 class CommunityReport(Base):
     __tablename__ = "community_reports"
 
     id = Column(Integer, primary_key=True, index=True)
     user_id = Column(Integer, ForeignKey("users.id"))
+    analysis_id = Column(Integer, ForeignKey("analyses.id"), nullable=True, index=True)
     content = Column(String, nullable=False)
     category = Column(String)
     description = Column(String)
@@ -70,6 +82,7 @@ class CommunityReport(Base):
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
     user = relationship("User", back_populates="reports")
+    analysis = relationship("Analysis", back_populates="community_reports")
 
 class KnowledgeEntry(Base):
     __tablename__ = "knowledge_entries"
@@ -100,6 +113,8 @@ class AnalysisEvidence(Base):
     content = Column(String)
     similarity_score = Column(Float)
     source_reference = Column(String)
+    language = Column(String, nullable=True)
+    localized_safe_action = Column(String, nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     
     analysis = relationship("Analysis", back_populates="retrieved_evidences")
@@ -112,15 +127,15 @@ class AnalysisPerformance(Base):
     analysis_id = Column(Integer, ForeignKey("analyses.id"))
     input_type = Column(String)
     
-    extraction_ms = Column(Float, default=0)
-    preprocessing_ms = Column(Float, default=0)
-    ml_ms = Column(Float, default=0)
-    embedding_ms = Column(Float, default=0)
-    rag_ms = Column(Float, default=0)
-    llm_ms = Column(Float, default=0)
-    risk_engine_ms = Column(Float, default=0)
-    database_ms = Column(Float, default=0)
-    total_ms = Column(Float, default=0)
+    extraction_ms = Column(Float, nullable=True)
+    preprocessing_ms = Column(Float, nullable=True)
+    ml_ms = Column(Float, nullable=True)
+    embedding_ms = Column(Float, nullable=True)
+    rag_ms = Column(Float, nullable=True)
+    llm_ms = Column(Float, nullable=True)
+    risk_engine_ms = Column(Float, nullable=True)
+    database_ms = Column(Float, nullable=True)
+    total_ms = Column(Float, nullable=True)
     
     status = Column(String, default="SUCCESS")
     error_message = Column(String, nullable=True)
@@ -209,3 +224,17 @@ class AuditLog(Base):
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
     actor = relationship("User", foreign_keys=[actor_id])
+
+
+class AuthChallenge(Base):
+    __tablename__ = "auth_challenges"
+
+    id = Column(Integer, primary_key=True, index=True)
+    challenge_id_hash = Column(String, unique=True, nullable=False, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    purpose = Column(String, nullable=False, index=True)
+    code_hash = Column(String, nullable=False)
+    expires_at = Column(DateTime, nullable=False)
+    attempts = Column(Integer, nullable=False, default=0)
+    consumed_at = Column(DateTime, nullable=True)
+    created_at = Column(DateTime, nullable=False, server_default=func.now())

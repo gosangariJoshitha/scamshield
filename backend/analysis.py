@@ -1,18 +1,37 @@
-from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy.orm import Session
+import logging
+import time
 from typing import Any, Dict, List, Literal
+
+from fastapi import APIRouter, BackgroundTasks, Body, Depends, File, Form, HTTPException, UploadFile
+from sqlalchemy.orm import Session
 
 from auth import get_current_regular_user
 import models
 import schemas
 from database import get_db
-from fastapi import APIRouter, Body, Depends, File, Form, HTTPException, UploadFile
 from app.pipeline.input_router import input_router
 from app.pipeline.analysis_pipeline import run_analysis_pipeline
 
-import time
 
+logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/analysis", tags=["analysis"])
+
+
+def _raise_analysis_error(error: Exception) -> None:
+    if isinstance(error, HTTPException):
+        raise error
+    if isinstance(error, ValueError):
+        logger.warning("Analysis input was rejected.")
+        raise HTTPException(
+            status_code=400,
+            detail="The supplied input could not be processed.",
+        ) from error
+    logger.exception("Analysis request failed.")
+    raise HTTPException(
+        status_code=503,
+        detail="Analysis is temporarily unavailable.",
+    ) from error
+
 
 def _populate_retrieved_evidence(analysis: models.Analysis) -> None:
     analysis.retrieved_evidence_data = [
@@ -22,8 +41,12 @@ def _populate_retrieved_evidence(analysis: models.Analysis) -> None:
             "category": ev.knowledge_entry.category if ev.knowledge_entry else "Scam",
             "similarity_score": ev.similarity_score,
             "pattern": ev.content,
-            "safe_action": ev.knowledge_entry.safe_action if ev.knowledge_entry else "",
-            "source": ev.source_reference
+            "safe_action": (
+                ev.localized_safe_action
+                or (ev.knowledge_entry.safe_action if ev.knowledge_entry else "")
+            ),
+            "source": ev.source_reference,
+            "language": ev.language,
         }
         for ev in analysis.retrieved_evidences
     ]
@@ -32,29 +55,38 @@ def _populate_retrieved_evidence(analysis: models.Analysis) -> None:
     )
 
 @router.post("/text", response_model=schemas.AnalysisResponse)
-async def analyze_text(payload: schemas.AnalysisCreate, current_user: models.User = Depends(get_current_regular_user), db: Session = Depends(get_db)):
+async def analyze_text(
+    background_tasks: BackgroundTasks,
+    payload: schemas.AnalysisCreate,
+    current_user: models.User = Depends(get_current_regular_user),
+    db: Session = Depends(get_db),
+):
     try:
         t0 = time.perf_counter()
         input_data = await input_router.route_and_extract(input_type="text", content=payload.content)
         extraction_ms = (time.perf_counter() - t0) * 1000
-        return await run_analysis_pipeline(db=db, input_data=input_data, user_id=current_user.id, extraction_ms=extraction_ms)
-    except Exception as e:
-        print(f"Error during analysis: {e}")
-        raise HTTPException(status_code=503, detail=str(e))
+        return await run_analysis_pipeline(db=db, input_data=input_data, user_id=current_user.id, extraction_ms=extraction_ms, background_tasks=background_tasks)
+    except Exception as error:
+        _raise_analysis_error(error)
 
 @router.post("/email", response_model=schemas.AnalysisResponse)
-async def analyze_email(payload: Dict[str, Any] = Body(...), current_user: models.User = Depends(get_current_regular_user), db: Session = Depends(get_db)):
+async def analyze_email(
+    background_tasks: BackgroundTasks,
+    payload: Dict[str, Any] = Body(...),
+    current_user: models.User = Depends(get_current_regular_user),
+    db: Session = Depends(get_db),
+):
     try:
         t0 = time.perf_counter()
         input_data = await input_router.route_and_extract(input_type="email", email_data=payload)
         extraction_ms = (time.perf_counter() - t0) * 1000
-        return await run_analysis_pipeline(db=db, input_data=input_data, user_id=current_user.id, extraction_ms=extraction_ms)
-    except Exception as e:
-        print(f"Error during analysis: {e}")
-        raise HTTPException(status_code=503, detail=str(e))
+        return await run_analysis_pipeline(db=db, input_data=input_data, user_id=current_user.id, extraction_ms=extraction_ms, background_tasks=background_tasks)
+    except Exception as error:
+        _raise_analysis_error(error)
 
 @router.post("/image", response_model=schemas.AnalysisResponse)
 async def analyze_image(
+    background_tasks: BackgroundTasks,
     file: UploadFile = File(...),
     language: Literal["en", "hi", "te"] = Form("en"),
     current_user: models.User = Depends(get_current_regular_user),
@@ -66,32 +98,39 @@ async def analyze_image(
             input_type="image", file=file, image_language=language
         )
         extraction_ms = (time.perf_counter() - t0) * 1000
-        return await run_analysis_pipeline(db=db, input_data=input_data, user_id=current_user.id, extraction_ms=extraction_ms)
-    except Exception as e:
-        print(f"Error during analysis: {e}")
-        raise HTTPException(status_code=503, detail=str(e))
+        return await run_analysis_pipeline(db=db, input_data=input_data, user_id=current_user.id, extraction_ms=extraction_ms, background_tasks=background_tasks)
+    except Exception as error:
+        _raise_analysis_error(error)
 
 @router.post("/pdf", response_model=schemas.AnalysisResponse)
-async def analyze_pdf(file: UploadFile = File(...), current_user: models.User = Depends(get_current_regular_user), db: Session = Depends(get_db)):
+async def analyze_pdf(
+    background_tasks: BackgroundTasks,
+    file: UploadFile = File(...),
+    current_user: models.User = Depends(get_current_regular_user),
+    db: Session = Depends(get_db),
+):
     try:
         t0 = time.perf_counter()
         input_data = await input_router.route_and_extract(input_type="pdf", file=file)
         extraction_ms = (time.perf_counter() - t0) * 1000
-        return await run_analysis_pipeline(db=db, input_data=input_data, user_id=current_user.id, extraction_ms=extraction_ms)
-    except Exception as e:
-        print(f"Error during analysis: {e}")
-        raise HTTPException(status_code=503, detail=str(e))
+        return await run_analysis_pipeline(db=db, input_data=input_data, user_id=current_user.id, extraction_ms=extraction_ms, background_tasks=background_tasks)
+    except Exception as error:
+        _raise_analysis_error(error)
 
 @router.post("/audio", response_model=schemas.AnalysisResponse)
-async def analyze_audio(file: UploadFile = File(...), current_user: models.User = Depends(get_current_regular_user), db: Session = Depends(get_db)):
+async def analyze_audio(
+    background_tasks: BackgroundTasks,
+    file: UploadFile = File(...),
+    current_user: models.User = Depends(get_current_regular_user),
+    db: Session = Depends(get_db),
+):
     try:
         t0 = time.perf_counter()
         input_data = await input_router.route_and_extract(input_type="audio", file=file)
         extraction_ms = (time.perf_counter() - t0) * 1000
-        return await run_analysis_pipeline(db=db, input_data=input_data, user_id=current_user.id, extraction_ms=extraction_ms)
-    except Exception as e:
-        print(f"Error during analysis: {e}")
-        raise HTTPException(status_code=503, detail=str(e))
+        return await run_analysis_pipeline(db=db, input_data=input_data, user_id=current_user.id, extraction_ms=extraction_ms, background_tasks=background_tasks)
+    except Exception as error:
+        _raise_analysis_error(error)
 
 @router.get("/history", response_model=List[schemas.AnalysisResponse])
 def get_history(current_user: models.User = Depends(get_current_regular_user), db: Session = Depends(get_db)):

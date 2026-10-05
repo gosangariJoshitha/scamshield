@@ -7,14 +7,14 @@ import {
 
 export default function Landing() {
   return (
-    <div className="landing-page flex-1 bg-card text-text-main flex flex-col font-sans">
+    <div className="landing-page flex-1 overflow-x-clip bg-card text-text-main flex flex-col font-sans">
       
       {/* Background soft styling */}
       <div className="absolute top-0 left-0 w-full h-[800px] bg-gradient-to-b from-primary/10 to-transparent pointer-events-none"></div>
 
       {/* Hero Section */}
-      <section id="home" className="max-w-7xl mx-auto px-6 lg:px-8 w-full flex flex-col lg:flex-row items-center pt-16 pb-20 relative z-10 min-h-[85vh]">
-        <div className="lg:w-1/2 pr-0 lg:pr-12 mb-16 lg:mb-0">
+      <section id="home" className="max-w-7xl mx-auto px-6 lg:px-8 w-full flex flex-col xl:flex-row items-center pt-16 pb-20 relative z-10 min-h-[85vh]">
+        <div className="xl:w-1/2 pr-0 xl:pr-12 mb-16 xl:mb-0">
           
           {/* AI Badge */}
           <div className="inline-flex items-center space-x-2 bg-blue-50 border border-blue-100 rounded-full px-4 py-1.5 mb-8">
@@ -22,7 +22,7 @@ export default function Landing() {
             <span className="text-xs font-bold text-primary uppercase tracking-wider">AI-Powered Scam Protection</span>
           </div>
 
-          <h1 className="text-[3.5rem] lg:text-[4.5rem] font-bold mb-6 leading-[1.05] text-text-main tracking-tight">
+          <h1 className="text-[clamp(2.25rem,7vw,4.5rem)] font-bold mb-6 leading-[1.05] text-text-main tracking-tight">
             Don't Just<br />Detect Scams.<br />
             <span className="text-primary">Understand Them.</span>
           </h1>
@@ -40,7 +40,7 @@ export default function Landing() {
           </div>
 
           {/* Mini Features */}
-          <div className="flex items-center space-x-8">
+          <div className="flex flex-wrap items-center gap-4 sm:gap-8">
             <div className="flex items-start space-x-3">
               <div className="bg-blue-50 rounded-full p-2 text-primary mt-0.5">
                 <Zap className="w-5 h-5" fill="currentColor" />
@@ -73,7 +73,7 @@ export default function Landing() {
         </div>
         
         {/* Right side Illustration Area */}
-        <div className="lg:w-1/2 flex justify-center relative w-full h-full min-h-[500px]">
+        <div className="xl:w-1/2 flex justify-center relative w-full h-full min-h-[500px]">
           {/* We will just create a clean CSS-based representation of the UI graphic */}
           <div className="absolute inset-0 bg-blue-50 rounded-3xl -rotate-3 border border-blue-100 scale-95"></div>
           

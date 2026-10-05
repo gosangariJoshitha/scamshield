@@ -1,7 +1,7 @@
 """Add M4 RAG tables
 
 Revision ID: 5044c4f02ba7
-Revises: 
+Revises: 000000000001
 Create Date: 2026-09-30 19:26:16.908323
 
 """
@@ -13,7 +13,7 @@ import sqlalchemy as sa
 
 # revision identifiers, used by Alembic.
 revision: str = '5044c4f02ba7'
-down_revision: Union[str, Sequence[str], None] = None
+down_revision: Union[str, Sequence[str], None] = '000000000001'
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 

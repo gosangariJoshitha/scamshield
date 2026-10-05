@@ -1,10 +1,12 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { useParams } from 'react-router-dom';
 import { 
-  ArrowLeft, FileText, AlertTriangle, ShieldCheck, 
+  FileText, AlertTriangle, ShieldCheck,
   Database, BrainCircuit, ActivitySquare
 } from 'lucide-react';
 import { api } from '../services/api';
+import { formatRecommendedActions } from '../utils/formatRecommendedActions';
+import AdminBackButton from '../components/AdminBackButton';
 
 export default function AdminAnalysisDetails() {
   const { id } = useParams();
@@ -60,11 +62,9 @@ export default function AdminAnalysisDetails() {
     <div className="space-y-6 max-w-5xl mx-auto pb-10">
       
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center space-x-4">
-          <Link to="/admin/analyses" className="p-2 border border-border-light rounded-lg text-text-secondary hover:bg-background transition-colors">
-            <ArrowLeft className="w-5 h-5" />
-          </Link>
+      <div className="flex flex-wrap items-center justify-between gap-4">
+        <div className="flex min-w-0 items-center gap-4">
+          <AdminBackButton to="/admin/analyses" label="Back to Analyses" />
           <div>
             <h1 className="text-2xl font-bold text-text-main flex items-center space-x-3">
               <span>Analysis #{analysis.id}</span>
@@ -77,10 +77,10 @@ export default function AdminAnalysisDetails() {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 @content-md:grid-cols-3 gap-6">
         
         {/* Main Content Area */}
-        <div className="md:col-span-2 space-y-6">
+        <div className="@content-md:col-span-2 space-y-6">
           
           <div className="bg-card rounded-2xl shadow-sm border border-border-light p-6">
             <div className="flex items-center space-x-2 mb-4">
@@ -134,7 +134,11 @@ export default function AdminAnalysisDetails() {
             {analysis.recommended_action && (
               <div className="mt-5 rounded-xl border border-primary/20 bg-primary/5 p-4">
                 <p className="mb-1 text-[11px] font-bold uppercase tracking-wider text-primary">Recommended Action</p>
-                <p className="text-sm text-text-secondary">{analysis.recommended_action}</p>
+                <ol className="ml-4 list-decimal space-y-2 pl-2 text-sm leading-relaxed text-text-secondary">
+                  {formatRecommendedActions(analysis.recommended_action).map((action, index) => (
+                    <li key={`${index}-${action}`} className="break-words [overflow-wrap:anywhere]">{action}</li>
+                  ))}
+                </ol>
               </div>
             )}
           </div>

@@ -4,17 +4,19 @@ import {
   Server, ShieldCheck
 } from 'lucide-react';
 import { monitoringService } from '../services/monitoring';
+import AdminBackButton from '../components/AdminBackButton';
 
 interface MonitoringData {
   overview: any;
-  performance: any;
+  performance: { stages: Record<string, number | null> };
   health: Record<string, string>;
   channels: Record<string, {
     count: number;
     success: number;
     failure: number;
-    average_latency_ms: number;
-    success_rate: number;
+    fallback?: number;
+    average_latency_ms: number | null;
+    success_rate: number | null;
   }>;
 }
 
@@ -54,36 +56,42 @@ export const MonitoringDashboard: React.FC = () => {
 
   const healthEntries = Object.entries(data?.health ?? {});
   const channelEntries = Object.entries(data?.channels ?? {});
-  const totalMs = data?.performance?.stages?.total_ms ?? 0;
+  const totalMs = data?.performance?.stages?.total_ms;
   const stages = [
-    { label: 'Data extraction', ms: data?.performance?.stages?.extraction_ms ?? 0 },
-    { label: 'ML inference', ms: data?.performance?.stages?.ml_ms ?? 0 },
-    { label: 'RAG retrieval', ms: data?.performance?.stages?.rag_ms ?? 0 },
-    { label: 'LLM reasoning', ms: data?.performance?.stages?.llm_ms ?? 0 },
-    { label: 'Risk engine', ms: data?.performance?.stages?.risk_engine_ms ?? 0 },
-    { label: 'Database I/O', ms: data?.performance?.stages?.database_ms ?? 0 },
+    { label: 'Data extraction', ms: data?.performance?.stages?.extraction_ms },
+    { label: 'Preprocessing', ms: data?.performance?.stages?.preprocessing_ms },
+    { label: 'ML inference', ms: data?.performance?.stages?.ml_ms },
+    { label: 'Embedding', ms: data?.performance?.stages?.embedding_ms },
+    { label: 'RAG retrieval', ms: data?.performance?.stages?.rag_ms },
+    { label: 'LLM reasoning', ms: data?.performance?.stages?.llm_ms },
+    { label: 'Risk engine', ms: data?.performance?.stages?.risk_engine_ms },
+    { label: 'Database I/O', ms: data?.performance?.stages?.database_ms },
   ];
   const confusionMatrix = data?.overview?.model?.confusion_matrix?.matrix;
 
   return (
     <div className="max-w-7xl mx-auto space-y-6 pb-10">
-      <header className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+      <header className="flex flex-col gap-4 @content-sm:flex-row @content-sm:items-center @content-sm:justify-between">
         <div>
+          <p className="text-xs font-semibold uppercase tracking-wider text-primary">Operations</p>
           <h1 className="text-3xl font-bold tracking-tight text-text-main">System Monitoring</h1>
           <p className="mt-1 text-text-muted">Health, analysis throughput, and model performance.</p>
         </div>
-        <button
-          onClick={refreshData}
-          disabled={loading || refreshing}
-          className="inline-flex items-center justify-center gap-2 rounded-lg border border-border-light bg-card px-4 py-2 text-sm font-semibold text-text-secondary shadow-sm hover:bg-background disabled:opacity-50"
-        >
-          <RefreshCw size={16} className={loading || refreshing ? 'animate-spin' : ''} />
-          Refresh metrics
-        </button>
+        <div className="flex flex-wrap items-center gap-2">
+          <AdminBackButton to="/admin" label="Back to Dashboard" />
+          <button
+            onClick={refreshData}
+            disabled={loading || refreshing}
+            className="inline-flex h-9 items-center justify-center gap-2 rounded-lg border border-border-light bg-card px-3 text-sm font-semibold text-text-secondary shadow-sm hover:bg-background disabled:opacity-50"
+          >
+            <RefreshCw size={16} className={loading || refreshing ? 'animate-spin' : ''} />
+            Refresh metrics
+          </button>
+        </div>
       </header>
 
       {error && (
-        <div role="alert" className="flex flex-col gap-3 rounded-xl border border-danger/20 bg-danger/5 p-4 text-sm text-danger sm:flex-row sm:items-center sm:justify-between">
+        <div role="alert" className="flex flex-col gap-3 rounded-xl border border-danger/20 bg-danger/5 p-4 text-sm text-danger @content-sm:flex-row @content-sm:items-center @content-sm:justify-between">
           <span>{error}</span>
           <button onClick={refreshData} className="font-bold underline underline-offset-2">Retry</button>
         </div>
@@ -95,7 +103,7 @@ export const MonitoringDashboard: React.FC = () => {
         </div>
       ) : data && (
         <>
-          <section aria-label="Service health" className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
+          <section aria-label="Service health" className="grid grid-cols-1 gap-4 @content-sm:grid-cols-2 @content-xl:grid-cols-3">
             {healthEntries.map(([name, status]) => {
               const healthy = status.toLowerCase() === 'healthy';
               return (
@@ -114,14 +122,14 @@ export const MonitoringDashboard: React.FC = () => {
             })}
           </section>
 
-          <section className="grid grid-cols-1 gap-6 xl:grid-cols-3">
-            <div className="space-y-6 xl:col-span-2">
+          <section className="grid grid-cols-1 gap-6 @content-xl:grid-cols-3">
+            <div className="space-y-6 @content-xl:col-span-2">
               <div className="rounded-2xl border border-border-light bg-card p-6 shadow-sm">
                 <div className="mb-5 flex items-center gap-2">
                   <Brain className="text-primary" size={22} />
                   <h2 className="text-lg font-bold text-text-main">Model evaluation</h2>
                 </div>
-                <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+                <div className="grid grid-cols-2 gap-3 @content-sm:grid-cols-4">
                   {[
                     { label: 'Classifier accuracy', value: data.overview?.model?.accuracy },
                     { label: 'Scam recall', value: data.overview?.model?.scam_recall },
@@ -179,8 +187,16 @@ export const MonitoringDashboard: React.FC = () => {
                           <tr key={channel}>
                             <td className="py-3 pr-4 font-semibold uppercase text-text-main">{channel}</td>
                             <td className="py-3 px-4 text-text-secondary">{metrics.count}</td>
-                            <td className="py-3 px-4 text-text-secondary">{(metrics.success_rate * 100).toFixed(1)}%</td>
-                            <td className="py-3 pl-4 text-right text-text-secondary">{Math.round(metrics.average_latency_ms)} ms</td>
+                            <td className="py-3 px-4 text-text-secondary">
+                              {typeof metrics.success_rate === 'number'
+                                ? `${(metrics.success_rate * 100).toFixed(1)}%`
+                                : 'N/A'}
+                            </td>
+                            <td className="py-3 pl-4 text-right text-text-secondary">
+                              {typeof metrics.average_latency_ms === 'number'
+                                ? `${Math.round(metrics.average_latency_ms)} ms`
+                                : 'N/A'}
+                            </td>
                           </tr>
                         ))}
                       </tbody>
@@ -197,19 +213,26 @@ export const MonitoringDashboard: React.FC = () => {
                   <h2 className="text-lg font-bold text-text-main">Average latency</h2>
                 </div>
                 <p className="mb-5 text-3xl font-bold text-text-main">
-                  {Math.round(totalMs)} <span className="text-base font-medium text-text-muted">ms total</span>
+                  {typeof totalMs === 'number' ? Math.round(totalMs) : 'N/A'}
+                  <span className="text-base font-medium text-text-muted"> ms average total</span>
                 </p>
                 <div className="space-y-4">
                   {stages.map((stage) => (
                     <div key={stage.label}>
                       <div className="mb-1 flex justify-between gap-3 text-xs">
                         <span className="text-text-secondary">{stage.label}</span>
-                        <span className="font-semibold text-text-main">{Math.round(stage.ms)} ms</span>
+                        <span className="font-semibold text-text-main">
+                          {typeof stage.ms === 'number' ? `${Math.round(stage.ms)} ms` : 'N/A'}
+                        </span>
                       </div>
                       <div className="h-2 overflow-hidden rounded-full bg-background">
                         <div
                           className="h-full rounded-full bg-primary"
-                          style={{ width: `${totalMs ? Math.min((stage.ms / totalMs) * 100, 100) : 0}%` }}
+                          style={{
+                            width: typeof stage.ms === 'number' && totalMs
+                              ? `${Math.min((stage.ms / totalMs) * 100, 100)}%`
+                              : '0%',
+                          }}
                         />
                       </div>
                     </div>

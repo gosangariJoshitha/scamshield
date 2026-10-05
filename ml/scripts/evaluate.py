@@ -1,152 +1,168 @@
-import pandas as pd
 import json
+from datetime import datetime, timezone
+from pathlib import Path
+
 import joblib
-import os
-import matplotlib.pyplot as plt
-import seaborn as sns
-from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score, confusion_matrix, classification_report
+import pandas as pd
+import sklearn
+from sklearn.metrics import (
+    accuracy_score,
+    classification_report,
+    confusion_matrix,
+    f1_score,
+    precision_score,
+    recall_score,
+)
+
+
+ROOT = Path(__file__).resolve().parents[2]
+DEFAULT_PROCESSED_DIR = ROOT / "ml" / "data" / "processed"
+MODEL_DIR = ROOT / "ml" / "models" / "classifier"
+REPORT_DIR = ROOT / "ml" / "reports"
+MIN_CATEGORY_SAMPLES = 5
+
 
 def main():
-    print("Loading test dataset...")
-    test = pd.read_csv('../data/processed/test.csv')
-    test['processed_text'] = test['processed_text'].fillna("")
+    model_metadata = json.loads(
+        (MODEL_DIR / "model_metadata.json").read_text(encoding="utf-8")
+    )
+    processed_dir = ROOT / model_metadata.get(
+        "processed_directory",
+        str(DEFAULT_PROCESSED_DIR.relative_to(ROOT)),
+    )
+    split_metadata = json.loads(
+        (processed_dir / "split_metadata.json").read_text(encoding="utf-8")
+    )
+    if model_metadata["dataset_version"] != split_metadata["dataset_version"]:
+        raise ValueError("Active model and split metadata refer to different datasets.")
 
-    print("Loading models...")
-    clf = joblib.load('../models/classifier/scam_classifier.joblib')
-    vectorizer = joblib.load('../models/classifier/tfidf_vectorizer.joblib')
+    test = pd.read_csv(processed_dir / "test.csv", keep_default_na=False)
+    if len(test) != split_metadata["splits"]["test"]["row_count"]:
+        raise ValueError("Test split size does not match split_metadata.json.")
+    if test["processed_text"].str.strip().eq("").any():
+        raise ValueError("Test split contains empty processed text.")
 
-    print("Generating features...")
-    X_test = vectorizer.transform(test['processed_text'])
-    y_test = test['label']
+    artifact_paths = model_metadata["artifact_paths"]
+    classifier_path = MODEL_DIR / artifact_paths["classifier"]
+    vectorizer_path = MODEL_DIR / artifact_paths["vectorizer"]
+    classifier = joblib.load(classifier_path)
+    vectorizer = joblib.load(vectorizer_path)
+    predictions = classifier.predict(vectorizer.transform(test["processed_text"]))
+    expected = test["label"]
 
-    print("Running inference...")
-    y_pred = clf.predict(X_test)
-    
-    print("Calculating metrics...")
-    acc = accuracy_score(y_test, y_pred)
-    
-    # Calculate precision, recall, F1 specifically for the 'scam' class
-    # Classes are 'genuine' and 'scam'. We care most about missing scams.
-    pos_label = 'scam'
-    prec = precision_score(y_test, y_pred, pos_label=pos_label)
-    rec = recall_score(y_test, y_pred, pos_label=pos_label)
-    f1 = f1_score(y_test, y_pred, pos_label=pos_label)
-    
-    report_dict = classification_report(y_test, y_pred, output_dict=True)
-    report_str = classification_report(y_test, y_pred)
-    
-    print("Accuracy:", acc)
-    print(report_str)
-    
-    # Multilingual evaluation
-    print("\nMultilingual Evaluation:")
-    lang_metrics = []
-    if 'language' in test.columns:
-        for lang in test['language'].unique():
-            lang_mask = test['language'] == lang
-            y_test_lang = y_test[lang_mask]
-            y_pred_lang = y_pred[lang_mask]
-            lang_acc = accuracy_score(y_test_lang, y_pred_lang)
-            # handle cases where there are no scams in this split for this language (unlikely but safe)
-            if pos_label in y_test_lang.values:
-                lang_prec = precision_score(y_test_lang, y_pred_lang, pos_label=pos_label, zero_division=0)
-                lang_rec = recall_score(y_test_lang, y_pred_lang, pos_label=pos_label, zero_division=0)
-                lang_f1 = f1_score(y_test_lang, y_pred_lang, pos_label=pos_label, zero_division=0)
-            else:
-                lang_prec = lang_rec = lang_f1 = 0
-                
-            samples = len(y_test_lang)
-            print(f"Language: {lang} | Samples: {samples} | Acc: {lang_acc:.4f} | Prec: {lang_prec:.4f} | Rec: {lang_rec:.4f} | F1: {lang_f1:.4f}")
-            lang_metrics.append({
-                "language": lang,
-                "samples": samples,
-                "accuracy": lang_acc,
-                "precision": lang_prec,
-                "recall": lang_rec,
-                "f1": lang_f1
-            })
+    report = classification_report(
+        expected,
+        predictions,
+        output_dict=True,
+        zero_division=0,
+    )
+    report_text = classification_report(
+        expected,
+        predictions,
+        zero_division=0,
+    )
+    labels = list(classifier.classes_)
+    matrix = confusion_matrix(expected, predictions, labels=labels)
+    scam_precision = precision_score(
+        expected, predictions, pos_label="scam", zero_division=0
+    )
+    scam_recall = recall_score(
+        expected, predictions, pos_label="scam", zero_division=0
+    )
+    scam_f1 = f1_score(expected, predictions, pos_label="scam", zero_division=0)
 
-    # Category evaluation
-    print("\nCategory Analysis:")
-    cat_metrics = []
-    if 'scam_category' in test.columns:
-        for cat in test['scam_category'].unique():
-            cat_mask = test['scam_category'] == cat
-            y_test_cat = y_test[cat_mask]
-            y_pred_cat = y_pred[cat_mask]
-            if len(y_test_cat) > 0:
-                cat_acc = accuracy_score(y_test_cat, y_pred_cat)
-                cat_metrics.append({
-                    "category": cat,
-                    "samples": len(y_test_cat),
-                    "accuracy": cat_acc
-                })
-        
-        # Print top 5 and bottom 5 categories by accuracy
-        cat_df = pd.DataFrame(cat_metrics).sort_values(by='accuracy', ascending=False)
-        print("Top 5 Categories:")
-        print(cat_df.head(5).to_string(index=False))
-        print("\nBottom 5 Categories:")
-        print(cat_df.tail(5).to_string(index=False))
+    language_metrics = []
+    for language in sorted(test["language"].unique()):
+        mask = test["language"].eq(language)
+        language_expected = expected[mask]
+        language_predictions = predictions[mask]
+        language_metrics.append({
+            "language": language,
+            "samples": int(mask.sum()),
+            "accuracy": float(accuracy_score(language_expected, language_predictions)),
+            "scam_precision": float(precision_score(
+                language_expected, language_predictions, pos_label="scam", zero_division=0
+            )),
+            "scam_recall": float(recall_score(
+                language_expected, language_predictions, pos_label="scam", zero_division=0
+            )),
+            "scam_f1": float(f1_score(
+                language_expected, language_predictions, pos_label="scam", zero_division=0
+            )),
+        })
 
-    # Generate Confusion Matrix
-    cm = confusion_matrix(y_test, y_pred, labels=clf.classes_)
+    category_metrics = []
+    excluded_categories = 0
+    for category, indexes in test.groupby("scam_category").groups.items():
+        category_expected = expected.loc[indexes]
+        category_predictions = pd.Series(predictions, index=test.index).loc[indexes]
+        samples = len(indexes)
+        if samples < MIN_CATEGORY_SAMPLES:
+            excluded_categories += 1
+            continue
+        category_metrics.append({
+            "category": category,
+            "samples": samples,
+            "accuracy": float(accuracy_score(category_expected, category_predictions)),
+        })
 
-    # False Positive / False Negative Analysis
-    fp_mask = (y_test == 'genuine') & (y_pred == 'scam')
-    fn_mask = (y_test == 'scam') & (y_pred == 'genuine')
-
-    # We'll extract a few examples (limit to 5 each)
-    fp_examples = test[fp_mask][['processed_text', 'label']].head(5).to_dict(orient='records')
-    fn_examples = test[fn_mask][['processed_text', 'label']].head(5).to_dict(orient='records')
-
-    print("\nSaving reports...")
-    os.makedirs('../reports', exist_ok=True)
-    
-    # Save metrics JSON
+    false_positives = int(((expected == "genuine") & (predictions == "scam")).sum())
+    false_negatives = int(((expected == "scam") & (predictions == "genuine")).sum())
     metrics = {
-        "accuracy": acc,
-        "scam_precision": prec,
-        "scam_recall": rec,
-        "scam_f1": f1,
-        "classification_report": report_dict,
+        "accuracy": float(accuracy_score(expected, predictions)),
+        "scam_precision": float(scam_precision),
+        "scam_recall": float(scam_recall),
+        "scam_f1": float(scam_f1),
+        "classification_report": report,
         "confusion_matrix": {
-            "classes": list(clf.classes_),
-            "matrix": cm.tolist()
+            "classes": labels,
+            "matrix": matrix.tolist(),
         },
         "error_analysis": {
-            "false_positives": len(test[fp_mask]),
-            "false_negatives": len(test[fn_mask]),
-            "fp_examples": fp_examples,
-            "fn_examples": fn_examples
+            "false_positives": false_positives,
+            "false_negatives": false_negatives,
         },
-        "language_evaluation": lang_metrics,
-        "category_evaluation": cat_metrics,
+        "language_evaluation": language_metrics,
+        "category_evaluation": {
+            "minimum_samples": MIN_CATEGORY_SAMPLES,
+            "included_categories": category_metrics,
+            "excluded_below_minimum": excluded_categories,
+        },
         "metadata": {
-            "dataset": "scamshield_dataset_2000_cleaned.csv",
-            "algorithm": "TF-IDF + Logistic Regression"
-        }
+            "dataset_version": model_metadata["dataset_version"],
+            "model_version": model_metadata["model_version"],
+            "test_size": len(test),
+            "evaluation_timestamp": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+            "algorithm": model_metadata["algorithm"],
+            "scikit_learn_version": sklearn.__version__,
+            "scope": "Offline benchmark on the project test split; not real-world accuracy.",
+        },
     }
-    with open('../reports/metrics.json', 'w') as f:
-        json.dump(metrics, f, indent=4)
-        
-    # Save classification report text
-    with open('../reports/classification_report.txt', 'w') as f:
-        f.write("Classification Report on Test Set\n")
-        f.write("=================================\n\n")
-        f.write(report_str)
-        
-    # Save confusion matrix plot
-    cm = confusion_matrix(y_test, y_pred, labels=clf.classes_)
-    plt.figure(figsize=(8, 6))
-    sns.heatmap(cm, annot=True, fmt='d', cmap='Blues', xticklabels=clf.classes_, yticklabels=clf.classes_)
-    plt.title('Confusion Matrix - ScamShield Test Set')
-    plt.ylabel('Actual Label')
-    plt.xlabel('Predicted Label')
-    plt.tight_layout()
-    plt.savefig('../reports/confusion_matrix.png', dpi=300)
-    
-    print("Evaluation complete. Artifacts saved in ml/reports/")
+
+    REPORT_DIR.mkdir(parents=True, exist_ok=True)
+    metrics_path = REPORT_DIR / "metrics.json"
+    metrics_path.write_text(
+        json.dumps(metrics, ensure_ascii=False, indent=2) + "\n",
+        encoding="utf-8",
+    )
+    report_path = REPORT_DIR / "classification_report.txt"
+    report_path.write_text(
+        "Offline Classification Report on the Held-Out Test Split\n"
+        "========================================================\n"
+        f"Dataset: {metrics['metadata']['dataset_version']}\n"
+        f"Model: {metrics['metadata']['model_version']}\n"
+        f"Test rows: {len(test)}\n"
+        "This is an offline benchmark, not real-world accuracy.\n\n"
+        f"{report_text}",
+        encoding="utf-8",
+    )
+
+    print(f"Model: {model_metadata['model_version']}")
+    print(f"Dataset: {model_metadata['dataset_version']}")
+    print(f"Test rows: {len(test)}")
+    print(report_text)
+    print(f"Metrics saved to {metrics_path}")
+
 
 if __name__ == "__main__":
     main()

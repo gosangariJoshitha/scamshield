@@ -1,8 +1,8 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { 
-  Search, ChevronLeft, ChevronRight, CheckCircle, XCircle
-} from 'lucide-react';
+import { useSearchParams } from 'react-router-dom';
+import { ChevronLeft, ChevronRight, CheckCircle, XCircle } from 'lucide-react';
 import { api } from '../services/api';
+import AdminBackButton from '../components/AdminBackButton';
 
 interface AuditLog {
   id: number;
@@ -15,6 +15,7 @@ interface AuditLog {
 }
 
 export default function AdminAuditLogs() {
+  const [searchParams] = useSearchParams();
   const [logs, setLogs] = useState<AuditLog[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -23,7 +24,7 @@ export default function AdminAuditLogs() {
   const [pageSize] = useState(20);
   const [total, setTotal] = useState(0);
   const [totalPages, setTotalPages] = useState(1);
-  const [actionFilter, setActionFilter] = useState('');
+  const actionFilter = searchParams.get('search') ?? '';
 
   const fetchLogs = useCallback(async () => {
     try {
@@ -52,26 +53,16 @@ export default function AdminAuditLogs() {
   return (
     <div className="space-y-6 max-w-7xl mx-auto pb-10">
       
-      <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
+      <div className="flex flex-col @content-sm:flex-row @content-sm:items-end justify-between gap-4">
         <div>
           <h1 className="text-3xl font-bold text-text-main mb-1">Audit Logs</h1>
           <p className="text-text-muted">Track administrative and system actions for security compliance.</p>
         </div>
+        <AdminBackButton to="/admin" label="Back to Dashboard" />
       </div>
 
-      <div className="bg-card rounded-xl shadow-sm border border-border-light p-4 flex flex-col sm:flex-row justify-between items-center gap-4">
-        <div className="flex items-center gap-4 w-full sm:w-auto">
-          <div className="relative flex-1 sm:w-64">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-text-muted" />
-            <input 
-              type="text" 
-              value={actionFilter}
-              onChange={e => { setActionFilter(e.target.value); setPage(1); }}
-              placeholder="Search by Action (e.g. LOGIN)..." 
-              className="w-full pl-9 pr-4 py-2 bg-background border border-border-light rounded-lg text-sm focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all"
-            />
-          </div>
-        </div>
+      <div className="bg-card rounded-xl shadow-sm border border-border-light p-4 flex flex-col @content-sm:flex-row justify-between items-center gap-4">
+        <p className="text-sm text-text-muted">{actionFilter ? `Filtered by action: ${actionFilter}` : 'Showing recent recorded events'}</p>
       </div>
 
       <div className="bg-card rounded-2xl shadow-sm border border-border-light overflow-hidden">

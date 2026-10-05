@@ -9,6 +9,7 @@ import {
   Tooltip, XAxis, YAxis
 } from 'recharts';
 import { api } from '../services/api';
+import { useNavigate } from 'react-router-dom';
 
 type ActivityPoint = { date: string; count: number };
 type CountItem = { name: string; value: number };
@@ -63,6 +64,7 @@ function EmptyPanel({ children }: { children: string }) {
 }
 
 export default function AdminOverview() {
+  const navigate = useNavigate();
   const [days, setDays] = useState(30);
   const [stats, setStats] = useState<OverviewStats | null>(null);
   const [health, setHealth] = useState<Record<string, string> | null>(null);
@@ -125,7 +127,7 @@ export default function AdminOverview() {
       <header className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <p className="text-xs font-semibold uppercase tracking-wider text-primary">ScamShield administration</p>
-          <h2 className="mt-1 text-2xl font-bold tracking-tight text-text-main sm:text-3xl">Dashboard</h2>
+          <h2 className="mt-1 text-2xl font-bold tracking-tight text-text-main @content-sm:text-3xl">Dashboard</h2>
           <p className="mt-1 text-sm text-text-muted">Overview of current analysis and moderation activity.</p>
         </div>
         <div className="flex items-center gap-2">
@@ -154,10 +156,10 @@ export default function AdminOverview() {
 
       {error && <p role="alert" className="rounded-lg border border-danger/20 bg-danger/5 px-4 py-3 text-sm text-danger">{error}</p>}
 
-      <section aria-label="Platform summary" className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
+      <section aria-label="Platform summary" className="grid grid-cols-1 gap-3 @content-sm:grid-cols-2 @content-xl:grid-cols-4">
         {cards.map(({ label, value, icon: Icon, tone }) => (
           <article key={label} className="flex min-h-28 items-center gap-4 rounded-xl border border-border-light bg-card p-4 shadow-sm">
-            <span className={`grid h-11 w-11 shrink-0 place-items-center rounded-xl ${tone}`}><Icon size={20} /></span>
+            <span className={`-translate-y-1 grid h-11 w-11 shrink-0 place-items-center rounded-xl ${tone}`}><Icon size={20} /></span>
             <div className="min-w-0">
               <p className="text-xs font-medium text-text-muted">{label}</p>
               <p className="mt-1 text-2xl font-bold tabular-nums text-text-main">{loading ? '…' : countLabel(value)}</p>
@@ -166,8 +168,8 @@ export default function AdminOverview() {
         ))}
       </section>
 
-      <section className="grid grid-cols-1 gap-4 xl:grid-cols-3">
-        <article className="rounded-xl border border-border-light bg-card p-4 shadow-sm xl:col-span-2 sm:p-5">
+      <section className="grid grid-cols-1 gap-4 @content-xl:grid-cols-3">
+        <article className="rounded-xl border border-border-light bg-card p-4 shadow-sm @content-xl:col-span-2 @content-sm:p-5">
           <div className="mb-3 flex items-start justify-between gap-3">
             <div>
               <h3 className="font-semibold text-text-main">Analysis activity</h3>
@@ -195,7 +197,7 @@ export default function AdminOverview() {
           ) : <EmptyPanel>No analysis activity in this period.</EmptyPanel>}
         </article>
 
-        <article className="rounded-xl border border-border-light bg-card p-4 shadow-sm sm:p-5">
+        <article className="rounded-xl border border-border-light bg-card p-4 shadow-sm @content-sm:p-5">
           <div className="mb-3 flex items-start justify-between gap-3">
             <div>
               <h3 className="font-semibold text-text-main">Risk distribution</h3>
@@ -228,9 +230,9 @@ export default function AdminOverview() {
         </article>
       </section>
 
-      <section className="grid grid-cols-1 gap-4 xl:grid-cols-5">
-        <article className="overflow-hidden rounded-xl border border-border-light bg-card shadow-sm xl:col-span-3">
-          <div className="flex items-center justify-between border-b border-border-light px-4 py-4 sm:px-5">
+      <section className="grid grid-cols-1 gap-4 @content-xl:grid-cols-5">
+        <article className="overflow-hidden rounded-xl border border-border-light bg-card shadow-sm @content-xl:col-span-3">
+          <div className="flex items-center justify-between border-b border-border-light px-4 py-4 @content-sm:px-5">
             <div>
               <h3 className="font-semibold text-text-main">Recent human reviews</h3>
               <p className="mt-0.5 text-xs text-text-muted">{countLabel(reviewTotal)} cases total</p>
@@ -247,7 +249,20 @@ export default function AdminOverview() {
                 </thead>
                 <tbody className="divide-y divide-border-light">
                   {stats.recentReviews.map((item) => (
-                    <tr key={item.id} className="hover:bg-background/60">
+                    <tr
+                      key={item.id}
+                      role="link"
+                      tabIndex={0}
+                      aria-label={`Open review case ${item.id}`}
+                      onClick={() => navigate(`/admin/reviews/${item.id}`)}
+                      onKeyDown={(event) => {
+                        if (event.key === 'Enter' || event.key === ' ') {
+                          event.preventDefault();
+                          navigate(`/admin/reviews/${item.id}`);
+                        }
+                      }}
+                      className="cursor-pointer hover:bg-background/60 focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary"
+                    >
                       <td className="px-4 py-3"><Link to={`/admin/reviews/${item.id}`} className="font-semibold text-primary hover:underline">RV-{item.id}</Link><p className="text-xs text-text-muted">Analysis #{item.analysis_id}</p></td>
                       <td className="px-4 py-3 text-xs text-text-secondary">{item.input_type || 'Unknown'}<p className="mt-1 font-semibold">{item.risk_level || 'Unrated'}</p></td>
                       <td className="px-4 py-3"><span className={`rounded-full px-2 py-1 text-[10px] font-semibold ${statusStyle(item.status)}`}>{item.status.replaceAll('_', ' ')}</span></td>
@@ -260,8 +275,8 @@ export default function AdminOverview() {
           ) : <EmptyPanel>No human-review cases yet.</EmptyPanel>}
         </article>
 
-        <article className="overflow-hidden rounded-xl border border-border-light bg-card shadow-sm xl:col-span-2">
-          <div className="flex items-center justify-between border-b border-border-light px-4 py-4 sm:px-5">
+        <article className="overflow-hidden rounded-xl border border-border-light bg-card shadow-sm @content-xl:col-span-2">
+          <div className="flex items-center justify-between border-b border-border-light px-4 py-4 @content-sm:px-5">
             <div>
               <h3 className="font-semibold text-text-main">Community reports</h3>
               <p className="mt-0.5 text-xs text-text-muted">{countLabel(stats.communityReports)} in selected period</p>
@@ -273,13 +288,18 @@ export default function AdminOverview() {
           {stats.recentCommunityReports.length ? (
             <ul className="divide-y divide-border-light">
               {stats.recentCommunityReports.map((report) => (
-                <li key={report.id} className="flex items-start gap-3 px-4 py-3 sm:px-5">
+                <li key={report.id}>
+                  <Link
+                    to={`/admin/community?report=${report.id}`}
+                    className="flex items-start gap-3 px-4 py-3 transition-colors hover:bg-background/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary @content-sm:px-5"
+                  >
                   <span className="mt-0.5 grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-primary/10 text-primary"><FileWarning size={16} /></span>
                   <div className="min-w-0 flex-1">
                     <p className="line-clamp-2 text-sm font-medium text-text-main">{report.content}</p>
                     <p className="mt-1 truncate text-xs text-text-muted">{report.category || 'Uncategorized'} · {report.reporter}</p>
                   </div>
                   <span className={`shrink-0 rounded-full px-2 py-1 text-[10px] font-semibold ${statusStyle(report.status.toUpperCase())}`}>{report.status.replaceAll('_', ' ')}</span>
+                  </Link>
                 </li>
               ))}
             </ul>
@@ -287,7 +307,7 @@ export default function AdminOverview() {
         </article>
       </section>
 
-      <section className="rounded-xl border border-border-light bg-card p-4 shadow-sm sm:p-5">
+      <section className="rounded-xl border border-border-light bg-card p-4 shadow-sm @content-sm:p-5">
         <div className="mb-3 flex items-center gap-2">
           <Activity className="text-primary" size={17} />
           <h3 className="font-semibold text-text-main">Service status</h3>

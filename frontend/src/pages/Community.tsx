@@ -58,7 +58,10 @@ export default function Community() {
         description: formDescription,
       };
       const newReport = await communityService.createReport(payload);
-      setReports(prev => [newReport, ...prev]);
+      setReports(prev => [
+        newReport,
+        ...prev.filter(report => report.id !== newReport.id),
+      ]);
       setFormContent('');
       setFormCategory('');
       setFormDescription('');
@@ -107,7 +110,7 @@ export default function Community() {
       </div>
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 @content-md:grid-cols-4 gap-4">
         <div className="bg-card p-5 rounded-2xl shadow-sm border border-border-light flex items-start space-x-4">
           <div className="w-12 h-12 bg-primary/10 text-primary rounded-full flex items-center justify-center shrink-0">
             <Users className="w-6 h-6" />
@@ -153,17 +156,17 @@ export default function Community() {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+      <div className="grid grid-cols-1 @content-lg:grid-cols-12 gap-6">
         
         {/* Left Column (Reports List) */}
-        <div className="lg:col-span-8">
+        <div className="@content-lg:col-span-8">
           <div className="bg-card rounded-2xl shadow-sm border border-border-light flex flex-col h-full min-h-[600px]">
-            <div className="p-6 border-b border-border-light flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4 bg-background/50">
+            <div className="p-6 border-b border-border-light flex flex-col @content-sm:flex-row @content-sm:justify-between @content-sm:items-center gap-4 bg-background/50">
               <div>
                 <h3 className="font-bold text-text-main text-lg">Recent Community Reports</h3>
                 <p className="text-sm text-text-muted mt-0.5">Latest reports submitted by ScamShield users.</p>
               </div>
-              <div className="relative w-full sm:w-auto sm:min-w-44">
+              <div className="relative w-full @content-sm:w-auto @content-sm:min-w-44">
                 <select 
                   value={statusFilter}
                   onChange={(e) => {
@@ -235,7 +238,7 @@ export default function Community() {
                        : 'bg-warning/10 text-warning';
 
                    return (
-                     <div key={report.id} className="p-4 flex items-start space-x-4 hover:bg-background rounded-xl transition group">
+                     <div key={report.id} className="group rounded-xl border border-transparent p-4 flex items-start space-x-4 transition-all duration-200 hover:-translate-y-0.5 hover:border-primary/20 hover:bg-background/70 hover:shadow-sm">
                        <div className={`w-12 h-12 rounded-2xl flex items-center justify-center shrink-0 ${getColorClassForCategory(report.category)}`}>
                          {getIconForCategory(report.category)}
                        </div>
@@ -248,11 +251,15 @@ export default function Community() {
                            </span>
                          </div>
                          <p className="text-sm text-text-secondary line-clamp-2">{report.content}</p>
+                         <p className="mt-2 text-xs text-text-muted">
+                           Reported by <span className="font-semibold text-text-secondary">{report.reporter_name || 'Community member'}</span>
+                           {report.analysis_id && <> · From analysis #{report.analysis_id}</>}
+                         </p>
                        </div>
                        
                        <div className="w-24 shrink-0 flex flex-col items-end space-y-2">
                          <span className="text-[10px] font-semibold text-text-muted">{timeStr}</span>
-                         <div className="text-text-secondary group-hover:text-text-muted transition">
+                         <div className="text-text-secondary transition-all duration-200 group-hover:translate-x-1 group-hover:text-primary">
                             <ChevronRight className="w-5 h-5" />
                          </div>
                        </div>
@@ -290,7 +297,7 @@ export default function Community() {
         </div>
 
         {/* Right Column (Form & Info) */}
-        <div className="lg:col-span-4 space-y-6">
+        <div className="@content-lg:col-span-4 space-y-6">
           
           {/* Report Form */}
           <div className="bg-card rounded-2xl shadow-sm border border-border-light p-6">

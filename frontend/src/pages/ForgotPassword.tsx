@@ -8,7 +8,8 @@ export default function ForgotPassword() {
   const [step, setStep] = useState<1 | 2>(1);
   const [email, setEmail] = useState('');
   const [newPassword, setNewPassword] = useState('');
-  const [token, setToken] = useState('');
+  const [verificationCode, setVerificationCode] = useState('');
+  const [challengeId, setChallengeId] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
@@ -20,14 +21,9 @@ export default function ForgotPassword() {
     
     try {
       const res = await auth.forgotPassword(email);
-      // For development purposes, the backend returns the token directly
-      if (res.dev_token) {
-        setToken(res.dev_token);
-        setStep(2);
-        setSuccess('Development Mode: Token received. You can now reset your password.');
-      } else {
-        setSuccess(res.message);
-      }
+      setChallengeId(res.challenge_id);
+      setStep(2);
+      setSuccess(res.message);
     } catch (err: any) {
       setError(err.response?.data?.detail || 'An error occurred.');
     } finally {
@@ -42,7 +38,11 @@ export default function ForgotPassword() {
     setLoading(true);
     
     try {
-      await auth.resetPassword({ token, new_password: newPassword });
+      await auth.resetPassword({
+        challenge_id: challengeId,
+        code: verificationCode,
+        new_password: newPassword,
+      });
       setSuccess('Password successfully reset. Redirecting to login...');
       setTimeout(() => {
         navigate('/login');
@@ -91,8 +91,8 @@ export default function ForgotPassword() {
               </h2>
               <p className="text-sm text-text-muted">
                 {step === 1 
-                  ? 'Enter your email address and we will send you a reset token.' 
-                  : 'Please enter your new password.'}
+                  ? 'We will email you a one-time verification code if an active account matches that address.'
+                  : 'Enter the verification code from your email and choose a new password.'}
               </p>
             </div>
 
@@ -128,16 +128,30 @@ export default function ForgotPassword() {
                   disabled={loading || !email} 
                   className="w-full h-12 bg-primary hover:bg-primary text-white font-bold rounded-xl shadow-[0_0_20px_rgba(37,99,235,0.2)] transition-all disabled:opacity-50 flex items-center justify-center"
                 >
-                  {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : 'Request Reset Link'}
+                  {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : 'Send reset code'}
                 </button>
               </form>
             ) : (
               <form onSubmit={handleResetPassword} className="flex flex-col">
+                <div className="mb-5">
+                  <label className="mb-1.5 block text-sm font-medium text-text-secondary">Email verification code</label>
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    autoComplete="one-time-code"
+                    pattern="[0-9]{6}"
+                    maxLength={6}
+                    required
+                    className="h-12 w-full rounded-xl border border-border-light/50 bg-background px-4 text-center text-lg tracking-[0.4em] text-white shadow-inner focus:border-primary focus:outline-none focus:ring-[3px] focus:ring-primary/20"
+                    value={verificationCode}
+                    onChange={(event) => setVerificationCode(event.target.value.replace(/\D/g, '').slice(0, 6))}
+                  />
+                </div>
                 <div className="mb-6">
                   <label className="block text-text-secondary mb-1.5 text-sm font-medium">New Password</label>
                   <input 
                     type="password" 
-                    placeholder="At least 8 characters"
+                    placeholder="8+ characters, uppercase letter and number"
                     required 
                     className="w-full px-4 h-12 bg-background border border-border-light/50 rounded-xl focus:outline-none focus:border-primary focus:ring-[3px] focus:ring-primary/20 transition-all placeholder:text-text-secondary text-white shadow-inner" 
                     value={newPassword} 
@@ -146,7 +160,7 @@ export default function ForgotPassword() {
                 </div>
                 <button 
                   type="submit" 
-                  disabled={loading || newPassword.length < 8} 
+                  disabled={loading || verificationCode.length !== 6 || newPassword.length < 8}
                   className="w-full h-12 bg-primary hover:bg-primary text-white font-bold rounded-xl shadow-[0_0_20px_rgba(37,99,235,0.2)] transition-all disabled:opacity-50 flex items-center justify-center"
                 >
                   {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : 'Update Password'}

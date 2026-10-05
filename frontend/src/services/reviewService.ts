@@ -73,7 +73,11 @@ export const reviewService = {
         return response.data;
     },
     
-    startReview: async (caseId: number) => {
+    startReview: async (caseId: number): Promise<{
+        success: boolean;
+        status: string;
+        assigned_reviewer_id: number | null;
+    }> => {
         const response = await api.post(`/reviews/admin/${caseId}/start`);
         return response.data;
     },

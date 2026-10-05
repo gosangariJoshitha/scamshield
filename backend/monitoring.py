@@ -36,6 +36,34 @@ def _read_report(filename: str):
         return None
 
 
+def _active_model_status():
+    model_dir = REPOSITORY_ROOT / "ml" / "models" / "classifier"
+    metadata_path = model_dir / "model_metadata.json"
+    try:
+        metadata = json.loads(metadata_path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        logger.exception("Unable to read active classifier metadata.")
+        return None, False
+
+    artifact_paths = metadata.get("artifact_paths") or {
+        "classifier": "scam_classifier.joblib",
+        "vectorizer": "tfidf_vectorizer.joblib",
+    }
+    files = []
+    for key in ("classifier", "vectorizer"):
+        relative_path = artifact_paths.get(key)
+        if not isinstance(relative_path, str):
+            return metadata.get("model_version"), False
+        candidate = (model_dir / relative_path).resolve()
+        try:
+            candidate.relative_to(model_dir.resolve())
+        except ValueError:
+            logger.error("Active classifier metadata contains an invalid artifact path.")
+            return metadata.get("model_version"), False
+        files.append(candidate.is_file())
+    return metadata.get("model_version"), all(files)
+
+
 @router.get("/overview")
 def get_monitoring_overview(
     db: Session = Depends(get_db),
@@ -49,12 +77,19 @@ def get_monitoring_overview(
             (models.AnalysisPerformance.status == "SUCCESS", 1),
             else_=0,
         )),
+        func.sum(case(
+            (models.AnalysisPerformance.status == "FALLBACK", 1),
+            else_=0,
+        )),
+        func.sum(case(
+            (models.AnalysisPerformance.status == "ERROR", 1),
+            else_=0,
+        )),
     ).first()
     total = int(performance[0] or 0)
-    llm_success_rate = (float(performance[3] or 0) / total) if total else 0.0
-    failed = db.query(models.AnalysisPerformance).filter(
-        models.AnalysisPerformance.status != "SUCCESS"
-    ).count()
+    success_count = int(performance[3] or 0)
+    fallback_count = int(performance[4] or 0)
+    failed = int(performance[5] or 0)
     active_users = db.query(models.User).filter(models.User.is_active.is_(True)).count()
     latest_analysis = db.query(func.max(models.Analysis.created_at)).scalar()
 
@@ -63,8 +98,8 @@ def get_monitoring_overview(
         "model": _read_report("metrics.json"),
         "rag": _read_report("rag_metrics.json"),
         "llm": {
-            "success_rate": llm_success_rate,
-            "fallback_rate": 1 - llm_success_rate if total else None,
+            "success_rate": success_count / total if total else None,
+            "fallback_rate": fallback_count / total if total else None,
             "average_latency_ms": float(performance[2]) if performance[2] is not None else None,
             "total_recorded": total,
         },
@@ -129,7 +164,8 @@ def get_performance_details(
     current_admin: models.User = Depends(require_admin),
 ):
     fields = (
-        "extraction_ms", "ml_ms", "rag_ms", "llm_ms",
+        "extraction_ms", "preprocessing_ms", "ml_ms", "embedding_ms",
+        "rag_ms", "llm_ms",
         "risk_engine_ms", "database_ms", "total_ms",
     )
     averages = db.query(*[
@@ -151,21 +187,28 @@ def get_channel_performance(
         models.AnalysisPerformance.input_type,
         func.count(models.AnalysisPerformance.id),
         func.sum(case(
-            (models.AnalysisPerformance.status == "SUCCESS", 1),
+            (models.AnalysisPerformance.status.in_(["SUCCESS", "FALLBACK"]), 1),
+            else_=0,
+        )),
+        func.sum(case(
+            (models.AnalysisPerformance.status == "FALLBACK", 1),
             else_=0,
         )),
         func.avg(models.AnalysisPerformance.total_ms),
     ).group_by(models.AnalysisPerformance.input_type).all()
     result = {}
-    for channel, count, successes, latency in rows:
+    for channel, count, successes, fallbacks, latency in rows:
         count = int(count or 0)
         success = int(successes or 0)
+        fallback = int(fallbacks or 0)
         result[channel or "unknown"] = {
             "count": count,
             "success": success,
             "failure": count - success,
+            "fallback": fallback,
             "average_latency_ms": float(latency) if latency is not None else None,
             "success_rate": success / count if count else None,
+            "fallback_rate": fallback / count if count else None,
         }
     return result
 
@@ -203,16 +246,15 @@ def get_system_health(
     db: Session = Depends(get_db),
     current_admin: models.User = Depends(require_admin),
 ):
+    active_model_version, active_model_available = _active_model_status()
     health = {
         "api": "Healthy",
         "database": "Healthy",
-        "ml_model": "Healthy" if (
-            (REPOSITORY_ROOT / "ml" / "models" / "classifier" / "scam_classifier.joblib").is_file()
-            and (REPOSITORY_ROOT / "ml" / "models" / "classifier" / "tfidf_vectorizer.joblib").is_file()
-        ) else "Unavailable",
+        "ml_model": "Healthy" if active_model_available else "Unavailable",
+        "model_version": active_model_version,
         "chromadb": "Unknown",
         "embedding": "Configured",
-        "llm": "Configured" if os.getenv("OPENROUTER_API_KEY") else "Not Configured",
+        "llm": "Configured" if os.getenv("GROQ_API_KEY") else "Not Configured",
     }
 
     try:

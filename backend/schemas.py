@@ -1,4 +1,7 @@
-from pydantic import BaseModel, EmailStr, Field, field_validator
+import json
+from typing import Literal
+
+from pydantic import BaseModel, EmailStr, Field, field_validator, model_validator
 from typing import Optional, List, Any, Dict
 from datetime import datetime
 
@@ -41,6 +44,7 @@ class UserResponse(BaseModel):
     email: EmailStr
     role: str
     is_active: bool
+    email_verified: bool
     created_at: datetime
     updated_at: datetime
     two_factor_enabled: bool
@@ -81,6 +85,45 @@ class Token(BaseModel):
     access_token: str
     token_type: str
 
+
+class LoginResponse(BaseModel):
+    access_token: Optional[str] = None
+    token_type: Optional[str] = None
+    requires_two_factor: bool = False
+    challenge_id: Optional[str] = None
+
+
+class SignupResponse(BaseModel):
+    account_created: bool
+    email_verified: bool
+    verification_email_sent: bool
+    verification_challenge_id: Optional[str] = None
+    message: str
+
+
+class EmailVerification(BaseModel):
+    challenge_id: str = Field(min_length=20, max_length=200)
+    code: str = Field(pattern=r"^\d{6}$")
+
+
+class EmailResend(BaseModel):
+    challenge_id: Optional[str] = Field(default=None, min_length=20, max_length=200)
+
+
+class LoginVerification(BaseModel):
+    challenge_id: str = Field(min_length=20, max_length=200)
+    code: str = Field(pattern=r"^\d{6}$")
+    remember_me: bool = False
+
+
+class PasswordResetVerification(LoginVerification):
+    new_password: str = Field(min_length=8, max_length=72)
+
+    @field_validator("new_password")
+    @classmethod
+    def validate_new_password(cls, password: str) -> str:
+        return _validate_password_strength(password)
+
 class TokenData(BaseModel):
     email: Optional[str] = None
 
@@ -102,9 +145,16 @@ class RetrievedEvidence(BaseModel):
     pattern: str
     safe_action: str
     source: str
+    language: Optional[str] = None
     
     class Config:
         from_attributes = True
+
+class SafeActionsResponse(BaseModel):
+    canonical: List[str]
+    translations: Dict[str, List[str]]
+    default_language: Literal["en", "hi", "te"] = "en"
+
 
 class LLMReasoningResponse(BaseModel):
     classification: str
@@ -113,6 +163,7 @@ class LLMReasoningResponse(BaseModel):
     suspicious_indicators: List[str]
     evidence: List[Dict[str, Any]]
     safe_action: str
+    safe_actions: Optional["SafeActionsResponse"] = None
     confidence: float
 
 class AnalysisResponse(BaseModel):
@@ -129,6 +180,7 @@ class AnalysisResponse(BaseModel):
     retrieved_evidence_data: Optional[List[RetrievedEvidence]] = []
     evidence_status: Optional[str] = "NO_RELEVANT_MATCH"
     recommended_action: str
+    safe_actions: Optional[SafeActionsResponse] = None
     
     # M5 LLM Fields
     input_type: Optional[str] = "text"
@@ -142,11 +194,42 @@ class AnalysisResponse(BaseModel):
     # M8 Escalation Fields
     escalation_status: Optional[str] = None
     review_case_id: Optional[int] = None
+    email_notification_status: Optional[str] = None
+    jira_status: Optional[str] = None
+    jira_issue_key: Optional[str] = None
+    jira_issue_url: Optional[str] = None
     
     created_at: datetime
 
     class Config:
         from_attributes = True
+
+    @model_validator(mode="before")
+    @classmethod
+    def unpack_safe_actions(cls, value: Any) -> Any:
+        if isinstance(value, dict):
+            data = value.copy()
+        else:
+            data = {
+                name: getattr(value, name)
+                for name in cls.model_fields
+                if hasattr(value, name)
+            }
+
+        stored_actions = data.get("recommended_action")
+        if isinstance(stored_actions, str):
+            try:
+                parsed = json.loads(stored_actions)
+            except json.JSONDecodeError:
+                return data
+            if isinstance(parsed, dict) and isinstance(parsed.get("canonical"), list):
+                data["safe_actions"] = parsed
+                data["recommended_action"] = "\n".join(
+                    action
+                    for action in parsed["canonical"]
+                    if isinstance(action, str)
+                )
+        return data
 
 class DashboardStats(BaseModel):
     total_analyses: int
@@ -157,20 +240,12 @@ class DashboardStats(BaseModel):
 class ForgotPassword(BaseModel):
     email: EmailStr
 
-class ResetPassword(BaseModel):
-    token: str
-    new_password: str = Field(min_length=8, max_length=72)
-
-    @field_validator("new_password")
-    @classmethod
-    def validate_new_password(cls, password: str) -> str:
-        return _validate_password_strength(password)
-
 class CommunityReportCreate(BaseModel):
     content: str
     category: str
     description: Optional[str] = None
     evidence: Optional[str] = None
+    analysis_id: Optional[int] = None
 
 class CommunityReportResponse(BaseModel):
     id: int
@@ -178,6 +253,8 @@ class CommunityReportResponse(BaseModel):
     category: str
     description: Optional[str] = None
     evidence: Optional[str] = None
+    analysis_id: Optional[int] = None
+    reporter_name: Optional[str] = None
     status: str
     created_at: datetime
 
