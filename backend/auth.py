@@ -5,7 +5,7 @@ import os
 import secrets
 from datetime import datetime, timedelta
 from typing import Optional
-from fastapi import APIRouter, Depends, Form, HTTPException, status
+from fastapi import APIRouter, Depends, Form, HTTPException, Request, status
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
 from sqlalchemy import func
@@ -16,6 +16,7 @@ from dotenv import load_dotenv
 
 import models, schemas, database
 from app.services.email_service import EmailDeliveryError, email_service
+from app.services.rate_limiter import rate_limit_auth
 
 load_dotenv()
 
@@ -70,6 +71,11 @@ def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(
 def get_current_regular_user(current_user: models.User = Depends(get_current_user)):
     if current_user.role != "user":
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="User portal access required")
+    return current_user
+
+def get_current_verified_user(
+    current_user: models.User = Depends(get_current_regular_user),
+):
     if not current_user.email_verified:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
@@ -78,7 +84,12 @@ def get_current_regular_user(current_user: models.User = Depends(get_current_use
     return current_user
 
 @router.post("/signup", response_model=schemas.SignupResponse)
-def signup(user: schemas.UserCreate, db: Session = Depends(database.get_db)):
+def signup(
+    user: schemas.UserCreate,
+    request: Request,
+    db: Session = Depends(database.get_db),
+):
+    rate_limit_auth(request, "signup", str(user.email))
     normalized_email = str(user.email).strip().lower()
     db_user = db.query(models.User).filter(func.lower(models.User.email) == normalized_email).first()
     if db_user:
@@ -132,10 +143,12 @@ def signup(user: schemas.UserCreate, db: Session = Depends(database.get_db)):
     response_model_exclude_none=True,
 )
 def login_user(
+    request: Request,
     form_data: OAuth2PasswordRequestForm = Depends(),
     remember_me: bool = Form(False),
     db: Session = Depends(database.get_db),
 ):
+    rate_limit_auth(request, "login", form_data.username)
     return _login_for_role(form_data, db, "user", remember_me)
 
 @router.post(
@@ -144,10 +157,12 @@ def login_user(
     response_model_exclude_none=True,
 )
 def login_admin(
+    request: Request,
     form_data: OAuth2PasswordRequestForm = Depends(),
     remember_me: bool = Form(False),
     db: Session = Depends(database.get_db),
 ):
+    rate_limit_auth(request, "login", form_data.username)
     return _login_for_role(form_data, db, "admin", remember_me)
 
 def _login_for_role(
@@ -219,16 +234,27 @@ def _create_email_challenge(
 
     now = datetime.utcnow()
     if minimum_interval_seconds:
-        recent_challenge = db.query(models.AuthChallenge.id).filter(
+        recent_challenge = db.query(models.AuthChallenge.created_at).filter(
             models.AuthChallenge.user_id == user.id,
             models.AuthChallenge.purpose == purpose,
             models.AuthChallenge.created_at
             > now - timedelta(seconds=minimum_interval_seconds),
-        ).first()
+        ).order_by(models.AuthChallenge.created_at.desc()).first()
         if recent_challenge:
+            retry_after = max(
+                1,
+                int(
+                    (
+                        recent_challenge.created_at
+                        + timedelta(seconds=minimum_interval_seconds)
+                        - now
+                    ).total_seconds()
+                ),
+            )
             raise HTTPException(
                 status_code=status.HTTP_429_TOO_MANY_REQUESTS,
                 detail="Please wait before requesting another verification code.",
+                headers={"Retry-After": str(retry_after)},
             )
 
     db.query(models.AuthChallenge).filter(
@@ -304,7 +330,12 @@ def _verify_email_challenge(
     return user
 
 @router.post("/login/verify", response_model=schemas.Token)
-def verify_login(data: schemas.LoginVerification, db: Session = Depends(database.get_db)):
+def verify_login(
+    data: schemas.LoginVerification,
+    request: Request,
+    db: Session = Depends(database.get_db),
+):
+    rate_limit_auth(request, "login_verify", data.challenge_id)
     user = _verify_email_challenge(
         db,
         data.challenge_id,
@@ -336,6 +367,7 @@ def verify_email(
 
 @router.post("/resend-verification")
 def resend_verification(
+    request: Request,
     db: Session = Depends(database.get_db),
     current_user: models.User = Depends(get_current_user),
 ):
@@ -344,6 +376,7 @@ def resend_verification(
     if current_user.email_verified:
         return {"email_verified": True, "message": "Email address is already verified."}
 
+    rate_limit_auth(request, "resend_verification", str(current_user.id))
     challenge_id = _create_email_challenge(
         db,
         current_user,
@@ -365,14 +398,19 @@ def logout(current_user: models.User = Depends(get_current_user)):
     return {"message": "Successfully logged out"}
 
 @router.post("/forgot-password")
-def forgot_password(req: schemas.ForgotPassword, db: Session = Depends(database.get_db)):
+def forgot_password(
+    req: schemas.ForgotPassword,
+    request: Request,
+    db: Session = Depends(database.get_db),
+):
+    normalized_email = str(req.email).strip().lower()
+    rate_limit_auth(request, "forgot_password", normalized_email)
     if not email_service.is_configured:
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail="Password reset is unavailable because email delivery is not configured.",
         )
 
-    normalized_email = str(req.email).strip().lower()
     user = db.query(models.User).filter(
         func.lower(models.User.email) == normalized_email,
         models.User.role == "user",
@@ -391,7 +429,12 @@ def forgot_password(req: schemas.ForgotPassword, db: Session = Depends(database.
     }
 
 @router.post("/reset-password")
-def reset_password(data: schemas.PasswordResetVerification, db: Session = Depends(database.get_db)):
+def reset_password(
+    data: schemas.PasswordResetVerification,
+    request: Request,
+    db: Session = Depends(database.get_db),
+):
+    rate_limit_auth(request, "reset_password", data.challenge_id)
     user = _verify_email_challenge(
         db,
         data.challenge_id,

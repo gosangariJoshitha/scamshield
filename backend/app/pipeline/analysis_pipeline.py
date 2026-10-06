@@ -13,7 +13,7 @@ from app.services.risk_engine import calculate_risk
 from app.services.safety_actions import detect_language, fallback_safe_actions
 from app.services.text_service import preprocess_text
 from app.services.analysis_notifications import process_analysis_notifications
-from models import Analysis, AnalysisEvidence, AnalysisPerformance
+from models import Analysis, AnalysisEvidence, AnalysisNotification, AnalysisPerformance
 from schemas import NormalizedAnalysisInput
 
 
@@ -157,6 +157,24 @@ async def run_analysis_pipeline(
         ),
     )
     db.add(analysis_record)
+    db.flush()
+    db.add(
+        AnalysisNotification(
+            analysis_id=analysis_record.id,
+            channel="EMAIL",
+            status="PENDING",
+            idempotency_key=f"analysis-{analysis_record.id}-email",
+        )
+    )
+    if risk_result["risk_level"] in {"HIGH", "CRITICAL"}:
+        db.add(
+            AnalysisNotification(
+                analysis_id=analysis_record.id,
+                channel="JIRA",
+                status="PENDING",
+                idempotency_key=f"analysis-{analysis_record.id}-jira",
+            )
+        )
     db.commit()
     db.refresh(analysis_record)
 

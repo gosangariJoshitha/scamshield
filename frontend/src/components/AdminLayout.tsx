@@ -34,7 +34,7 @@ function isNavigationItemActive(pathname: string, itemPath: string) {
 export default function AdminLayout() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(
-    () => window.localStorage.getItem('scamshield-sidebar-collapsed') !== 'false'
+    () => window.localStorage.getItem('scamshield-sidebar-collapsed') === 'true'
   );
   const [user, setUser] = useState<AdminUser | null>(null);
   const [authLoading, setAuthLoading] = useState(true);

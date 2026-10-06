@@ -1,6 +1,82 @@
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
 @import "tailwindcss";
 
+:root {
+  --app-primary: #06B6D4;
+  --app-primary-hover: #0891B2;
+  --app-primary-light: #22D3EE;
+
+  --app-midnight: #0B1120;
+  --app-navy: #111827;
+  --app-slate: #334155;
+
+  --app-background: #F1F5F9;
+  --app-card: #FFFFFF;
+
+  --app-text: #0F172A;
+  --app-text-secondary: #475569;
+  --app-text-muted: #64748B;
+
+  --app-border: #CBD5E1;
+  --app-border-light: #E2E8F0;
+
+  --app-success: #16A34A;
+  --app-warning: #F59E0B;
+  --app-danger: #DC2626;
+  --app-info: #0284C7;
+
+  --app-ai: #22D3EE;
+
+  /* Backwards-compatible aliases for raw CSS var() usages */
+  --color-primary: var(--app-primary);
+  --color-primary-hover: var(--app-primary-hover);
+  --color-primary-light: var(--app-primary-light);
+  --color-midnight: var(--app-midnight);
+  --color-navy: var(--app-navy);
+  --color-slate: var(--app-slate);
+  --color-background: var(--app-background);
+  --color-card: var(--app-card);
+  --color-text: var(--app-text);
+  --color-text-secondary: var(--app-text-secondary);
+  --color-text-muted: var(--app-text-muted);
+  --color-border: var(--app-border);
+  --color-border-light: var(--app-border-light);
+  --color-success: var(--app-success);
+  --color-warning: var(--app-warning);
+  --color-danger: var(--app-danger);
+  --color-info: var(--app-info);
+  --color-ai: var(--app-ai);
+}
+
+[data-theme="dark"] {
+  --app-background: #0B1120;
+  --app-card: #111827;
+  
+  --app-text: #F8FAFC;
+  --app-text-secondary: #CBD5E1;
+  --app-text-muted: #94A3B8;
+
+  --app-border: #334155;
+  --app-border-light: #1E293B;
+
+  --app-success: #22C55E;
+  --app-warning: #FBBF24;
+  --app-danger: #EF4444;
+  --app-info: #38BDF8;
+
+  --color-background: var(--app-background);
+  --color-card: var(--app-card);
+  --color-text: var(--app-text);
+  --color-text-secondary: var(--app-text-secondary);
+  --color-text-muted: var(--app-text-muted);
+  --color-border: var(--app-border);
+  --color-border-light: var(--app-border-light);
+  --color-success: var(--app-success);
+  --color-warning: var(--app-warning);
+  --color-danger: var(--app-danger);
+  --color-info: var(--app-info);
+}
+
 @theme {
   --font-sans: 'Inter', ui-sans-serif, system-ui, sans-serif;
   --container-content-sm: 40rem;
@@ -9,72 +85,32 @@
   --container-content-xl: 80rem;
   --container-content-2xl: 96rem;
 
-  --color-primary: var(--color-primary);
-  --color-primary-hover: var(--color-primary-hover);
-  --color-primary-light: var(--color-primary-light);
+  --color-primary: var(--app-primary);
+  --color-primary-hover: var(--app-primary-hover);
+  --color-primary-light: var(--app-primary-light);
 
-  --color-midnight: var(--color-midnight);
-  --color-navy: var(--color-navy);
-  --color-slate: var(--color-slate);
+  --color-midnight: var(--app-midnight);
+  --color-navy: var(--app-navy);
+  --color-slate: var(--app-slate);
 
-  --color-background: var(--color-background);
-  --color-card: var(--color-card);
+  --color-background: var(--app-background);
+  --color-card: var(--app-card);
 
-  --color-text-main: var(--color-text);
-  --color-text-secondary: var(--color-text-secondary);
-  --color-text-muted: var(--color-text-muted);
+  --color-text-main: var(--app-text);
+  --color-text-secondary: var(--app-text-secondary);
+  --color-text-muted: var(--app-text-muted);
 
-  --color-border-main: var(--color-border);
-  --color-border-light: var(--color-border-light);
+  --color-border-main: var(--app-border);
+  --color-border-light: var(--app-border-light);
 
-  --color-success: var(--color-success);
-  --color-warning: var(--color-warning);
-  --color-danger: var(--color-danger);
+  --color-success: var(--app-success);
+  --color-warning: var(--app-warning);
+  --color-danger: var(--app-danger);
+  --color-info: var(--app-info);
 
-  --color-ai: var(--color-ai);
+  --color-ai: var(--app-ai);
 }
 
-:root {
-  --color-primary: #06B6D4;
-  --color-primary-hover: #0891B2;
-  --color-primary-light: #22D3EE;
-
-  --color-midnight: #0B1120;
-  --color-navy: #111827;
-  --color-slate: #334155;
-
-  --color-background: #F1F5F9;
-  --color-card: #FFFFFF;
-
-  --color-text: #0F172A;
-  --color-text-secondary: #475569;
-  --color-text-muted: #64748B;
-
-  --color-border: #CBD5E1;
-  --color-border-light: #E2E8F0;
-
-  --color-success: #16A34A;
-  --color-warning: #F59E0B;
-  --color-danger: #DC2626;
-
-  --color-ai: #22D3EE;
-}
-
-[data-theme="dark"] {
-  --color-background: #0B1120;
-  --color-card: #111827;
-  
-  --color-text: #F8FAFC;
-  --color-text-secondary: #CBD5E1;
-  --color-text-muted: #94A3B8;
-
-  --color-border: #334155;
-  --color-border-light: #1E293B;
-
-  --color-success: #22C55E;
-  --color-warning: #FBBF24;
-  --color-danger: #EF4444;
-}
 
 [data-theme="dark"] .landing-page {
   background-color: #061326;

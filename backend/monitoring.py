@@ -46,8 +46,8 @@ def _active_model_status():
         return None, False
 
     artifact_paths = metadata.get("artifact_paths") or {
-        "classifier": "scam_classifier.joblib",
-        "vectorizer": "tfidf_vectorizer.joblib",
+        "classifier": "scamshield-classifier-v5/scam_classifier.joblib",
+        "vectorizer": "scamshield-classifier-v5/tfidf_vectorizer.joblib",
     }
     files = []
     for key in ("classifier", "vectorizer"):
@@ -252,7 +252,9 @@ def get_system_health(
         "database": "Healthy",
         "ml_model": "Healthy" if active_model_available else "Unavailable",
         "model_version": active_model_version,
-        "chromadb": "Unknown",
+        "chromadb": "UNAVAILABLE",
+        "chromadb_vectors": None,
+        "chromadb_expected_minimum": rag_service.get_index_health()["expected_minimum"],
         "embedding": "Configured",
         "llm": "Configured" if os.getenv("GROQ_API_KEY") else "Not Configured",
     }
@@ -263,11 +265,9 @@ def get_system_health(
         logger.exception("Database health check failed")
         health["database"] = "Unavailable"
 
-    try:
-        rag_service.collection.count()
-        health["chromadb"] = "Healthy"
-    except Exception:
-        logger.exception("ChromaDB health check failed")
-        health["chromadb"] = "Unavailable"
+    rag_health = rag_service.get_index_health()
+    health["chromadb"] = rag_health["status"]
+    health["chromadb_vectors"] = rag_health["vector_count"]
+    health["chromadb_expected_minimum"] = rag_health["expected_minimum"]
 
     return health

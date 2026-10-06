@@ -1,4 +1,16 @@
-from sqlalchemy import Column, Integer, String, Boolean, DateTime, ForeignKey, JSON, Float
+from sqlalchemy import (
+    CheckConstraint,
+    Column,
+    DateTime,
+    Float,
+    ForeignKey,
+    Index,
+    Integer,
+    JSON,
+    String,
+    UniqueConstraint,
+    Boolean,
+)
 from sqlalchemy.sql import func
 from sqlalchemy.orm import relationship
 from database import Base
@@ -63,10 +75,70 @@ class Analysis(Base):
     retrieved_evidences = relationship("AnalysisEvidence", back_populates="analysis")
     review_case = relationship("ReviewCase", back_populates="analysis", uselist=False)
     community_reports = relationship("CommunityReport", back_populates="analysis")
+    notifications = relationship(
+        "AnalysisNotification",
+        back_populates="analysis",
+        cascade="all, delete-orphan",
+    )
 
     @property
     def review_case_id(self):
         return self.review_case.id if self.review_case else None
+
+
+class AnalysisNotification(Base):
+    __tablename__ = "analysis_notifications"
+    __table_args__ = (
+        UniqueConstraint("analysis_id", "channel", name="uq_analysis_notification_channel"),
+        CheckConstraint(
+            "channel IN ('EMAIL', 'JIRA')",
+            name="ck_analysis_notification_channel",
+        ),
+        CheckConstraint(
+            "status IN ('PENDING', 'PROCESSING', 'SENT', 'CREATED', 'FAILED', 'NOT_REQUIRED')",
+            name="ck_analysis_notification_status",
+        ),
+        Index("ix_analysis_notifications_status_next_attempt", "status", "next_attempt_at"),
+    )
+
+    id = Column(Integer, primary_key=True, index=True)
+    analysis_id = Column(
+        Integer,
+        ForeignKey("analyses.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    channel = Column(String, nullable=False)
+    status = Column(
+        String,
+        nullable=False,
+        default="PENDING",
+        server_default="PENDING",
+    )
+    retry_count = Column(
+        Integer,
+        nullable=False,
+        default=0,
+        server_default="0",
+    )
+    last_attempt_at = Column(DateTime(timezone=True), nullable=True)
+    next_attempt_at = Column(DateTime(timezone=True), nullable=True)
+    error_summary = Column(String, nullable=True)
+    provider_reference = Column(String, nullable=True)
+    idempotency_key = Column(String, nullable=False, unique=True)
+    created_at = Column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+    )
+    updated_at = Column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+        onupdate=func.now(),
+    )
+
+    analysis = relationship("Analysis", back_populates="notifications")
+
 
 class CommunityReport(Base):
     __tablename__ = "community_reports"

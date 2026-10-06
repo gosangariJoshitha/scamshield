@@ -20,7 +20,11 @@ ScamShield provides an application-level risk assessment. It uses ML to detect p
 
 Recommended actions are generated once as a canonical English set, deduplicated, then translated in matching order to Hindi and Telugu. Analysis responses include the canonical actions, their translations, and a detected default language; the results UI switches the displayed translation without regenerating or reordering actions. Missing translations fall back to canonical English and are logged.
 
-User accounts must verify their email address before they can submit analyses. After each completed analysis, ScamShield sends a summary email that excludes the submitted message. HIGH and CRITICAL analyses also create a Jira incident when Jira is configured; Jira is attempted before the email so the incident key can be included. Both integrations run after the analysis is saved and cannot prevent the result from being returned. Delivery and escalation outcomes are stored on the analysis and shown in results/history.
+New user accounts must verify their email address before they can submit analyses. Verification is not required to log in or read the user dashboard/history. Existing accounts created before email verification was introduced are preserved as verified by the follow-up migration; accounts registered after the verification feature remain unverified until they complete the code challenge.
+
+After each completed analysis, ScamShield sends a summary email that excludes the submitted message. HIGH and CRITICAL analyses also create a Jira incident when Jira is configured; Jira is attempted before the email so the incident key can be included. A PostgreSQL-backed outbox records each required delivery with an idempotency key, attempt state, retry count, and provider reference. Transient SendGrid 429 and Jira retryable failures are retried with bounded backoff. Ambiguous SendGrid timeouts are not retried automatically to avoid duplicate emails; interrupted Jira attempts are reconciled by deterministic case labels before retry. The analysis remains persisted regardless of notification failures.
+
+Analysis payloads have configurable text, email, upload, image-pixel, PDF-page, extracted-text, and audio-duration limits. See `backend/.env.example`; file type checks use extension, declared MIME when provided, and content signatures before decoding.
 
 ## Getting Started
 

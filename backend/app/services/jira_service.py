@@ -61,6 +61,66 @@ class JiraService:
         )
         self.db.commit()
 
+    def _find_existing_issue(self, review_case_id: int) -> tuple[dict | None, int | None]:
+        label = f"scamshield-review-{review_case_id}"
+        try:
+            response = requests.get(
+                f"{self.base_url}/rest/api/3/search",
+                params={
+                    "jql": f'project = {JIRA_PROJECT_KEY} AND labels = "{label}"',
+                    "fields": "key,id",
+                    "maxResults": 1,
+                },
+                auth=HTTPBasicAuth(self.email, self.api_token),
+                headers={"Accept": "application/json"},
+                timeout=10,
+            )
+        except requests.RequestException:
+            logger.warning("Jira idempotency lookup failed for review case %s.", review_case_id)
+            return None, None
+        if response.status_code != 200:
+            logger.warning(
+                "Jira idempotency lookup returned HTTP %s for review case %s.",
+                response.status_code,
+                review_case_id,
+            )
+            return None, response.status_code
+        try:
+            issues = response.json().get("issues", [])
+        except (AttributeError, ValueError):
+            return None, 200
+        return (issues[0] if issues else None), None
+
+    def _persist_issue(
+        self,
+        review_case_id: int,
+        actor_id: int | None,
+        issue_key: str,
+        issue_id: str,
+    ) -> dict:
+        self.db.add(
+            JiraIntegration(
+                review_case_id=review_case_id,
+                jira_issue_id=str(issue_id),
+                jira_issue_key=str(issue_key),
+                status="CREATED",
+            )
+        )
+        self.db.add(
+            ReviewCaseEvent(
+                review_case_id=review_case_id,
+                actor_user_id=actor_id,
+                event_type="JIRA_CREATED",
+                notes=f"Linked to Jira Issue: {issue_key}",
+            )
+        )
+        self.db.commit()
+        return {
+            "success": True,
+            "issue_key": issue_key,
+            "issue_url": f"{self.base_url}/browse/{issue_key}",
+        }
+
     def create_issue_for_review_case(
         self,
         review_case_id: int,
@@ -117,8 +177,33 @@ class JiraService:
                 "message": "Jira ticket already exists.",
             }
 
+        prior_issue, lookup_failure = self._find_existing_issue(review_case_id)
+        if lookup_failure is not None:
+            retryable = lookup_failure == 429 or lookup_failure >= 500
+            self._record_failure(review_case_id, actor_id, lookup_failure)
+            return {
+                "success": False,
+                "retryable": retryable,
+                "error": f"Jira idempotency lookup failed (HTTP {lookup_failure}).",
+            }
+        if prior_issue:
+            issue_key = prior_issue.get("key")
+            issue_id = prior_issue.get("id")
+            if issue_key and issue_id:
+                return self._persist_issue(
+                    review_case_id,
+                    actor_id,
+                    str(issue_key),
+                    str(issue_id),
+                )
+            return {
+                "success": False,
+                "retryable": False,
+                "error": "A matching Jira issue was found but could not be linked.",
+            }
+
         analysis = review_case.analysis
-        recommended_actions = analysis.recommended_action or ""
+        recommended_actions = getattr(analysis, "recommended_action", None) or ""
         if isinstance(recommended_actions, str):
             try:
                 parsed_actions = json.loads(recommended_actions)
@@ -130,13 +215,18 @@ class JiraService:
                         )
             except json.JSONDecodeError:
                 pass
+        analysis_id = getattr(analysis, "id", "N/A")
+        risk_level = getattr(analysis, "risk_level", None) or "N/A"
+        risk_score = getattr(analysis, "risk_score", None)
+        classification = getattr(analysis, "classification", None) or "N/A"
+        category = getattr(analysis, "category", None) or "N/A"
         description_text = (
             f"ScamShield review case RV-{review_case.id}\n"
-            f"Analysis ID: {analysis.id}\n"
-            f"Risk level: {analysis.risk_level or 'N/A'}\n"
-            f"Risk score: {analysis.risk_score if analysis.risk_score is not None else 'N/A'}\n"
-            f"Classification: {analysis.classification or 'N/A'}\n"
-            f"Category: {analysis.category or 'N/A'}\n"
+            f"Analysis ID: {analysis_id}\n"
+            f"Risk level: {risk_level}\n"
+            f"Risk score: {risk_score if risk_score is not None else 'N/A'}\n"
+            f"Classification: {classification}\n"
+            f"Category: {category}\n"
             f"Escalation reason: {review_case.escalation_reason or 'N/A'}\n\n"
             f"Recommended action: {recommended_actions or 'Review the analysis in ScamShield.'}\n\n"
             f"Review in ScamShield: "
@@ -147,6 +237,7 @@ class JiraService:
             "fields": {
                 "project": {"key": JIRA_PROJECT_KEY},
                 "summary": f"[ScamShield] Escalated review RV-{review_case.id}",
+                "labels": [f"scamshield-review-{review_case.id}"],
                 "description": {
                     "type": "doc",
                     "version": 1,
@@ -178,6 +269,7 @@ class JiraService:
                 )
                 return {
                     "success": False,
+                    "retryable": response.status_code == 429 or response.status_code >= 500,
                     "error": f"Jira issue creation failed (HTTP {response.status_code}).",
                 }
 
@@ -187,29 +279,13 @@ class JiraService:
             if not issue_key or not issue_id:
                 raise ValueError("Jira response did not contain an issue key and ID.")
 
-            self.db.add(
-                JiraIntegration(
-                    review_case_id=review_case_id,
-                    jira_issue_id=str(issue_id),
-                    jira_issue_key=str(issue_key),
-                    status="CREATED",
-                )
+            return self._persist_issue(
+                review_case_id,
+                actor_id,
+                str(issue_key),
+                str(issue_id),
             )
-            self.db.add(
-                ReviewCaseEvent(
-                    review_case_id=review_case_id,
-                    actor_user_id=actor_id,
-                    event_type="JIRA_CREATED",
-                    notes=f"Linked to Jira Issue: {issue_key}",
-                )
-            )
-            self.db.commit()
-            return {
-                "success": True,
-                "issue_key": issue_key,
-                "issue_url": f"{self.base_url}/browse/{issue_key}",
-            }
-        except (requests.RequestException, ValueError):
+        except requests.RequestException:
             self.db.rollback()
             logger.exception(
                 "Jira integration failed while creating a ticket for review case %s.",
@@ -218,5 +294,17 @@ class JiraService:
             self._record_failure(review_case_id, actor_id, None)
             return {
                 "success": False,
+                "retryable": True,
                 "error": "Jira connection or response failed; details were recorded in the review audit log.",
+            }
+        except (AttributeError, ValueError):
+            self.db.rollback()
+            logger.exception(
+                "Jira returned an invalid issue response for review case %s.",
+                review_case_id,
+            )
+            return {
+                "success": False,
+                "retryable": True,
+                "error": "Jira returned an invalid issue response.",
             }

@@ -1,6 +1,5 @@
 import os
 import logging
-import shutil
 import time
 import chromadb
 from pathlib import Path
@@ -12,8 +11,14 @@ CHROMA_PORT = os.getenv("CHROMA_PORT", "8000")
 CHROMA_COLLECTION_NAME = os.getenv("CHROMA_COLLECTION_NAME", "scamshield_knowledge")
 RAG_TOP_K = int(os.getenv("RAG_TOP_K", "5"))
 RAG_MIN_SIMILARITY = float(os.getenv("RAG_MIN_SIMILARITY", "0.3"))
+EXPECTED_MIN_VECTOR_COUNT = 972
 SUPPORTED_LANGUAGES = {"en", "hi", "te"}
 logger = logging.getLogger(__name__)
+
+
+class RagIndexNotReadyError(RuntimeError):
+    pass
+
 
 class RagService:
     def __init__(self):
@@ -24,6 +29,8 @@ class RagService:
         self.persist_directory = chroma_path
         self.client = None
         self.collection = None
+        self.index_status = "UNAVAILABLE"
+        self.vector_count = None
         self._initialize_collection()
 
     def _initialize_collection(self):
@@ -33,37 +40,47 @@ class RagService:
                 name=CHROMA_COLLECTION_NAME,
                 metadata={"hnsw:space": "cosine"},
             )
-            return
         except Exception:
-            logger.warning(
-                "ChromaDB persistence is corrupted or incompatible at %s; using an in-memory client instead.",
+            self.client = None
+            self.collection = None
+            self.index_status = "UNAVAILABLE"
+            self.vector_count = None
+            logger.exception(
+                "ChromaDB persistence is unavailable at %s.",
                 self.persist_directory,
-                exc_info=True,
             )
-
-        self.client = chromadb.Client()
-        self.collection = self.client.get_or_create_collection(
-            name=CHROMA_COLLECTION_NAME,
-            metadata={"hnsw:space": "cosine"},
-        )
-
-    def _reset_persisted_state(self):
-        if not self.persist_directory.exists():
-            self.persist_directory.mkdir(parents=True, exist_ok=True)
             return
+        self.get_index_health()
 
-        try:
-            shutil.rmtree(self.persist_directory)
-        except OSError:
-            logger.warning(
-                "Unable to clear the stale ChromaDB directory %s; continuing with the in-memory client.",
-                self.persist_directory,
-                exc_info=True,
-            )
-        self.persist_directory.mkdir(parents=True, exist_ok=True)
+    def get_index_health(self) -> dict[str, int | str | None]:
+        if self.collection is None:
+            self.index_status = "UNAVAILABLE"
+            self.vector_count = None
+        else:
+            try:
+                count = self.collection.count()
+            except Exception:
+                self.index_status = "UNAVAILABLE"
+                self.vector_count = None
+                logger.exception("Unable to read the ChromaDB collection count.")
+            else:
+                self.vector_count = count
+                if count == 0:
+                    self.index_status = "EMPTY"
+                elif count < EXPECTED_MIN_VECTOR_COUNT:
+                    self.index_status = "DEGRADED"
+                else:
+                    self.index_status = "READY"
+        return {
+            "status": self.index_status,
+            "vector_count": self.vector_count,
+            "expected_minimum": EXPECTED_MIN_VECTOR_COUNT,
+        }
 
     def upsert_knowledge_entry(self, entry: Any) -> None:
         """Keep an approved SQL knowledge entry available to semantic search."""
+        if self.collection is None:
+            raise RagIndexNotReadyError("ChromaDB collection is unavailable.")
         indicators = entry.indicators or []
         document = (
             f"Title: {entry.title or ''}\n"
@@ -100,6 +117,8 @@ class RagService:
         )
 
     def delete_knowledge_entry(self, entry_id: int) -> None:
+        if self.collection is None:
+            raise RagIndexNotReadyError("ChromaDB collection is unavailable.")
         self.collection.delete(
             ids=[
                 f"knowledge_{entry_id}",
@@ -121,6 +140,12 @@ class RagService:
         if top_k < 1:
             raise ValueError("RAG top_k must be at least 1.")
 
+        health = self.get_index_health()
+        if health["status"] in {"EMPTY", "UNAVAILABLE"}:
+            raise RagIndexNotReadyError(
+                f"ChromaDB index is {health['status'].lower()}."
+            )
+
         embedding_ms = None
         retrieval_ms = None
         embedding_started = time.perf_counter()
@@ -132,17 +157,6 @@ class RagService:
             retrieval_started = time.perf_counter()
             evidence_list = []
             seen_ids = set()
-
-            if self.collection.count() == 0:
-                retrieval_ms = (time.perf_counter() - retrieval_started) * 1000
-                return {
-                    "evidence_status": "NO_RELEVANT_MATCH",
-                    "retrieved_evidence": [],
-                    "timings": {
-                        "embedding_ms": embedding_ms,
-                        "retrieval_ms": retrieval_ms,
-                    },
-                }
 
             self._append_results(
                 evidence_list,

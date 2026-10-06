@@ -1,11 +1,15 @@
 import easyocr
 import io
 import logging
+import os
 from threading import Lock
 from PIL import Image
 import numpy as np
+from fastapi import HTTPException
 
 logger = logging.getLogger(__name__)
+MAX_IMAGE_PIXELS = int(os.getenv("ANALYSIS_MAX_IMAGE_PIXELS", "20000000"))
+MAX_EXTRACTED_CHARS = int(os.getenv("ANALYSIS_MAX_EXTRACTED_CHARS", "30000"))
 
 class OCRService:
     def __init__(self):
@@ -31,6 +35,13 @@ class OCRService:
         try:
             # Convert bytes to numpy array which EasyOCR expects
             image = Image.open(io.BytesIO(file_content))
+            if image.format not in {"JPEG", "PNG", "WEBP"}:
+                raise ValueError("Unsupported image format.")
+            if image.width * image.height > MAX_IMAGE_PIXELS:
+                raise HTTPException(
+                    status_code=413,
+                    detail="Image dimensions exceed the allowed pixel limit.",
+                )
             
             # Convert image to RGB if not already
             if image.mode != 'RGB':
@@ -45,6 +56,11 @@ class OCRService:
             confidences = []
             
             for (bbox, text, prob) in results:
+                if len(extracted_text) + len(text) + 1 > MAX_EXTRACTED_CHARS:
+                    raise HTTPException(
+                        status_code=413,
+                        detail="Extracted content exceeds the allowed size limit.",
+                    )
                 extracted_text += text + "\n"
                 confidences.append(prob)
                 
@@ -61,6 +77,8 @@ class OCRService:
             
             return extracted_text, metadata
             
+        except HTTPException:
+            raise
         except Exception as e:
             logger.error(f"OCR extraction failed: {str(e)}")
             raise ValueError(f"Failed to extract text from image: {str(e)}")

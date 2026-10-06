@@ -47,12 +47,19 @@ def ingest_knowledge() -> tuple[int, int]:
             for record in records
         }
 
+        existing_by_key = {
+            (entry.source_type, entry.source_reference): entry
+            for entry in previous_entries
+        }
+
         entries_by_record = {}
         for record in records:
-            entry = _entry_for_record(db, record)
+            key = (record["source_type"], record["source_reference"])
+            entry = existing_by_key.get(key)
             if entry is None:
                 entry = KnowledgeEntry()
                 db.add(entry)
+                existing_by_key[key] = entry
             english = record["variants"]["en"]
             entry.title = record["title"]
             entry.pattern = record["pattern"]

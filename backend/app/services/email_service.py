@@ -9,7 +9,9 @@ logger = logging.getLogger(__name__)
 
 
 class EmailDeliveryError(RuntimeError):
-    pass
+    def __init__(self, message: str, *, retryable: bool = False):
+        super().__init__(message)
+        self.retryable = retryable
 
 
 class EmailService:
@@ -103,7 +105,8 @@ class EmailService:
         jira_status: str,
         jira_issue_key: str | None,
         jira_issue_url: str | None,
-    ) -> None:
+        idempotency_key: str,
+    ) -> str | None:
         if not self.is_configured:
             raise EmailDeliveryError("Email delivery is not configured.")
 
@@ -141,6 +144,10 @@ class EmailService:
             "personalizations": [{"to": [{"email": recipient}]}],
             "from": {"email": self.sender_email},
             "subject": subject,
+            "custom_args": {
+                "scamshield_analysis_id": str(analysis_id),
+                "scamshield_idempotency_key": idempotency_key,
+            },
             "content": [
                 {"type": "text/plain", "value": text_content},
                 {"type": "text/html", "value": html_content},
@@ -165,7 +172,11 @@ class EmailService:
                 "SendGrid rejected an analysis email (HTTP %s).",
                 response.status_code,
             )
-            raise EmailDeliveryError("Email could not be delivered.")
+            raise EmailDeliveryError(
+                "Email could not be delivered.",
+                retryable=response.status_code == 429,
+            )
+        return response.headers.get("X-Message-Id") or response.headers.get("x-message-id")
 
 
 email_service = EmailService()

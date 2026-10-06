@@ -2,15 +2,16 @@ import logging
 import time
 from typing import Any, Dict, List, Literal
 
-from fastapi import APIRouter, BackgroundTasks, Body, Depends, File, Form, HTTPException, UploadFile
+from fastapi import APIRouter, BackgroundTasks, Body, Depends, File, Form, HTTPException, Request, UploadFile
 from sqlalchemy.orm import Session
 
-from auth import get_current_regular_user
+from auth import get_current_regular_user, get_current_verified_user
 import models
 import schemas
 from database import get_db
 from app.pipeline.input_router import input_router
 from app.pipeline.analysis_pipeline import run_analysis_pipeline
+from app.services.rate_limiter import rate_limit_analysis
 
 
 logger = logging.getLogger(__name__)
@@ -58,9 +59,11 @@ def _populate_retrieved_evidence(analysis: models.Analysis) -> None:
 async def analyze_text(
     background_tasks: BackgroundTasks,
     payload: schemas.AnalysisCreate,
-    current_user: models.User = Depends(get_current_regular_user),
+    request: Request,
+    current_user: models.User = Depends(get_current_verified_user),
     db: Session = Depends(get_db),
 ):
+    rate_limit_analysis(request, current_user=current_user)
     try:
         t0 = time.perf_counter()
         input_data = await input_router.route_and_extract(input_type="text", content=payload.content)
@@ -72,10 +75,12 @@ async def analyze_text(
 @router.post("/email", response_model=schemas.AnalysisResponse)
 async def analyze_email(
     background_tasks: BackgroundTasks,
+    request: Request,
     payload: Dict[str, Any] = Body(...),
-    current_user: models.User = Depends(get_current_regular_user),
+    current_user: models.User = Depends(get_current_verified_user),
     db: Session = Depends(get_db),
 ):
+    rate_limit_analysis(request, current_user=current_user)
     try:
         t0 = time.perf_counter()
         input_data = await input_router.route_and_extract(input_type="email", email_data=payload)
@@ -87,11 +92,13 @@ async def analyze_email(
 @router.post("/image", response_model=schemas.AnalysisResponse)
 async def analyze_image(
     background_tasks: BackgroundTasks,
+    request: Request,
     file: UploadFile = File(...),
     language: Literal["en", "hi", "te"] = Form("en"),
-    current_user: models.User = Depends(get_current_regular_user),
+    current_user: models.User = Depends(get_current_verified_user),
     db: Session = Depends(get_db),
 ):
+    rate_limit_analysis(request, current_user=current_user)
     try:
         t0 = time.perf_counter()
         input_data = await input_router.route_and_extract(
@@ -105,10 +112,12 @@ async def analyze_image(
 @router.post("/pdf", response_model=schemas.AnalysisResponse)
 async def analyze_pdf(
     background_tasks: BackgroundTasks,
+    request: Request,
     file: UploadFile = File(...),
-    current_user: models.User = Depends(get_current_regular_user),
+    current_user: models.User = Depends(get_current_verified_user),
     db: Session = Depends(get_db),
 ):
+    rate_limit_analysis(request, current_user=current_user)
     try:
         t0 = time.perf_counter()
         input_data = await input_router.route_and_extract(input_type="pdf", file=file)
@@ -120,10 +129,12 @@ async def analyze_pdf(
 @router.post("/audio", response_model=schemas.AnalysisResponse)
 async def analyze_audio(
     background_tasks: BackgroundTasks,
+    request: Request,
     file: UploadFile = File(...),
-    current_user: models.User = Depends(get_current_regular_user),
+    current_user: models.User = Depends(get_current_verified_user),
     db: Session = Depends(get_db),
 ):
+    rate_limit_analysis(request, current_user=current_user)
     try:
         t0 = time.perf_counter()
         input_data = await input_router.route_and_extract(input_type="audio", file=file)

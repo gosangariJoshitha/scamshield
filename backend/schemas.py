@@ -135,7 +135,7 @@ class NormalizedAnalysisInput(BaseModel):
     metadata: Dict[str, Any] = {}
 
 class AnalysisCreate(BaseModel):
-    content: str
+    content: str = Field(max_length=20000)
 
 class RetrievedEvidence(BaseModel):
     knowledge_id: int

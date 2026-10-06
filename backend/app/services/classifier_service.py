@@ -2,21 +2,24 @@ import os
 import json
 import logging
 
+try:
+    import pyarrow
+except ImportError:
+    pass
+import torch
 import joblib
 from app.services.text_service import preprocess_text
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 MODEL_DIR = os.path.join(BASE_DIR, 'ml', 'models', 'classifier')
 METADATA_PATH = os.path.join(MODEL_DIR, 'model_metadata.json')
-LEGACY_CLF_PATH = os.path.join(MODEL_DIR, 'scam_classifier.joblib')
-LEGACY_VEC_PATH = os.path.join(MODEL_DIR, 'tfidf_vectorizer.joblib')
 logger = logging.getLogger(__name__)
 
 class ClassifierService:
     def __init__(self):
         self.clf = None
         self.vectorizer = None
-        self.model_version = "scamshield-classifier-v1"
+        self.model_version = "scamshield-classifier-v5"
         self.load_error = None
         self._load_models()
 
@@ -31,11 +34,11 @@ class ClassifierService:
             artifact_paths = metadata.get("artifact_paths", {})
             classifier_path = os.path.join(
                 MODEL_DIR,
-                artifact_paths.get("classifier", "scam_classifier.joblib"),
+                artifact_paths.get("classifier", "scamshield-classifier-v5/scam_classifier.joblib"),
             )
             vectorizer_path = os.path.join(
                 MODEL_DIR,
-                artifact_paths.get("vectorizer", "tfidf_vectorizer.joblib"),
+                artifact_paths.get("vectorizer", "scamshield-classifier-v5/tfidf_vectorizer.joblib"),
             )
             if not os.path.isfile(classifier_path) or not os.path.isfile(vectorizer_path):
                 raise FileNotFoundError("Configured classifier artifacts are unavailable.")

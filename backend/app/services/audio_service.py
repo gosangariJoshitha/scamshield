@@ -2,9 +2,17 @@ import io
 import os
 import tempfile
 import logging
+import av
+from fastapi import HTTPException
 from faster_whisper import WhisperModel
 
 logger = logging.getLogger(__name__)
+MAX_AUDIO_SECONDS = int(os.getenv("ANALYSIS_MAX_AUDIO_SECONDS", "600"))
+MAX_EXTRACTED_CHARS = int(os.getenv("ANALYSIS_MAX_EXTRACTED_CHARS", "30000"))
+SUPPORTED_AUDIO_CODECS = {
+    "aac", "alac", "flac", "mp2", "mp3", "opus", "pcm_f32le",
+    "pcm_s16le", "pcm_s24le", "pcm_s32le", "pcm_u8", "vorbis",
+}
 
 class AudioService:
     def __init__(self):
@@ -24,14 +32,46 @@ class AudioService:
         try:
             with os.fdopen(fd, 'wb') as f:
                 f.write(file_content)
-                
+
+            with av.open(temp_path) as container:
+                audio_streams = container.streams.audio
+                if not audio_streams:
+                    raise ValueError("Audio stream is missing.")
+                duration = (
+                    container.duration / av.time_base
+                    if container.duration is not None
+                    else None
+                )
+                if duration is None:
+                    stream = audio_streams[0]
+                    if stream.duration is not None and stream.time_base is not None:
+                        duration = float(stream.duration * stream.time_base)
+                if duration is None or duration <= 0:
+                    raise ValueError("Audio duration could not be verified.")
+                if duration > MAX_AUDIO_SECONDS:
+                    raise HTTPException(
+                        status_code=413,
+                        detail="Audio exceeds the allowed duration limit.",
+                    )
+                if any(
+                    stream.codec_context.name not in SUPPORTED_AUDIO_CODECS
+                    for stream in audio_streams
+                ):
+                    raise ValueError("Unsupported audio codec.")
+
             segments, info = self.model.transcribe(temp_path, beam_size=5)
-            
-            extracted_text = ""
+            extracted_parts = []
+            extracted_length = 0
             for segment in segments:
-                extracted_text += segment.text + " "
-                
-            extracted_text = extracted_text.strip()
+                extracted_length += len(segment.text) + 1
+                if extracted_length > MAX_EXTRACTED_CHARS:
+                    raise HTTPException(
+                        status_code=413,
+                        detail="Extracted content exceeds the allowed size limit.",
+                    )
+                extracted_parts.append(segment.text)
+
+            extracted_text = " ".join(extracted_parts).strip()
             
             metadata = {
                 "transcription_engine": "faster-whisper (tiny)",
@@ -42,6 +82,8 @@ class AudioService:
             
             return extracted_text, metadata
             
+        except HTTPException:
+            raise
         except Exception as e:
             logger.error(f"Audio transcription failed: {str(e)}")
             raise ValueError(f"Failed to transcribe audio: {str(e)}")

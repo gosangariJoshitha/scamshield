@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from typing import List
 
-from auth import get_current_regular_user, get_current_user
+from auth import get_current_user, get_current_verified_user
 import models
 from database import get_db
 from schemas import CommunityReportCreate, CommunityReportResponse
@@ -10,7 +10,7 @@ from schemas import CommunityReportCreate, CommunityReportResponse
 router = APIRouter(prefix="/community", tags=["community"])
 
 @router.post("/reports", response_model=CommunityReportResponse)
-def create_report(payload: CommunityReportCreate, current_user: models.User = Depends(get_current_regular_user), db: Session = Depends(get_db)):
+def create_report(payload: CommunityReportCreate, current_user: models.User = Depends(get_current_verified_user), db: Session = Depends(get_db)):
     if payload.analysis_id is not None:
         analysis = db.query(models.Analysis).filter(
             models.Analysis.id == payload.analysis_id,

@@ -5,7 +5,7 @@ from io import BytesIO
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, Mock, patch
 
-from fastapi import HTTPException, UploadFile
+from fastapi import BackgroundTasks, HTTPException, UploadFile
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
@@ -171,24 +171,31 @@ class InputChannelTests(unittest.IsolatedAsyncioTestCase):
             self.assertEqual(pdf_result.input_type, "pdf")
             self.assertEqual(pdf_result.extracted_text, "PDF text")
 
-            image_file = await upload("notice.png", "image/png", b"image bytes")
+            image_file = await upload(
+                "notice.png",
+                "image/png",
+                b"\x89PNG\r\n\x1a\nimage bytes",
+            )
             image_result = await self.router.route_and_extract(
                 input_type="image",
                 file=image_file,
                 image_language="hi",
             )
-            image_extractor.assert_called_once_with(b"image bytes", "hi")
+            image_extractor.assert_called_once_with(
+                b"\x89PNG\r\n\x1a\nimage bytes",
+                "hi",
+            )
             self.assertEqual(image_result.input_type, "image")
 
             audio_file = await upload(
-                "recording.mp3", "audio/mpeg", b"audio bytes"
+                "recording.mp3", "audio/mpeg", b"ID3audio bytes"
             )
             audio_result = await self.router.route_and_extract(
                 input_type="audio",
                 file=audio_file,
             )
             audio_extractor.assert_called_once_with(
-                b"audio bytes", "recording.mp3"
+                b"ID3audio bytes", "recording.mp3"
             )
             self.assertEqual(audio_result.input_type, "audio")
             self.assertEqual(audio_result.extracted_text, "Audio transcript")
@@ -213,6 +220,46 @@ class InputChannelTests(unittest.IsolatedAsyncioTestCase):
 
         self.assertEqual(error.exception.status_code, 413)
         extract.assert_not_called()
+
+    async def test_upload_signature_and_mime_must_match_declared_format(self):
+        file = UploadFile(
+            filename="notice.pdf",
+            file=BytesIO(b"not a PDF"),
+            headers=Headers({"content-type": "application/pdf"}),
+        )
+        with self.assertRaises(HTTPException) as error:
+            await self.router.route_and_extract(input_type="pdf", file=file)
+        self.assertEqual(error.exception.status_code, 400)
+
+        mismatched = UploadFile(
+            filename="notice.png",
+            file=BytesIO(b"\x89PNG\r\n\x1a\ncontent"),
+            headers=Headers({"content-type": "image/jpeg"}),
+        )
+        with self.assertRaises(HTTPException) as error:
+            await self.router.route_and_extract(input_type="image", file=mismatched)
+        self.assertEqual(error.exception.status_code, 415)
+
+    async def test_text_and_email_limits_return_payload_too_large(self):
+        with (
+            patch("app.pipeline.input_router.MAX_TEXT_CHARS", 4),
+            self.assertRaises(HTTPException) as error,
+        ):
+            await self.router.route_and_extract(
+                input_type="text",
+                content="12345",
+            )
+        self.assertEqual(error.exception.status_code, 413)
+
+        with (
+            patch("app.pipeline.input_router.MAX_EMAIL_BODY_CHARS", 4),
+            self.assertRaises(HTTPException) as error,
+        ):
+            await self.router.route_and_extract(
+                input_type="email",
+                email_data={"subject": "", "sender": "", "body": "12345"},
+            )
+        self.assertEqual(error.exception.status_code, 413)
 
 
 class PipelinePerformanceTests(unittest.IsolatedAsyncioTestCase):
@@ -269,7 +316,7 @@ class PipelinePerformanceTests(unittest.IsolatedAsyncioTestCase):
                         return_value=None,
                     ),
                     patch(
-                        "app.pipeline.analysis_pipeline.JiraService.create_issue_for_review_case"
+                        "app.services.jira_service.JiraService.create_issue_for_review_case"
                     ) as jira_create,
                 ):
                     analysis = await run_analysis_pipeline(
@@ -343,6 +390,8 @@ class PipelinePerformanceTests(unittest.IsolatedAsyncioTestCase):
                 db.commit()
                 db.refresh(user)
 
+                background_tasks = BackgroundTasks()
+
                 with (
                     patch.dict("os.environ", {"JIRA_ENABLED": "true"}),
                     patch(
@@ -376,12 +425,26 @@ class PipelinePerformanceTests(unittest.IsolatedAsyncioTestCase):
                     ),
                     patch(
                         "app.pipeline.analysis_pipeline.EscalationService.create_escalated_case",
-                        return_value=SimpleNamespace(id=4242),
+                        return_value=models.ReviewCase(
+                            id=4242,
+                            user_id=user.id,
+                            status="PENDING",
+                            priority="URGENT",
+                            escalation_reason="CRITICAL_RISK",
+                            escalation_reasons_json=["CRITICAL_RISK"],
+                        ),
                     ),
                     patch(
-                        "app.pipeline.analysis_pipeline.JiraService.create_issue_for_review_case",
+                        "app.services.jira_service.JiraService.create_issue_for_review_case",
                         return_value={"success": True, "issue_key": "SCAM-4242"},
                     ) as jira_create,
+                    patch(
+                        "app.services.analysis_notifications.SessionLocal",
+                        session_factory,
+                    ),
+                    patch(
+                        "app.services.analysis_notifications.email_service.send_analysis_report"
+                    ),
                 ):
                     await run_analysis_pipeline(
                         db,
@@ -391,7 +454,9 @@ class PipelinePerformanceTests(unittest.IsolatedAsyncioTestCase):
                             metadata={},
                         ),
                         user.id,
+                        background_tasks=background_tasks,
                     )
+                    await background_tasks()
 
                 jira_create.assert_called_once_with(4242, actor_id=None)
         finally:

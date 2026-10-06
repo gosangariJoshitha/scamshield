@@ -17,7 +17,7 @@ export default function SidebarLayout() {
   const [searchQuery, setSearchQuery] = useState('');
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(
-    () => window.localStorage.getItem('scamshield-sidebar-collapsed') !== 'false'
+    () => window.localStorage.getItem('scamshield-sidebar-collapsed') === 'true'
   );
   const { theme, toggleTheme } = useTheme();
   

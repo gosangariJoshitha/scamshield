@@ -7,7 +7,7 @@
   "recall_at_5": 0.62,
   "mean_reciprocal_rank": 0.5399999999999999,
   "evidence_coverage": 1.0,
-  "average_top_similarity": 0.5519218742847443,
+  "average_top_similarity": 0.5510450339317322,
   "average_similarity_query_count": 50,
   "insufficient_knowledge_rate": 0.0,
   "insufficient_knowledge_basis": "Share of held-out scam rows whose exact category is absent from active indexed scam knowledge entries.",
@@ -89,13 +89,13 @@
       "input_channel": "text",
       "first_relevant_rank": null,
       "retrieved_patterns": [
-        "UPI रसीद से संबंधित संदेश या अनुरोध संदिग्ध हो सकता है। इस दावे पर कार्रवाई करने से पहले आधिकारिक स्रोत से स्वतंत्र पुष्टि करें।",
-        "UPI भुगतान पुष्टि से संबंधित संदेश या अनुरोध संदिग्ध हो सकता है। इस दावे पर कार्रवाई करने से पहले आधिकारिक स्रोत से स्वतंत्र पुष्टि करें।",
         "सेवा समय-सीमा सूचना से संबंधित संदेश या अनुरोध संदिग्ध हो सकता है। इस दावे पर कार्रवाई करने से पहले आधिकारिक स्रोत से स्वतंत्र पुष्टि करें।",
-        "तत्काल राहत लिंक से संबंधित संदेश या अनुरोध संदिग्ध हो सकता है। इस दावे पर कार्रवाई करने से पहले आधिकारिक स्रोत से स्वतंत्र पुष्टि करें।",
-        "वैध भुगतान स्थिति से संबंधित संदेश या अनुरोध संदिग्ध हो सकता है। इस दावे पर कार्रवाई करने से पहले आधिकारिक स्रोत से स्वतंत्र पुष्टि करें।"
+        "प्लान समाप्ति सूचना से संबंधित संदेश या अनुरोध संदिग्ध हो सकता है। इस दावे पर कार्रवाई करने से पहले आधिकारिक स्रोत से स्वतंत्र पुष्टि करें।",
+        "आधिकारिक पहचान अपडेट से संबंधित संदेश या अनुरोध संदिग्ध हो सकता है। इस दावे पर कार्रवाई करने से पहले आधिकारिक स्रोत से स्वतंत्र पुष्टि करें।",
+        "आधिकारिक टिकट closure से संबंधित संदेश या अनुरोध संदिग्ध हो सकता है। इस दावे पर कार्रवाई करने से पहले आधिकारिक स्रोत से स्वतंत्र पुष्टि करें।",
+        "सेवा रखरखाव सूचना से संबंधित संदेश या अनुरोध संदिग्ध हो सकता है। इस दावे पर कार्रवाई करने से पहले आधिकारिक स्रोत से स्वतंत्र पुष्टि करें।"
       ],
-      "top_similarity": 0.43984007835388184,
+      "top_similarity": 0.3986404538154602,
       "evidence_status": "MATCH_FOUND",
       "retrieved_languages": [
         "hi",
@@ -141,7 +141,7 @@
         "नकली क्रिप्टो निवेश साथी से संबंधित संदेश या अनुरोध संदिग्ध हो सकता है। इस दावे पर कार्रवाई करने से पहले आधिकारिक स्रोत से स्वतंत्र पुष्टि करें।",
         "वॉलेट सुरक्षा अलर्ट से संबंधित संदेश या अनुरोध संदिग्ध हो सकता है। इस दावे पर कार्रवाई करने से पहले आधिकारिक स्रोत से स्वतंत्र पुष्टि करें।"
       ],
-      "top_similarity": 0.6569714546203613,
+      "top_similarity": 0.6569715142250061,
       "evidence_status": "MATCH_FOUND",
       "retrieved_languages": [
         "hi",
@@ -231,7 +231,7 @@
         "ఖాతా అద్దెకు ఇవ్వడం ఆఫర్కు సంబంధించిన సందేశం లేదా అభ్యర్థన అనుమానాస్పదంగా ఉండవచ్చు. చర్య తీసుకునే ముందు అధికారిక మూలం ద్వారా స్వతంత్రంగా ధృవీకరించండి.",
         "నకిలీ వ్యాపార ఖాతా rentalకు సంబంధించిన సందేశం లేదా అభ్యర్థన అనుమానాస్పదంగా ఉండవచ్చు. చర్య తీసుకునే ముందు అధికారిక మూలం ద్వారా స్వతంత్రంగా ధృవీకరించండి.",
         "సేవ గడువు noticeకు సంబంధించిన సందేశం లేదా అభ్యర్థన అనుమానాస్పదంగా ఉండవచ్చు. చర్య తీసుకునే ముందు అధికారిక మూలం ద్వారా స్వతంత్రంగా ధృవీకరించండి.",
-        "WhatsApp वेब पेयरिंग कोड चोरी से संबंधित संदेश या अनुरोध संदिग्ध हो सकता है। इस दावे पर कार्रवाई करने से पहले आधिकारिक स्रोत से स्वतंत्र पुष्टि करें।"
+        "Service Deadline Notice is a specific ScamShield scam/genuine communication pattern. Assess the claim using the pattern indicators and verify through the appropriate official source before acting."
       ],
       "top_similarity": 0.45180559158325195,
       "evidence_status": "MATCH_FOUND",
@@ -240,7 +240,7 @@
         "te",
         "te",
         "te",
-        "hi"
+        "en"
       ]
     },
     {
@@ -256,7 +256,7 @@
         "सीमा शुल्क या प्रबंधन शुल्क से संबंधित संदेश या अनुरोध संदिग्ध हो सकता है। इस दावे पर कार्रवाई करने से पहले आधिकारिक स्रोत से स्वतंत्र पुष्टि करें।",
         "नकली डिलीवरी शुल्क से संबंधित संदेश या अनुरोध संदिग्ध हो सकता है। इस दावे पर कार्रवाई करने से पहले आधिकारिक स्रोत से स्वतंत्र पुष्टि करें।"
       ],
-      "top_similarity": 0.4545813798904419,
+      "top_similarity": 0.45458143949508667,
       "evidence_status": "MATCH_FOUND",
       "retrieved_languages": [
         "hi",
@@ -279,7 +279,7 @@
         "Emergency Donation Appeal is a specific ScamShield scam/genuine communication pattern. Assess the claim using the pattern indicators and verify through the appropriate official source before acting.",
         "Fake Giveaway is a specific ScamShield scam/genuine communication pattern. Assess the claim using the pattern indicators and verify through the appropriate official source before acting."
       ],
-      "top_similarity": 0.7194768190383911,
+      "top_similarity": 0.7194768786430359,
       "evidence_status": "MATCH_FOUND",
       "retrieved_languages": [
         "en",
@@ -371,7 +371,7 @@
         "రీఫండ్ క్లెయిమ్ మోసపు ఉచ్చుకు సంబంధించిన సందేశం లేదా అభ్యర్థన అనుమానాస్పదంగా ఉండవచ్చు. చర్య తీసుకునే ముందు అధికారిక మూలం ద్వారా స్వతంత్రంగా ధృవీకరించండి.",
         "నకిలీ క్యాష్‌బ్యాక్ ఆఫర్కు సంబంధించిన సందేశం లేదా అభ్యర్థన అనుమానాస్పదంగా ఉండవచ్చు. చర్య తీసుకునే ముందు అధికారిక మూలం ద్వారా స్వతంత్రంగా ధృవీకరించండి."
       ],
-      "top_similarity": 0.7756376266479492,
+      "top_similarity": 0.775637686252594,
       "evidence_status": "MATCH_FOUND",
       "retrieved_languages": [
         "te",
@@ -391,8 +391,8 @@
         "Hr Identity Document Capture is a specific ScamShield scam/genuine communication pattern. Assess the claim using the pattern indicators and verify through the appropriate official source before acting.",
         "Fake Task Portal is a specific ScamShield scam/genuine communication pattern. Assess the claim using the pattern indicators and verify through the appropriate official source before acting.",
         "Fake Relief Campaign is a specific ScamShield scam/genuine communication pattern. Assess the claim using the pattern indicators and verify through the appropriate official source before acting.",
-        "Fake Trading Opportunity is a specific ScamShield scam/genuine communication pattern. Assess the claim using the pattern indicators and verify through the appropriate official source before acting.",
-        "Fake Transfer Received is a specific ScamShield scam/genuine communication pattern. Assess the claim using the pattern indicators and verify through the appropriate official source before acting."
+        "Fake Transfer Received is a specific ScamShield scam/genuine communication pattern. Assess the claim using the pattern indicators and verify through the appropriate official source before acting.",
+        "Fake Admission Offer is a specific ScamShield scam/genuine communication pattern. Assess the claim using the pattern indicators and verify through the appropriate official source before acting."
       ],
       "top_similarity": 0.5322345495223999,
       "evidence_status": "MATCH_FOUND",
@@ -460,8 +460,8 @@
         "Apk Installation Trap is a specific ScamShield scam/genuine communication pattern. Assess the claim using the pattern indicators and verify through the appropriate official source before acting.",
         "Advance Fee Loan is a specific ScamShield scam/genuine communication pattern. Assess the claim using the pattern indicators and verify through the appropriate official source before acting.",
         "Unlicensed Loan App is a specific ScamShield scam/genuine communication pattern. Assess the claim using the pattern indicators and verify through the appropriate official source before acting.",
-        "Upi Payment Confirmation is a specific ScamShield scam/genuine communication pattern. Assess the claim using the pattern indicators and verify through the appropriate official source before acting.",
-        "Urgent Vendor Payment is a specific ScamShield scam/genuine communication pattern. Assess the claim using the pattern indicators and verify through the appropriate official source before acting."
+        "Urgent Vendor Payment is a specific ScamShield scam/genuine communication pattern. Assess the claim using the pattern indicators and verify through the appropriate official source before acting.",
+        "App Permission Trap is a specific ScamShield scam/genuine communication pattern. Assess the claim using the pattern indicators and verify through the appropriate official source before acting."
       ],
       "top_similarity": 0.4709499478340149,
       "evidence_status": "MATCH_FOUND",
@@ -555,7 +555,7 @@
         "नकली सत्यापन कॉल से संबंधित संदेश या अनुरोध संदिग्ध हो सकता है। इस दावे पर कार्रवाई करने से पहले आधिकारिक स्रोत से स्वतंत्र पुष्टि करें।",
         "नकली ऋण वितरण शुल्क से संबंधित संदेश या अनुरोध संदिग्ध हो सकता है। इस दावे पर कार्रवाई करने से पहले आधिकारिक स्रोत से स्वतंत्र पुष्टि करें।"
       ],
-      "top_similarity": 0.7188200354576111,
+      "top_similarity": 0.7188199758529663,
       "evidence_status": "MATCH_FOUND",
       "retrieved_languages": [
         "hi",
@@ -578,7 +578,7 @@
         "నకిలీ UPI రీఫండ్ QRకు సంబంధించిన సందేశం లేదా అభ్యర్థన అనుమానాస్పదంగా ఉండవచ్చు. చర్య తీసుకునే ముందు అధికారిక మూలం ద్వారా స్వతంత్రంగా ధృవీకరించండి.",
         "రీఫండ్ క్లెయిమ్ మోసపు ఉచ్చుకు సంబంధించిన సందేశం లేదా అభ్యర్థన అనుమానాస్పదంగా ఉండవచ్చు. చర్య తీసుకునే ముందు అధికారిక మూలం ద్వారా స్వతంత్రంగా ధృవీకరించండి."
       ],
-      "top_similarity": 0.7658513188362122,
+      "top_similarity": 0.7658512592315674,
       "evidence_status": "MATCH_FOUND",
       "retrieved_languages": [
         "te",
@@ -601,7 +601,7 @@
         "Fake Refund Support Customer Support 02 is a specific ScamShield scam/genuine communication pattern. Assess the claim using the pattern indicators and verify through the appropriate official source before acting.",
         "Recharge Refund Link is a specific ScamShield scam/genuine communication pattern. Assess the claim using the pattern indicators and verify through the appropriate official source before acting."
       ],
-      "top_similarity": 0.5839717388153076,
+      "top_similarity": 0.5839716792106628,
       "evidence_status": "MATCH_FOUND",
       "retrieved_languages": [
         "en",
@@ -779,13 +779,13 @@
       "input_channel": "text",
       "first_relevant_rank": null,
       "retrieved_patterns": [
-        "తిరిగి చెల్లింపు షెడ్యూల్ noticeకు సంబంధించిన సందేశం లేదా అభ్యర్థన అనుమానాస్పదంగా ఉండవచ్చు. చర్య తీసుకునే ముందు అధికారిక మూలం ద్వారా స్వతంత్రంగా ధృవీకరించండి.",
         "ప్రీమియం చెల్లించాల్సిన noticeకు సంబంధించిన సందేశం లేదా అభ్యర్థన అనుమానాస్పదంగా ఉండవచ్చు. చర్య తీసుకునే ముందు అధికారిక మూలం ద్వారా స్వతంత్రంగా ధృవీకరించండి.",
         "రీఫండ్ ప్రాసెసింగ్ ఫీజు రీఫండ్ మోసం 02కు సంబంధించిన సందేశం లేదా అభ్యర్థన అనుమానాస్పదంగా ఉండవచ్చు. చర్య తీసుకునే ముందు అధికారిక మూలం ద్వారా స్వతంత్రంగా ధృవీకరించండి.",
         "నకిలీ రీఫండ్ సహాయం కస్టమర్ సహాయం 02కు సంబంధించిన సందేశం లేదా అభ్యర్థన అనుమానాస్పదంగా ఉండవచ్చు. చర్య తీసుకునే ముందు అధికారిక మూలం ద్వారా స్వతంత్రంగా ధృవీకరించండి.",
-        "నకిలీ డెలివరీ ఫీజుకు సంబంధించిన సందేశం లేదా అభ్యర్థన అనుమానాస్పదంగా ఉండవచ్చు. చర్య తీసుకునే ముందు అధికారిక మూలం ద్వారా స్వతంత్రంగా ధృవీకరించండి."
+        "నకిలీ డెలివరీ ఫీజుకు సంబంధించిన సందేశం లేదా అభ్యర్థన అనుమానాస్పదంగా ఉండవచ్చు. చర్య తీసుకునే ముందు అధికారిక మూలం ద్వారా స్వతంత్రంగా ధృవీకరించండి.",
+        "చెల్లింపు విజయం noticeకు సంబంధించిన సందేశం లేదా అభ్యర్థన అనుమానాస్పదంగా ఉండవచ్చు. చర్య తీసుకునే ముందు అధికారిక మూలం ద్వారా స్వతంత్రంగా ధృవీకరించండి."
       ],
-      "top_similarity": 0.4116055369377136,
+      "top_similarity": 0.408963143825531,
       "evidence_status": "MATCH_FOUND",
       "retrieved_languages": [
         "te",
@@ -808,7 +808,7 @@
         "नकली ऋण मंजूरी से संबंधित संदेश या अनुरोध संदिग्ध हो सकता है। इस दावे पर कार्रवाई करने से पहले आधिकारिक स्रोत से स्वतंत्र पुष्टि करें।",
         "नकली कानूनी पुनर्प्राप्ति धमकी से संबंधित संदेश या अनुरोध संदिग्ध हो सकता है। इस दावे पर कार्रवाई करने से पहले आधिकारिक स्रोत से स्वतंत्र पुष्टि करें।"
       ],
-      "top_similarity": 0.6509506702423096,
+      "top_similarity": 0.65095055103302,
       "evidence_status": "MATCH_FOUND",
       "retrieved_languages": [
         "hi",
@@ -854,7 +854,7 @@
         "Payment Success Notice is a specific ScamShield scam/genuine communication pattern. Assess the claim using the pattern indicators and verify through the appropriate official source before acting.",
         "Financial Statement Notice is a specific ScamShield scam/genuine communication pattern. Assess the claim using the pattern indicators and verify through the appropriate official source before acting."
       ],
-      "top_similarity": 0.5054242014884949,
+      "top_similarity": 0.5054242610931396,
       "evidence_status": "MATCH_FOUND",
       "retrieved_languages": [
         "en",
@@ -877,7 +877,7 @@
         "ऋण contact ब्लैकमेल से संबंधित संदेश या अनुरोध संदिग्ध हो सकता है। इस दावे पर कार्रवाई करने से पहले आधिकारिक स्रोत से स्वतंत्र पुष्टि करें।",
         "नकली ऋण वितरण शुल्क से संबंधित संदेश या अनुरोध संदिग्ध हो सकता है। इस दावे पर कार्रवाई करने से पहले आधिकारिक स्रोत से स्वतंत्र पुष्टि करें।"
       ],
-      "top_similarity": 0.6448953747749329,
+      "top_similarity": 0.6448954343795776,
       "evidence_status": "MATCH_FOUND",
       "retrieved_languages": [
         "hi",
@@ -1084,7 +1084,7 @@
         "Sim Replacement Trap is a specific ScamShield scam/genuine communication pattern. Assess the claim using the pattern indicators and verify through the appropriate official source before acting.",
         "Usage Notice Telecom Genuine 02 is a specific ScamShield scam/genuine communication pattern. Assess the claim using the pattern indicators and verify through the appropriate official source before acting."
       ],
-      "top_similarity": 0.5480106472969055,
+      "top_similarity": 0.5480105876922607,
       "evidence_status": "MATCH_FOUND",
       "retrieved_languages": [
         "en",
@@ -1176,7 +1176,7 @@
     "distance": "cosine",
     "top_k": 5,
     "minimum_similarity": 0.3,
-    "evaluation_timestamp": "2026-10-05T09:55:38+00:00",
+    "evaluation_timestamp": "2026-10-05T15:40:10+00:00",
     "limitation": "This is an exploratory retrieval benchmark on dataset-derived examples; it is not an independent human-labeled evaluation."
   }
 }

@@ -12,6 +12,7 @@ from sqlalchemy.pool import StaticPool
 import auth
 import database
 import models
+from app.services.rate_limiter import authentication_rate_limiter
 from admin import router as admin_router
 from analysis import router as analysis_router
 from auth import get_password_hash, router as auth_router
@@ -39,6 +40,7 @@ class AuthRoleBoundaryTests(unittest.TestCase):
         cls.engine.dispose()
 
     def setUp(self):
+        authentication_rate_limiter.reset()
         with self.test_session() as db:
             db.query(models.User).delete()
             db.add_all(
@@ -85,6 +87,7 @@ class AuthRoleBoundaryTests(unittest.TestCase):
         self.client.__enter__()
 
     def tearDown(self):
+        authentication_rate_limiter.reset()
         self.client.__exit__(None, None, None)
 
     def portal_login(self, portal, email, password, remember_me=False):
@@ -109,6 +112,22 @@ class AuthRoleBoundaryTests(unittest.TestCase):
             "admin", "user@example.com", "Test-User-Password-2026"
         )
         self.assertEqual(response.status_code, 401)
+
+    def test_repeated_login_attempts_are_rate_limited(self):
+        authentication_rate_limiter.limits["login"] = (1, 60)
+        first = self.portal_login(
+            "user", "user@example.com", "Test-User-Password-2026"
+        )
+        repeated = self.portal_login(
+            "user", "user@example.com", "Test-User-Password-2026"
+        )
+        self.assertEqual(first.status_code, 200)
+        self.assertEqual(repeated.status_code, 429)
+        self.assertIn("Retry-After", repeated.headers)
+        self.assertEqual(
+            repeated.json()["detail"],
+            "Too many authentication requests. Please try again later.",
+        )
 
     def test_each_portal_accepts_only_its_own_active_role(self):
         user_response = self.portal_login(
@@ -138,11 +157,6 @@ class AuthRoleBoundaryTests(unittest.TestCase):
         self.assertGreater(seconds_until_expiry, auth.REMEMBER_ME_EXPIRE_DAYS * 86400 - 10)
 
     def test_two_factor_login_requires_a_single_use_email_code(self):
-        with self.test_session() as db:
-            user = db.query(models.User).filter_by(email="user@example.com").first()
-            user.two_factor_enabled = True
-            db.commit()
-
         with (
             patch.object(
                 type(auth.email_service),
@@ -153,7 +167,7 @@ class AuthRoleBoundaryTests(unittest.TestCase):
             patch.object(auth.email_service, "send_verification_code") as send_email,
         ):
             login = self.portal_login(
-                "user", "user@example.com", "Test-User-Password-2026", remember_me=True
+                "admin", "admin@example.com", "Test-Admin-Password-2026", remember_me=True
             )
             self.assertEqual(login.status_code, 200)
             self.assertTrue(login.json()["requires_two_factor"])
@@ -259,10 +273,13 @@ class AuthRoleBoundaryTests(unittest.TestCase):
         self.assertEqual(login.status_code, 200)
 
     def test_admin_health_endpoint_returns_measured_checks(self):
-        login = self.portal_login(
-            "admin", "admin@example.com", "Test-Admin-Password-2026"
+        with self.test_session() as db:
+            admin = db.query(models.User).filter_by(email="admin@example.com").first()
+            admin_id = admin.id
+        token = auth.create_access_token(
+            {"sub": str(admin_id), "email": "admin@example.com", "role": "admin"},
+            expires_delta=auth.timedelta(minutes=15),
         )
-        token = login.json()["access_token"]
         with patch(
             "admin.rag_service",
             SimpleNamespace(collection=SimpleNamespace(count=lambda: 80)),
@@ -320,10 +337,13 @@ class AuthRoleBoundaryTests(unittest.TestCase):
         )
 
     def test_admin_token_cannot_use_user_analysis_routes(self):
-        response = self.portal_login(
-            "admin", "admin@example.com", "Test-Admin-Password-2026"
+        with self.test_session() as db:
+            admin = db.query(models.User).filter_by(email="admin@example.com").first()
+            admin_id = admin.id
+        token = auth.create_access_token(
+            {"sub": str(admin_id), "email": "admin@example.com", "role": "admin"},
+            expires_delta=auth.timedelta(minutes=15),
         )
-        token = response.json()["access_token"]
         dashboard = self.client.get(
             "/api/analysis/dashboard",
             headers={"Authorization": f"Bearer {token}"},
@@ -341,7 +361,7 @@ class AuthRoleBoundaryTests(unittest.TestCase):
         )
         self.assertEqual(dashboard.status_code, 200)
 
-    def test_unverified_user_is_blocked_from_analysis_routes(self):
+    def test_unverified_user_can_read_portal_but_cannot_analyze(self):
         with self.test_session() as db:
             user = db.query(models.User).filter_by(email="user@example.com").first()
             user.email_verified = False
@@ -356,8 +376,19 @@ class AuthRoleBoundaryTests(unittest.TestCase):
             "/api/analysis/dashboard",
             headers={"Authorization": "Bearer " + token},
         )
-        self.assertEqual(dashboard.status_code, 403)
-        self.assertIn("verify your email", dashboard.json()["detail"])
+        history = self.client.get(
+            "/api/analysis/history",
+            headers={"Authorization": "Bearer " + token},
+        )
+        analysis = self.client.post(
+            "/api/analysis/text",
+            headers={"Authorization": "Bearer " + token},
+            json={"content": "Please verify this account"},
+        )
+        self.assertEqual(dashboard.status_code, 200)
+        self.assertEqual(history.status_code, 200)
+        self.assertEqual(analysis.status_code, 403)
+        self.assertIn("verify your email", analysis.json()["detail"])
 
     def test_signup_normalizes_email_and_rejects_case_insensitive_duplicate(self):
         payload = {
