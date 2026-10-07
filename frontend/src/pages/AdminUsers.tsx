@@ -6,6 +6,7 @@ import {
 import { Link } from 'react-router-dom';
 import { api } from '../services/api';
 import AdminBackButton from '../components/AdminBackButton';
+import AdminConfirmDialog from '../components/AdminConfirmDialog';
 
 interface User {
   id: number;
@@ -30,6 +31,17 @@ interface UserDetails {
   }>;
 }
 
+type UserSummary = {
+  total: number;
+  active: number;
+  inactive: number;
+  admins: number;
+};
+
+type UserAction =
+  | { type: 'status'; user: User }
+  | { type: 'role'; user: User; role: string };
+
 export default function AdminUsers() {
   const [searchParams] = useSearchParams();
   const [users, setUsers] = useState<User[]>([]);
@@ -47,6 +59,11 @@ export default function AdminUsers() {
   const [userDetails, setUserDetails] = useState<UserDetails | null>(null);
   const [detailsLoading, setDetailsLoading] = useState(false);
   const [detailsError, setDetailsError] = useState<string | null>(null);
+  const [summary, setSummary] = useState<UserSummary>({ total: 0, active: 0, inactive: 0, admins: 0 });
+  const [pendingAction, setPendingAction] = useState<UserAction | null>(null);
+  const [actionLoading, setActionLoading] = useState(false);
+  const [actionError, setActionError] = useState<string | null>(null);
+  const [actionNotice, setActionNotice] = useState<string | null>(null);
 
   const fetchUsers = useCallback(async () => {
     try {
@@ -60,6 +77,7 @@ export default function AdminUsers() {
       setUsers(response.data.items);
       setTotal(response.data.total);
       setTotalPages(response.data.total_pages);
+      setSummary(response.data.summary);
       setError(null);
     } catch (err) {
       setError('Failed to load users');
@@ -74,30 +92,43 @@ export default function AdminUsers() {
   }, [fetchUsers]);
 
   const handleToggleStatus = async (user: User) => {
-    if (!window.confirm(`Are you sure you want to ${user.is_active ? 'deactivate' : 'activate'} this user?`)) return;
-    try {
-      await api.patch(`/admin/users/${user.id}/status`, {
-        is_active: !user.is_active
-      });
-      setSelectedUser((current) => current?.id === user.id
-        ? { ...current, is_active: !user.is_active }
-        : current);
-      await fetchUsers();
-    } catch {
-      alert("Failed to update user status");
-    }
+    setActionError(null);
+    setActionNotice(null);
+    setPendingAction({ type: 'status', user });
   };
 
   const handleRoleChange = async (user: User, newRole: string) => {
     if (user.role === newRole) return;
-    if (!window.confirm(`Change role to ${newRole}?`)) return;
+    setActionError(null);
+    setActionNotice(null);
+    setPendingAction({ type: 'role', user, role: newRole });
+  };
+
+  const confirmUserAction = async () => {
+    if (!pendingAction || actionLoading) return;
     try {
-      await api.patch(`/admin/users/${user.id}/role`, {
-        role: newRole
-      });
+      setActionLoading(true);
+      setActionError(null);
+      const { user } = pendingAction;
+      if (pendingAction.type === 'status') {
+        await api.patch(`/admin/users/${user.id}/status`, { is_active: !user.is_active });
+        setSelectedUser((current) => current?.id === user.id
+          ? { ...current, is_active: !user.is_active }
+          : current);
+        setActionNotice(`Account ${user.is_active ? 'deactivated' : 'activated'} successfully.`);
+      } else {
+        await api.patch(`/admin/users/${user.id}/role`, { role: pendingAction.role });
+        setActionNotice(`Role updated to ${pendingAction.role}.`);
+      }
+      setPendingAction(null);
       await fetchUsers();
-    } catch {
-      alert("Failed to update user role");
+    } catch (err) {
+      console.error('Unable to update user account', err);
+      const detail = (err as { response?: { data?: { detail?: string } } })
+        ?.response?.data?.detail;
+      setActionError(detail || 'Unable to update this account. Please retry.');
+    } finally {
+      setActionLoading(false);
     }
   };
 
@@ -132,6 +163,33 @@ export default function AdminUsers() {
         </div>
         <AdminBackButton to="/admin" label="Back to Dashboard" />
       </div>
+
+      {(actionError || actionNotice) && (
+        <div
+          role={actionError ? 'alert' : 'status'}
+          className={`rounded-xl border px-4 py-3 text-sm ${
+            actionError
+              ? 'border-danger/20 bg-danger/5 text-danger'
+              : 'border-success/20 bg-success/5 text-success'
+          }`}
+        >
+          {actionError || actionNotice}
+        </div>
+      )}
+
+      <section aria-label="User account summary" className="grid grid-cols-2 gap-3 @content-xl:grid-cols-4">
+        {[
+          ['Total accounts', summary.total],
+          ['Active', summary.active],
+          ['Inactive', summary.inactive],
+          ['Administrators', summary.admins],
+        ].map(([label, value]) => (
+          <article key={label} className="rounded-xl border border-border-light bg-card p-4 shadow-sm">
+            <p className="text-xs text-text-muted">{label}</p>
+            <p className="mt-1 text-2xl font-bold tabular-nums text-text-main">{Number(value).toLocaleString()}</p>
+          </article>
+        ))}
+      </section>
 
       <div className="bg-card rounded-xl shadow-sm border border-border-light p-4 flex flex-col @content-sm:flex-row justify-between items-center gap-4">
         <div className="flex w-full flex-col gap-3 @content-sm:w-auto @content-sm:flex-row">
@@ -396,7 +454,27 @@ export default function AdminUsers() {
           </section>
         </div>
       )}
-
+      {pendingAction && (
+        <AdminConfirmDialog
+          title={pendingAction.type === 'status'
+            ? `${pendingAction.user.is_active ? 'Deactivate' : 'Reactivate'} account?`
+            : 'Change account role?'}
+          description={pendingAction.type === 'status'
+            ? `${pendingAction.user.full_name || pendingAction.user.email} will ${pendingAction.user.is_active ? 'lose access' : 'regain access'} to ScamShield.`
+            : `Change ${pendingAction.user.full_name || pendingAction.user.email} from ${pendingAction.user.role} to ${pendingAction.role}. This changes their portal permissions.`}
+          confirmLabel={pendingAction.type === 'status'
+            ? (pendingAction.user.is_active ? 'Deactivate account' : 'Reactivate account')
+            : 'Change role'}
+          destructive={pendingAction.type === 'status' && pendingAction.user.is_active}
+          loading={actionLoading}
+          error={actionError}
+          onCancel={() => {
+            setPendingAction(null);
+            setActionError(null);
+          }}
+          onConfirm={() => void confirmUserAction()}
+        />
+      )}
     </div>
   );
 }

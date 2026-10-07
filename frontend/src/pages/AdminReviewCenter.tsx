@@ -5,6 +5,9 @@ import { reviewService, type ReviewListResponse } from '../services/reviewServic
 import AdminBackButton from '../components/AdminBackButton';
 
 const statusChoices = ['PENDING', 'ASSIGNED', 'IN_REVIEW', 'NEEDS_INFORMATION', 'VERIFIED', 'REJECTED'];
+const priorityChoices = ['LOW', 'MEDIUM', 'HIGH', 'URGENT'];
+const riskChoices = ['LOW', 'MEDIUM', 'HIGH', 'CRITICAL'];
+const inputTypeChoices = ['text', 'email', 'image', 'pdf', 'audio'];
 
 function statusClass(status: string) {
   switch (status) {
@@ -27,6 +30,9 @@ export default function AdminReviewCenter() {
   const [error, setError] = useState<string | null>(null);
   const search = searchParams.get('search') ?? '';
   const [statusFilter, setStatusFilter] = useState('');
+  const [priorityFilter, setPriorityFilter] = useState('');
+  const [riskFilter, setRiskFilter] = useState('');
+  const [inputTypeFilter, setInputTypeFilter] = useState('');
   const [page, setPage] = useState(1);
   const [total, setTotal] = useState(0);
   const [totalPages, setTotalPages] = useState(1);
@@ -40,6 +46,9 @@ export default function AdminReviewCenter() {
         limit: pageSize,
         search: search.trim() || undefined,
         review_status: statusFilter || undefined,
+        priority: priorityFilter || undefined,
+        risk_level: riskFilter || undefined,
+        input_type: inputTypeFilter || undefined,
       });
       setReviews(result.items);
       setSummary(result.summary);
@@ -52,7 +61,7 @@ export default function AdminReviewCenter() {
     } finally {
       setLoading(false);
     }
-  }, [page, search, statusFilter]);
+  }, [page, search, statusFilter, priorityFilter, riskFilter, inputTypeFilter]);
 
   useEffect(() => {
     void fetchReviews();
@@ -103,7 +112,7 @@ export default function AdminReviewCenter() {
             <h3 className="font-semibold text-text-main">Review queue</h3>
             <p className="mt-0.5 text-xs text-text-muted">{total.toLocaleString()} matching cases · {summary.TOTAL?.toLocaleString() ?? 0} total</p>
           </div>
-          <div className="flex flex-col gap-2 @content-sm:flex-row">
+          <div className="grid grid-cols-2 gap-2 @content-sm:flex">
             <select
               value={statusFilter}
               onChange={(event) => { setStatusFilter(event.target.value); setPage(1); }}
@@ -112,6 +121,33 @@ export default function AdminReviewCenter() {
             >
               <option value="">All statuses</option>
               {statusChoices.map((status) => <option key={status} value={status}>{status.replaceAll('_', ' ')}</option>)}
+            </select>
+            <select
+              value={priorityFilter}
+              onChange={(event) => { setPriorityFilter(event.target.value); setPage(1); }}
+              aria-label="Filter cases by priority"
+              className="h-10 rounded-lg border border-border-light bg-card px-3 text-sm text-text-main outline-none focus:border-primary"
+            >
+              <option value="">All priorities</option>
+              {priorityChoices.map((priority) => <option key={priority} value={priority}>{priority}</option>)}
+            </select>
+            <select
+              value={riskFilter}
+              onChange={(event) => { setRiskFilter(event.target.value); setPage(1); }}
+              aria-label="Filter cases by risk level"
+              className="h-10 rounded-lg border border-border-light bg-card px-3 text-sm text-text-main outline-none focus:border-primary"
+            >
+              <option value="">All risk levels</option>
+              {riskChoices.map((risk) => <option key={risk} value={risk}>{risk}</option>)}
+            </select>
+            <select
+              value={inputTypeFilter}
+              onChange={(event) => { setInputTypeFilter(event.target.value); setPage(1); }}
+              aria-label="Filter cases by input type"
+              className="h-10 rounded-lg border border-border-light bg-card px-3 text-sm text-text-main outline-none focus:border-primary"
+            >
+              <option value="">All channels</option>
+              {inputTypeChoices.map((inputType) => <option key={inputType} value={inputType}>{inputType.toUpperCase()}</option>)}
             </select>
           </div>
         </div>

@@ -43,6 +43,17 @@ type OverviewStats = {
   reportStatusCounts: Record<string, number>;
   reviewStatusCounts: Record<string, number>;
 };
+type SystemHealth = {
+  api: string;
+  database: string;
+  ml_model: string;
+  model_version: string | null;
+  chromadb: string;
+  chromadb_vectors: number | null;
+  chromadb_expected_minimum: number;
+  embedding: string;
+  llm: string;
+};
 
 const riskColors: Record<string, string> = {
   LOW: '#16A34A', MEDIUM: '#F59E0B', HIGH: '#EA580C', CRITICAL: '#DC2626',
@@ -67,7 +78,7 @@ export default function AdminOverview() {
   const navigate = useNavigate();
   const [days, setDays] = useState(30);
   const [stats, setStats] = useState<OverviewStats | null>(null);
-  const [health, setHealth] = useState<Record<string, string> | null>(null);
+  const [health, setHealth] = useState<SystemHealth | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -313,19 +324,32 @@ export default function AdminOverview() {
           <h3 className="font-semibold text-text-main">Service status</h3>
         </div>
         {health ? (
-          <div className="flex flex-wrap gap-2">
-            {Object.entries(health).map(([service, status]) => {
-              const healthy = status.toLowerCase() === 'healthy' || status.toLowerCase() === 'configured';
-              return (
-                <span key={service} className={`inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-medium ${
-                  healthy ? 'border-success/20 bg-success/5 text-success' : 'border-warning/20 bg-warning/5 text-warning'
-                }`}>
-                  <span className={`h-1.5 w-1.5 rounded-full ${healthy ? 'bg-success' : 'bg-warning'}`} />
-                  {service.replaceAll('_', ' ')} · {status}
-                </span>
-              );
-            })}
-          </div>
+          <>
+            <div className="flex flex-wrap gap-2">
+              {[
+                ['api', health.api],
+                ['database', health.database],
+                ['ml model', health.ml_model],
+                ['chromadb', health.chromadb],
+                ['embedding', health.embedding],
+                ['llm', health.llm],
+              ].map(([service, status]) => {
+                const normalizedStatus = status.toLowerCase();
+                const healthy = ['healthy', 'configured', 'ready'].includes(normalizedStatus);
+                return (
+                  <span key={service} className={`inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-medium ${
+                    healthy ? 'border-success/20 bg-success/5 text-success' : 'border-warning/20 bg-warning/5 text-warning'
+                  }`}>
+                    <span className={`h-1.5 w-1.5 rounded-full ${healthy ? 'bg-success' : 'bg-warning'}`} />
+                    {service} · {status}
+                  </span>
+                );
+              })}
+            </div>
+            <p className="mt-3 text-xs text-text-muted">
+              Model version: {health.model_version || 'Unknown'} · ChromaDB vectors: {health.chromadb_vectors?.toLocaleString() ?? 'unavailable'} / {health.chromadb_expected_minimum.toLocaleString()}
+            </p>
+          </>
         ) : (
           <p className="text-sm text-text-muted">Service health is unavailable.</p>
         )}

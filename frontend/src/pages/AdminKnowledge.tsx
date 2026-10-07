@@ -5,6 +5,7 @@ import {
 } from 'lucide-react';
 import { api } from '../services/api';
 import AdminBackButton from '../components/AdminBackButton';
+import AdminConfirmDialog from '../components/AdminConfirmDialog';
 
 interface KnowledgeEntry {
   id: number;
@@ -36,6 +37,14 @@ export default function AdminKnowledge() {
   const [categoryFilter, setCategoryFilter] = useState('');
   const search = searchParams.get('search') ?? '';
   const [selectedEntry, setSelectedEntry] = useState<KnowledgeEntry | null>(null);
+  const [pendingAction, setPendingAction] = useState<{
+    type: 'approve' | 'delete';
+    entry: KnowledgeEntry;
+  } | null>(null);
+  const [actionLoading, setActionLoading] = useState(false);
+  const [actionError, setActionError] = useState<string | null>(null);
+  const [actionNotice, setActionNotice] = useState<string | null>(null);
+  const [addingEntry, setAddingEntry] = useState(false);
   
   const [showAddModal, setShowAddModal] = useState(false);
   const [formData, setFormData] = useState({
@@ -72,28 +81,33 @@ export default function AdminKnowledge() {
     void fetchKnowledge();
   }, [fetchKnowledge]);
 
-  const handleApprove = async (id: number) => {
-    if (!window.confirm("Approve this knowledge entry?")) return;
+  const confirmAction = async () => {
+    if (!pendingAction || actionLoading) return;
     try {
-      await api.patch(`/admin/knowledge/${id}/approve`);
+      setActionLoading(true);
+      setActionError(null);
+      if (pendingAction.type === 'approve') {
+        await api.patch(`/admin/knowledge/${pendingAction.entry.id}/approve`);
+        setActionNotice(`“${pendingAction.entry.title}” approved and added to the semantic index.`);
+      } else {
+        await api.delete(`/admin/knowledge/${pendingAction.entry.id}`);
+        setActionNotice(`“${pendingAction.entry.title}” deleted.`);
+      }
+      setPendingAction(null);
       await fetchKnowledge();
-    } catch {
-      alert("Failed to approve");
+    } catch (err) {
+      console.error('Unable to update knowledge entry', err);
+      setActionError('The knowledge entry could not be updated. Please retry.');
     }
-  };
-
-  const handleDelete = async (id: number) => {
-    if (!window.confirm("Delete this knowledge entry forever?")) return;
-    try {
-      await api.delete(`/admin/knowledge/${id}`);
-      await fetchKnowledge();
-    } catch {
-      alert("Failed to delete");
+    finally {
+      setActionLoading(false);
     }
   };
 
   const handleAddSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setAddingEntry(true);
+    setActionError(null);
     try {
       const payload = {
         ...formData,
@@ -101,12 +115,16 @@ export default function AdminKnowledge() {
       };
       await api.post('/admin/knowledge', payload);
       setShowAddModal(false);
+      setActionNotice('Draft saved. Review and approve it before it is used in analysis.');
       setFormData({
         title: '', pattern: '', category: 'PHISHING', risk_level: 'HIGH', safe_action: '', indicators: ''
       });
       await fetchKnowledge();
-    } catch {
-      alert("Failed to add entry");
+    } catch (err) {
+      console.error('Unable to create knowledge draft', err);
+      setActionError('The draft could not be saved. Check the fields and try again.');
+    } finally {
+      setAddingEntry(false);
     }
   };
 
@@ -116,7 +134,7 @@ export default function AdminKnowledge() {
       <div className="flex flex-col @content-sm:flex-row @content-sm:items-end justify-between gap-4">
         <div>
           <h1 className="text-3xl font-bold text-text-main mb-1">Knowledge Base</h1>
-          <p className="text-text-muted">Manage the RAG knowledge entries that power AI verifications.</p>
+          <p className="text-text-muted">Review and manage verified patterns used as evidence in AI analysis.</p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <AdminBackButton to="/admin" label="Back to Dashboard" />
@@ -130,6 +148,19 @@ export default function AdminKnowledge() {
         </div>
       </div>
 
+      {(actionError || actionNotice) && (
+        <div
+          role={actionError ? 'alert' : 'status'}
+          className={`rounded-xl border px-4 py-3 text-sm ${
+            actionError
+              ? 'border-danger/20 bg-danger/5 text-danger'
+              : 'border-success/20 bg-success/5 text-success'
+          }`}
+        >
+          {actionError || actionNotice}
+        </div>
+      )}
+
       <div className="rounded-xl border border-primary/20 bg-primary/5 p-5">
         <div className="flex items-start gap-3">
           <Info className="mt-0.5 h-5 w-5 shrink-0 text-primary" />
@@ -141,8 +172,8 @@ export default function AdminKnowledge() {
               similar patterns as supporting evidence alongside the classifier result.
             </p>
             <p className="text-text-muted">
-              Approved entries are embedded into the semantic index when they are added or approved. Deleting an
-              entry removes it from the index too. Existing records can be re-indexed with
+              New entries are saved as drafts and are not used for analysis until an administrator approves them.
+              Deleting an approved entry also removes it from the semantic index. Existing records can be re-indexed with
               <code className="ml-1 rounded bg-card px-1.5 py-0.5">ml/scripts/build_vector_db.py</code>.
             </p>
           </div>
@@ -253,7 +284,12 @@ export default function AdminKnowledge() {
                       <td className="px-6 py-4 text-right space-x-2">
                         {item.status !== 'APPROVED' && (
                           <button 
-                            onClick={(event) => { event.stopPropagation(); void handleApprove(item.id); }}
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              setActionNotice(null);
+                              setActionError(null);
+                              setPendingAction({ type: 'approve', entry: item });
+                            }}
                             className="p-1.5 text-success hover:bg-success/10 rounded transition-colors"
                             title="Approve"
                           >
@@ -261,7 +297,12 @@ export default function AdminKnowledge() {
                           </button>
                         )}
                         <button 
-                          onClick={(event) => { event.stopPropagation(); void handleDelete(item.id); }}
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            setActionNotice(null);
+                            setActionError(null);
+                            setPendingAction({ type: 'delete', entry: item });
+                          }}
                           className="p-1.5 text-danger hover:bg-danger/10 rounded transition-colors"
                           title="Delete"
                         >
@@ -387,6 +428,7 @@ export default function AdminKnowledge() {
             </div>
             <div className="p-6 overflow-y-auto custom-scrollbar flex-1">
               <form id="add-form" onSubmit={handleAddSubmit} className="space-y-4">
+                {actionError && <p role="alert" className="rounded-lg border border-danger/20 bg-danger/5 p-3 text-sm text-danger">{actionError}</p>}
                 <div>
                   <label className="block text-xs font-bold text-text-muted uppercase tracking-wider mb-1">Title</label>
                   <input required type="text" value={formData.title} onChange={e => setFormData({...formData, title: e.target.value})} className="w-full bg-background border border-border-light rounded-lg px-3 py-2 text-sm focus:border-primary focus:outline-none" />
@@ -427,10 +469,29 @@ export default function AdminKnowledge() {
             </div>
             <div className="p-4 border-t border-border-light flex justify-end gap-3 bg-background/50">
               <button type="button" onClick={() => setShowAddModal(false)} className="px-4 py-2 font-bold text-text-secondary hover:text-text-main">Cancel</button>
-              <button type="submit" form="add-form" className="px-6 py-2 bg-primary text-white font-bold rounded-lg hover:bg-primary-hover shadow-lg shadow-primary/20">Add Entry</button>
+              <button type="submit" form="add-form" disabled={addingEntry} className="px-6 py-2 bg-primary text-white font-bold rounded-lg hover:bg-primary-hover shadow-lg shadow-primary/20 disabled:cursor-not-allowed disabled:opacity-60">
+                {addingEntry ? 'Saving draft…' : 'Save Draft'}
+              </button>
             </div>
           </div>
         </div>
+      )}
+      {pendingAction && (
+        <AdminConfirmDialog
+          title={pendingAction.type === 'approve' ? 'Approve knowledge entry?' : 'Delete knowledge entry?'}
+          description={pendingAction.type === 'approve'
+            ? `“${pendingAction.entry.title}” will be added to the semantic index and may be used as supporting evidence in future analyses.`
+            : `“${pendingAction.entry.title}” will be permanently deleted and removed from the semantic index. This cannot be undone.`}
+          confirmLabel={pendingAction.type === 'approve' ? 'Approve entry' : 'Delete entry'}
+          destructive={pendingAction.type === 'delete'}
+          loading={actionLoading}
+          error={actionError}
+          onCancel={() => {
+            setPendingAction(null);
+            setActionError(null);
+          }}
+          onConfirm={() => void confirmAction()}
+        />
       )}
     </div>
   );

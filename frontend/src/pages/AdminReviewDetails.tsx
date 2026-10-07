@@ -15,6 +15,8 @@ export const AdminReviewDetails: React.FC = () => {
   const [decision, setDecision] = useState('');
   const [notes, setNotes] = useState('');
   const [startingReview, setStartingReview] = useState(false);
+  const [submittingDecision, setSubmittingDecision] = useState(false);
+  const [creatingKnowledge, setCreatingKnowledge] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   
@@ -59,14 +61,18 @@ export const AdminReviewDetails: React.FC = () => {
   };
 
   const handleSubmitDecision = async () => {
-    if (!decision) return;
+    if (!decision || submittingDecision) return;
+    setSubmittingDecision(true);
     try {
       await reviewService.submitDecision(Number(id), decision, notes);
       setError(null);
-      fetchData();
+      setSuccess('Review decision submitted.');
+      await fetchData();
     } catch (err) {
       console.error(err);
       setError('Unable to submit the review decision.');
+    } finally {
+      setSubmittingDecision(false);
     }
   };
 
@@ -85,6 +91,8 @@ export const AdminReviewDetails: React.FC = () => {
   };
 
   const handleCreateKnowledge = async () => {
+    if (creatingKnowledge) return;
+    setCreatingKnowledge(true);
     try {
       await reviewService.createTrustedKnowledge(Number(id), {
         title: `Verified Pattern RV-${id}`,
@@ -95,10 +103,15 @@ export const AdminReviewDetails: React.FC = () => {
         safe_action: formatRecommendedActions(caseData.analysis?.recommended_action || '').join('\n')
       });
       setError(null);
-      window.alert('Trusted knowledge created successfully.');
+      setSuccess('Knowledge draft created. It must be approved in the Knowledge Base before it is used in analysis.');
+      await fetchData();
     } catch (err) {
       console.error(err);
-      setError('Unable to add this case to the knowledge base.');
+      const detail = (err as { response?: { data?: { detail?: string } } })
+        ?.response?.data?.detail;
+      setError(detail || 'Unable to add this case to the knowledge base.');
+    } finally {
+      setCreatingKnowledge(false);
     }
   };
 
@@ -254,10 +267,10 @@ export const AdminReviewDetails: React.FC = () => {
               </div>
               <button 
                 onClick={handleSubmitDecision}
-                disabled={!decision || ((decision === 'UNCERTAIN' || decision === 'INSUFFICIENT_INFORMATION') && !notes)}
+                disabled={!decision || submittingDecision || ((decision === 'UNCERTAIN' || decision === 'INSUFFICIENT_INFORMATION') && !notes.trim())}
                 className="w-full bg-primary hover:bg-primary-hover text-white font-bold py-2.5 rounded-lg transition disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                Submit Decision
+                {submittingDecision ? 'Submitting…' : 'Submit Decision'}
               </button>
             </div>
           )}
@@ -277,16 +290,22 @@ export const AdminReviewDetails: React.FC = () => {
                 </div>
               )}
               
-              {caseData.review_decision === 'CONFIRMED_SCAM' && (
+              {caseData.review_decision === 'CONFIRMED_SCAM' && !caseData.knowledge_entry_exists && (
                 <div className="pt-4 border-t border-border-light">
-                  <p className="text-sm text-text-muted mb-3">You can add this verified scam to the knowledge base to provide supporting evidence in future analyses.</p>
+                  <p className="text-sm text-text-muted mb-3">Create a draft knowledge entry for a separate administrator to review and approve.</p>
                   <button 
                     onClick={handleCreateKnowledge}
-                    className="flex items-center gap-2 bg-primary/10 hover:bg-primary/20 text-primary border border-primary/30 px-4 py-2 rounded-lg font-medium text-sm transition"
+                    disabled={creatingKnowledge}
+                    className="flex items-center gap-2 bg-primary/10 hover:bg-primary/20 text-primary border border-primary/30 px-4 py-2 rounded-lg font-medium text-sm transition disabled:cursor-not-allowed disabled:opacity-50"
                   >
-                    <Database size={16} /> Create Trusted Knowledge
+                    <Database size={16} /> {creatingKnowledge ? 'Creating draft…' : 'Create Knowledge Draft'}
                   </button>
                 </div>
+              )}
+              {caseData.knowledge_entry_exists && (
+                <p className="mt-3 text-sm text-text-muted" role="status">
+                  A knowledge entry for this case already exists. Its approval status can be reviewed in the Knowledge Base.
+                </p>
               )}
             </div>
           )}

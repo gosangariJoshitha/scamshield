@@ -34,6 +34,8 @@ export default function AdminCommunity() {
   const [selectedReport, setSelectedReport] = useState<CommunityReport | null>(null);
   const [actionNotes, setActionNotes] = useState('');
   const [actionLoading, setActionLoading] = useState(false);
+  const [actionError, setActionError] = useState<string | null>(null);
+  const [actionNotice, setActionNotice] = useState<string | null>(null);
 
   const fetchReports = useCallback(async () => {
     try {
@@ -71,10 +73,14 @@ export default function AdminCommunity() {
     
     try {
       setActionLoading(true);
+      setActionError(null);
       await api.post(`/admin/community/reports/${selectedReport.id}/action`, {
         action,
         notes: actionNotes
       });
+      setActionNotice(action === 'CONVERT_TO_KNOWLEDGE'
+        ? 'A knowledge draft was created. Approve it in the Knowledge Base before it is used in analysis.'
+        : `Report ${action.toLowerCase().replaceAll('_', ' ')} successfully.`);
       setSelectedReport(null);
       setActionNotes('');
       if (searchParams.has('report')) {
@@ -86,7 +92,7 @@ export default function AdminCommunity() {
       }
     } catch (err) {
       console.error("Action failed:", err);
-      alert("Failed to process action");
+      setActionError('Unable to process this report action. Refresh and try again.');
     } finally {
       setActionLoading(false);
     }
@@ -101,6 +107,19 @@ export default function AdminCommunity() {
         </div>
         <AdminBackButton to="/admin" label="Back to Dashboard" />
       </div>
+
+      {(actionError || actionNotice) && (
+        <div
+          role={actionError ? 'alert' : 'status'}
+          className={`rounded-xl border px-4 py-3 text-sm ${
+            actionError
+              ? 'border-danger/20 bg-danger/5 text-danger'
+              : 'border-success/20 bg-success/5 text-success'
+          }`}
+        >
+          {actionError || actionNotice}
+        </div>
+      )}
 
       <div className="bg-card rounded-xl shadow-sm border border-border-light p-4 flex flex-col @content-sm:flex-row justify-between items-center gap-4">
         <div className="flex w-full flex-col gap-3 @content-sm:w-auto @content-sm:flex-row">
@@ -286,7 +305,7 @@ export default function AdminCommunity() {
                     disabled={actionLoading}
                     className="w-full rounded-lg border border-primary/20 bg-primary/10 py-2 text-sm font-bold text-primary hover:bg-primary/20 disabled:opacity-50"
                   >
-                    {actionLoading ? 'Adding…' : 'Add verified pattern to Knowledge Base'}
+                    {actionLoading ? 'Creating draft…' : 'Create knowledge draft'}
                   </button>
                 </div>
               ) : (

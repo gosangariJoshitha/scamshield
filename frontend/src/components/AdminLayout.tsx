@@ -73,6 +73,10 @@ export default function AdminLayout() {
       try {
         const profile = await auth.me() as AdminUser;
         if (!active) return;
+        if (profile?.role === 'user' && profile.is_active !== false) {
+          navigate('/dashboard', { replace: true });
+          return;
+        }
         if (profile?.role !== 'admin' || profile.is_active === false) {
           setAuthError('Admin access is required for this page.');
           return;

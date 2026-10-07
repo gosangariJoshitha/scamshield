@@ -58,6 +58,9 @@ export const reviewService = {
         limit?: number;
         search?: string;
         review_status?: string;
+        priority?: string;
+        risk_level?: string;
+        input_type?: string;
     } = {}): Promise<ReviewListResponse> => {
         const response = await api.get('/reviews/admin/list', { params });
         return response.data;
