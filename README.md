@@ -13,7 +13,8 @@ ScamShield is an explainable AI-driven framework for real-time scam detection an
 - **M2:** Multi-channel input processing (Text, Image, PDF, Audio)
 - **M3:** ML Classification & Configurable Risk Engine
 - **M4:** RAG Semantic Retrieval (ChromaDB)
-- **M5:** Explainable LLM Reasoning (Groq)
+- **M5:** Explainable LLM Reasoning (OpenRouter or Groq)
+- **M9.6:** Disconnected, ephemeral Guardian analysis pipeline foundation
 
 ## Security & Explainability
 ScamShield provides an application-level risk assessment. It uses ML to detect patterns and RAG to retrieve similar historical scams. An LLM generates user-friendly explanations WITHOUT making up arbitrary risk scores or fake evidence.
@@ -25,6 +26,18 @@ New user accounts must verify their email address before they can submit analyse
 After each completed analysis, ScamShield sends a summary email that excludes the submitted message. HIGH and CRITICAL analyses also create a Jira incident when Jira is configured; Jira is attempted before the email so the incident key can be included. A PostgreSQL-backed outbox records each required delivery with an idempotency key, attempt state, retry count, and provider reference. Transient SendGrid 429 and Jira retryable failures are retried with bounded backoff. Ambiguous SendGrid timeouts are not retried automatically to avoid duplicate emails; interrupted Jira attempts are reconciled by deterministic case labels before retry. The analysis remains persisted regardless of notification failures.
 
 Analysis payloads have configurable text, email, upload, image-pixel, PDF-page, extracted-text, and audio-duration limits. See `backend/.env.example`; file type checks use extension, declared MIME when provided, and content signatures before decoding.
+
+The M9.6 Guardian analysis API reuses the existing preprocessing, classifier,
+RAG, LLM, and risk-engine services without writing transcript or result rows
+to analysis history. Its authenticated segment endpoint is not connected to
+the mobile audio producer: analysis requires supported `CALL_AUDIO`, while the
+current Android source is only `DEVICE_MICROPHONE`. A client-supplied source
+label is not cryptographic audio provenance. Session windows are bounded,
+process-local, and cleared on finalization or expiry; multi-worker deployments
+do not share them. The configured LLM provider may process submitted content
+under that provider's own retention and privacy terms. `LLM_PROVIDER=auto`
+prefers OpenRouter when its key is set and otherwise preserves the existing
+Groq integration. Provider keys stay on the backend.
 
 ## Getting Started
 
@@ -47,3 +60,5 @@ For a database that was previously initialized by an older ScamShield version, d
 1. `cd frontend`
 2. `npm install`
 3. Run `npm run dev`
+
+Frontend API requests use the same-origin `/api` path by default. In a deployment where the frontend and backend use different origins, set `VITE_API_URL` at frontend build time to the backend API base URL (including `/api`) and allow the frontend origin in the backend CORS configuration.
