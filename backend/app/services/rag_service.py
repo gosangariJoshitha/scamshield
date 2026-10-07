@@ -1,5 +1,7 @@
+import json
 import os
 import logging
+import re
 import time
 import chromadb
 from pathlib import Path
@@ -13,6 +15,31 @@ RAG_TOP_K = int(os.getenv("RAG_TOP_K", "5"))
 RAG_MIN_SIMILARITY = float(os.getenv("RAG_MIN_SIMILARITY", "0.3"))
 EXPECTED_MIN_VECTOR_COUNT = 972
 SUPPORTED_LANGUAGES = {"en", "hi", "te"}
+_WB = r"(?<![^\W_])"
+_WE = r"(?![^\W_])"
+_SECRET_TERMS = (
+    r"(?:otp|one[\s-]?time\s+(?:password|code)|verification\s+code|"
+    r"pin|password|ओटीपी|पिन|पासवर्ड|ఓటీపీ|పిన్|పాస్‌వర్డ్)"
+)
+_REQUEST_VERBS = (
+    r"(?:send|share|tell|give|read|provide|reveal|forward|"
+    r"enter|confirm|reply\s+with|"
+    r"भेजें|भेजो|बताएं|बताओ|दीजिए|दो|చెప్పండి|పంపండి|ఇవ్వండి)"
+)
+_SECRET_REQUEST_PATTERN = re.compile(
+    r"(?:" + _WB + _REQUEST_VERBS + _WE + r".{0,100}" + _WB + _SECRET_TERMS + _WE + r"|"
+    + _WB + _SECRET_TERMS + _WE + r".{0,100}" + _WB + _REQUEST_VERBS + _WE + r")",
+    re.IGNORECASE | re.UNICODE,
+)
+_NEGATED_REQUEST_PATTERN = re.compile(
+    _WB + r"(?:never|don['’]?t|do\s+not|should\s+not|must\s+not|avoid|"
+    r"मत|नहीं|కద్దు|వద్దు)" + _WE + r".{0,100}" + _WB + _REQUEST_VERBS + _WE,
+    re.IGNORECASE | re.UNICODE,
+)
+_GENUINE_CATEGORY_PATTERN = re.compile(
+    r"(?:^|[_\s-])genuine(?:$|[_\s-])",
+    re.IGNORECASE,
+)
 logger = logging.getLogger(__name__)
 
 
@@ -113,6 +140,9 @@ class RagService:
                 "source_type": entry.source_type or "",
                 "source_reference": entry.source_reference or "",
                 "language": "und",
+                "description": entry.description or "",
+                "indicators": json.dumps(indicators, ensure_ascii=False),
+                "risk_level": entry.risk_level or "",
             }],
         )
 
@@ -148,6 +178,7 @@ class RagService:
 
         embedding_ms = None
         retrieval_ms = None
+        candidate_limit = max(top_k * 5, top_k)
         embedding_started = time.perf_counter()
         retrieval_started = None
         try:
@@ -162,7 +193,7 @@ class RagService:
                 evidence_list,
                 seen_ids,
                 query_embedding,
-                top_k,
+                candidate_limit,
                 {
                     "$and": [
                         {"language": language},
@@ -170,12 +201,12 @@ class RagService:
                     ]
                 },
             )
-            if len(evidence_list) < top_k:
+            if len(evidence_list) < candidate_limit:
                 self._append_results(
                     evidence_list,
                     seen_ids,
                     query_embedding,
-                    top_k,
+                    candidate_limit,
                     {
                         "$and": [
                             {"language": {"$ne": language}},
@@ -183,12 +214,12 @@ class RagService:
                         ]
                     },
                 )
-            if len(evidence_list) < top_k:
+            if len(evidence_list) < candidate_limit:
                 self._append_results(
                     evidence_list,
                     seen_ids,
                     query_embedding,
-                    top_k,
+                    candidate_limit,
                     {
                         "$and": [
                             {"language": language},
@@ -196,12 +227,12 @@ class RagService:
                         ]
                     },
                 )
-            if len(evidence_list) < top_k:
+            if len(evidence_list) < candidate_limit:
                 self._append_results(
                     evidence_list,
                     seen_ids,
                     query_embedding,
-                    top_k,
+                    candidate_limit,
                     {"source_type": "EXTERNAL_GUIDANCE"},
                 )
 
@@ -216,9 +247,10 @@ class RagService:
                         "retrieval_ms": retrieval_ms,
                     },
                 }
+            evidence_list = self._rerank_results(text, evidence_list)
             return {
                 "evidence_status": "MATCH_FOUND",
-                "retrieved_evidence": evidence_list,
+                "retrieved_evidence": evidence_list[:top_k],
                 "timings": {
                     "embedding_ms": embedding_ms,
                     "retrieval_ms": retrieval_ms,
@@ -244,32 +276,46 @@ class RagService:
         evidence_list: list[dict[str, Any]],
         seen_ids: set[str],
         query_embedding: list[float],
-        top_k: int,
+        candidate_limit: int,
         where: dict[str, Any],
     ) -> None:
-        remaining = top_k - len(evidence_list)
+        remaining = candidate_limit - len(evidence_list)
         if remaining <= 0:
             return
         results = self.collection.query(
             query_embeddings=[query_embedding],
-            n_results=top_k,
+            n_results=candidate_limit,
             where=where,
-            include=["distances", "metadatas"],
+            include=["distances", "metadatas", "documents"],
         )
         if not results["ids"] or not results["ids"][0]:
             return
         candidates = []
-        for vector_id, distance, metadata in zip(
+        documents = results.get("documents", [[]])[0]
+        for index, (vector_id, distance, metadata) in enumerate(zip(
             results["ids"][0],
             results["distances"][0],
             results["metadatas"][0],
-        ):
+        )):
             if vector_id in seen_ids:
                 continue
             similarity = 1.0 - distance
             if similarity < RAG_MIN_SIMILARITY:
                 continue
             metadata = metadata or {}
+            document = documents[index] if index < len(documents) else ""
+            raw_indicators = metadata.get("indicators", [])
+            if isinstance(raw_indicators, str):
+                try:
+                    raw_indicators = json.loads(raw_indicators)
+                except json.JSONDecodeError:
+                    raw_indicators = [
+                        item.strip()
+                        for item in raw_indicators.split(",")
+                        if item.strip()
+                    ]
+            if not isinstance(raw_indicators, list):
+                raw_indicators = []
             candidates.append({
                 "vector_id": vector_id,
                 "knowledge_id": int(metadata.get("id", 0)),
@@ -277,14 +323,50 @@ class RagService:
                 "category": metadata.get("category", ""),
                 "similarity_score": similarity,
                 "pattern": metadata.get("pattern", ""),
+                "description": metadata.get("description")
+                or self._document_field(document, "Description"),
+                "indicators": raw_indicators,
+                "risk_level": metadata.get("risk_level") or None,
                 "safe_action": metadata.get("safe_action", ""),
                 "source": metadata.get("source", ""),
                 "language": metadata.get("language", "und"),
+                "source_type": metadata.get("source_type", ""),
             })
         candidates.sort(key=lambda item: item["similarity_score"], reverse=True)
         for candidate in candidates[:remaining]:
             seen_ids.add(candidate["vector_id"])
             del candidate["vector_id"]
             evidence_list.append(candidate)
+
+    @staticmethod
+    def _document_field(document: str, field_name: str) -> str:
+        prefix = f"{field_name}:"
+        for line in document.splitlines():
+            if line.startswith(prefix):
+                return line[len(prefix):].strip()
+        return ""
+
+    @staticmethod
+    def _rerank_results(
+        query_text: str,
+        candidates: list[dict[str, Any]],
+    ) -> list[dict[str, Any]]:
+        sentences = re.split(r"(?<=[.!?।])\s+|\n+", query_text)
+        requests_secret = any(
+            _SECRET_REQUEST_PATTERN.search(sentence)
+            and not _NEGATED_REQUEST_PATTERN.search(sentence)
+            for sentence in sentences
+        )
+        if requests_secret:
+            scam_candidates = [
+                item
+                for item in candidates
+                if not _GENUINE_CATEGORY_PATTERN.search(
+                    item.get("category", "")
+                )
+            ]
+            if scam_candidates:
+                candidates = scam_candidates
+        return candidates
 
 rag_service = RagService()

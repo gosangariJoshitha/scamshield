@@ -4,6 +4,7 @@ from typing import Literal
 from pydantic import BaseModel, EmailStr, Field, field_validator, model_validator
 from typing import Optional, List, Any, Dict
 from datetime import datetime
+from uuid import UUID
 
 
 def _validate_password_strength(password: str) -> str:
@@ -143,9 +144,13 @@ class RetrievedEvidence(BaseModel):
     category: str
     similarity_score: float
     pattern: str
+    description: str = ""
+    indicators: List[str] = Field(default_factory=list)
+    risk_level: Optional[str] = None
     safe_action: str
     source: str
     language: Optional[str] = None
+    source_type: Optional[str] = None
     
     class Config:
         from_attributes = True
@@ -231,6 +236,63 @@ class AnalysisResponse(BaseModel):
                 )
         return data
 
+
+class GuardianTranscriptSegmentCreate(BaseModel):
+    session_id: UUID
+    segment_id: str = Field(min_length=1, max_length=160)
+    sequence: int = Field(ge=1)
+    start_time: float = Field(ge=0)
+    end_time: float = Field(ge=0)
+    text: str = Field(min_length=1, max_length=1600)
+    is_final: Literal[True]
+    language: Literal["en", "hi", "te", "und"] = "und"
+    source: str = Field(min_length=1, max_length=40)
+    created_at: datetime
+
+    @model_validator(mode="after")
+    def validate_segment(self) -> "GuardianTranscriptSegmentCreate":
+        if self.end_time < self.start_time:
+            raise ValueError("end_time must not be earlier than start_time")
+        if not self.text.strip():
+            raise ValueError("Transcript text must not be blank")
+        return self
+
+
+class GuardianLiveAnalysisResult(BaseModel):
+    risk_score: int = Field(ge=0, le=100)
+    risk_level: Literal["LOW", "MEDIUM", "HIGH", "CRITICAL"]
+    classification: Literal["SCAM", "SUSPICIOUS", "GENUINE"]
+    scam_category: str
+    detected_indicators: List[str]
+    reasoning: str
+    supporting_evidence: List[RetrievedEvidence]
+    ml_probability: float = Field(ge=0, le=1)
+    llm_confidence: Optional[float] = Field(default=None, ge=0, le=1)
+    safe_action: str
+    safe_actions: SafeActionsResponse
+    timestamp: datetime
+    session_id: UUID
+    language: Literal["en", "hi", "te"]
+    evidence_status: str
+    processing_status: Literal["COMPLETED", "COMPLETED_WITH_LIMITATIONS"]
+    model_version: str
+    rag_version: str
+    timings_ms: Dict[str, Optional[float]]
+
+
+class GuardianLiveAnalysisResponse(BaseModel):
+    session_id: UUID
+    status: Literal[
+        "AI_WAITING_FOR_TRANSCRIPT",
+        "AI_DUPLICATE",
+        "AI_RESULT_READY",
+        "AI_UNAVAILABLE",
+    ]
+    message: str
+    processed_sequence: int = 0
+    window_id: Optional[str] = None
+    result: Optional[GuardianLiveAnalysisResult] = None
+
 class DashboardStats(BaseModel):
     total_analyses: int
     scams_detected: int
@@ -260,3 +322,78 @@ class CommunityReportResponse(BaseModel):
 
     class Config:
         from_attributes = True
+
+
+class CallFinalizeRequest(BaseModel):
+    session_id: str = Field(min_length=1, max_length=120)
+    started_at: Optional[datetime] = None
+    ended_at: Optional[datetime] = None
+    duration_seconds: int = Field(default=0, ge=0)
+    guardian_enabled: bool = True
+    guardian_status: str = "ENABLED"
+    final_risk_score: int = Field(default=0, ge=0, le=100)
+    final_risk_level: str = "LOW"
+    classification: str = "GENUINE"
+    scam_category: str = "General"
+    risk_reasoning: Optional[str] = None
+    safe_action: Optional[str] = None
+    detected_indicators: List[str] = Field(default_factory=list)
+    supporting_evidence: List[Dict[str, Any]] = Field(default_factory=list)
+    protection_actions: List[Dict[str, Any]] = Field(default_factory=list)
+    analysis_status: str = "COMPLETED"
+    transcription_status: str = "COMPLETED"
+    audio_status: str = "AVAILABLE"
+
+
+class CallHistoryItemResponse(BaseModel):
+    id: int
+    session_id: str
+    started_at: Optional[datetime] = None
+    ended_at: datetime
+    duration_seconds: int
+    final_risk_score: int
+    final_risk_level: str
+    classification: str
+    scam_category: str
+    analysis_status: str
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+class CallHistoryDetailResponse(BaseModel):
+    id: int
+    session_id: str
+    user_id: int
+    started_at: Optional[datetime] = None
+    ended_at: datetime
+    duration_seconds: int
+    guardian_enabled: bool
+    guardian_status: str
+    final_risk_score: int
+    final_risk_level: str
+    classification: str
+    scam_category: str
+    risk_reasoning: Optional[str] = None
+    safe_action: Optional[str] = None
+    detected_indicators: Optional[List[str]] = None
+    supporting_evidence: Optional[List[Dict[str, Any]]] = None
+    protection_actions: Optional[List[Dict[str, Any]]] = None
+    analysis_status: str
+    transcription_status: str
+    audio_status: str
+    created_at: datetime
+    updated_at: Optional[datetime] = None
+
+    class Config:
+        from_attributes = True
+
+
+class CallHistoryListResponse(BaseModel):
+    items: List[CallHistoryItemResponse]
+    total: int
+    page: int
+    limit: int
+    has_next: bool
+

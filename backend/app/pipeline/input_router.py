@@ -5,7 +5,7 @@ from fastapi import UploadFile, HTTPException
 from schemas import NormalizedAnalysisInput
 from app.services.pdf_service import PDFService
 from app.services.ocr_service import OCRService
-from app.services.audio_service import AudioService
+from app.services.audio_service import audio_service
 import json
 
 logger = logging.getLogger(__name__)
@@ -39,9 +39,6 @@ _AUDIO_TYPES = {
 # Instantiate services globally so models are loaded once
 pdf_service = PDFService()
 ocr_service = OCRService()
-audio_service = AudioService()
-
-
 async def _read_upload(file: UploadFile, max_bytes: int) -> bytes:
     effective_limit = min(MAX_UPLOAD_BYTES, max_bytes)
     file_bytes = await file.read(effective_limit + 1)

@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException, status
+from pydantic import BaseModel, Field
 from sqlalchemy import String, cast, desc, func, or_
 from sqlalchemy.orm import Session
 from database import get_db
@@ -8,7 +9,7 @@ from app.services.jira_service import JiraService
 from app.services.rag_service import rag_service
 from auth import get_current_regular_user, get_current_user, get_current_verified_user
 import json
-from typing import List
+from typing import List, Literal
 from datetime import datetime
 
 router = APIRouter()
@@ -73,6 +74,15 @@ def require_admin(user: User = Depends(get_current_user)):
     if user.role != "admin" or not user.is_active:
         raise HTTPException(status_code=403, detail="Admin privileges required")
     return user
+
+class ReviewDecisionPayload(BaseModel):
+    decision: Literal[
+        "CONFIRMED_SCAM",
+        "CONFIRMED_GENUINE",
+        "UNCERTAIN",
+        "INSUFFICIENT_INFORMATION",
+    ]
+    notes: str = Field(default="", max_length=5000)
 
 @router.get("/admin/list")
 def list_all_reviews(
@@ -149,6 +159,10 @@ def get_review_details(case_id: int, db: Session = Depends(get_db), admin: User 
         
     analysis = db.query(Analysis).filter(Analysis.id == r.analysis_id).first()
     events = db.query(ReviewCaseEvent).filter(ReviewCaseEvent.review_case_id == case_id).order_by(ReviewCaseEvent.created_at.desc()).all()
+    knowledge_entry_exists = db.query(KnowledgeEntry.id).filter(
+        KnowledgeEntry.source_type == "HUMAN_VERIFIED_CASE",
+        KnowledgeEntry.source_reference == str(r.id),
+    ).first() is not None
     
     return {
         "id": r.id,
@@ -158,6 +172,7 @@ def get_review_details(case_id: int, db: Session = Depends(get_db), admin: User 
         "escalation_reasons": json.loads(r.escalation_reasons_json) if r.escalation_reasons_json else [],
         "review_decision": r.review_decision,
         "reviewer_notes": r.reviewer_notes,
+        "knowledge_entry_exists": knowledge_entry_exists,
         "assigned_reviewer_id": r.assigned_reviewer_id,
         "created_at": r.created_at,
         "jira": {
@@ -175,7 +190,7 @@ def get_review_details(case_id: int, db: Session = Depends(get_db), admin: User 
             "llm_confidence": analysis.llm_confidence,
             "category": analysis.category,
             "indicators": analysis.indicators,
-            "llm_reasoning": analysis.llm_reasoning,
+            "explanation": analysis.explanation,
             "evidence": analysis.evidence,
             "retrieved_evidence": [
                 {
@@ -271,18 +286,20 @@ def start_review(case_id: int, db: Session = Depends(get_db), admin: User = Depe
     }
 
 @router.post("/admin/{case_id}/decision")
-def submit_decision(case_id: int, payload: dict, db: Session = Depends(get_db), admin: User = Depends(require_admin)):
+def submit_decision(case_id: int, payload: ReviewDecisionPayload, db: Session = Depends(get_db), admin: User = Depends(require_admin)):
     r = db.query(ReviewCase).filter(ReviewCase.id == case_id).first()
     if not r:
         raise HTTPException(status_code=404, detail="Case not found")
         
-    decision = payload.get("decision")
-    notes = payload.get("notes", "")
-    
-    valid_decisions = ["CONFIRMED_SCAM", "CONFIRMED_GENUINE", "UNCERTAIN", "INSUFFICIENT_INFORMATION"]
-    if decision not in valid_decisions:
-        raise HTTPException(status_code=400, detail="Invalid decision")
-    if decision in ["UNCERTAIN", "INSUFFICIENT_INFORMATION"] and not notes.strip():
+    if r.status not in {"IN_REVIEW", "NEEDS_INFORMATION"}:
+        raise HTTPException(
+            status_code=409,
+            detail=f"A decision cannot be submitted while the case is {r.status}.",
+        )
+
+    decision = payload.decision
+    notes = payload.notes.strip()
+    if decision in {"UNCERTAIN", "INSUFFICIENT_INFORMATION"} and not notes:
         raise HTTPException(status_code=422, detail="Reviewer notes are required for this decision")
         
     prev_status = r.status
@@ -341,13 +358,18 @@ def create_trusted_knowledge(case_id: int, payload: dict, db: Session = Depends(
         source="Admin Review Center",
         source_type="HUMAN_VERIFIED_CASE",
         source_reference=str(r.id),
-        status="APPROVED"  # In a full flow this might go to DRAFT first
+        status="DRAFT"
     )
     db.add(k)
-    db.flush()
-    rag_service.upsert_knowledge_entry(k)
     db.commit()
     
-    EscalationService(db).log_event(r.id, admin.id, "KNOWLEDGE_CREATED", r.status, r.status, "Trusted knowledge entry created and approved")
+    EscalationService(db).log_event(
+        r.id,
+        admin.id,
+        "KNOWLEDGE_CREATED",
+        r.status,
+        r.status,
+        "Trusted knowledge entry created as a draft pending approval",
+    )
     
     return {"success": True, "knowledge_id": k.id}

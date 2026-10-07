@@ -17,6 +17,8 @@ from admin import router as admin_router
 from analysis import router as analysis_router
 from auth import get_password_hash, router as auth_router
 from community import router as community_router
+from reviews import router as reviews_router
+from app.services.notification_worker import NotificationWorker
 
 
 class AuthRoleBoundaryTests(unittest.TestCase):
@@ -82,6 +84,7 @@ class AuthRoleBoundaryTests(unittest.TestCase):
         app.include_router(analysis_router, prefix="/api")
         app.include_router(community_router, prefix="/api")
         app.include_router(admin_router, prefix="/api/admin")
+        app.include_router(reviews_router, prefix="/api/reviews")
         app.dependency_overrides[database.get_db] = override_get_db
         self.client = TestClient(app)
         self.client.__enter__()
@@ -350,6 +353,233 @@ class AuthRoleBoundaryTests(unittest.TestCase):
         )
         self.assertEqual(dashboard.status_code, 403)
 
+    def test_admin_list_routes_reject_invalid_pagination(self):
+        with self.test_session() as db:
+            admin = db.query(models.User).filter_by(email="admin@example.com").first()
+            admin_id = admin.id
+        token = auth.create_access_token(
+            {"sub": str(admin_id), "email": "admin@example.com", "role": "admin"},
+            expires_delta=auth.timedelta(minutes=15),
+        )
+        headers = {"Authorization": f"Bearer {token}"}
+
+        for path in (
+            "/api/admin/analyses?limit=0",
+            "/api/admin/community/reports?limit=0",
+            "/api/admin/knowledge?skip=-1",
+            "/api/admin/users?skip=-1",
+            "/api/admin/audit?limit=0",
+        ):
+            with self.subTest(path=path):
+                response = self.client.get(path, headers=headers)
+                self.assertEqual(response.status_code, 422)
+
+    def test_knowledge_created_from_community_report_requires_approval(self):
+                with self.test_session() as db:
+                    admin = db.query(models.User).filter_by(email="admin@example.com").first()
+                    reporter = db.query(models.User).filter_by(email="user@example.com").first()
+                    report = models.CommunityReport(
+                        user_id=reporter.id,
+                        content="A suspicious payment link",
+                        category="Phishing",
+                        evidence="A sample message was attached.",
+                        status="VERIFIED",
+                    )
+                    db.add(report)
+                    db.commit()
+                    admin_id = admin.id
+                    report_id = report.id
+
+                token = auth.create_access_token(
+                    {"sub": str(admin_id), "email": "admin@example.com", "role": "admin"},
+                    expires_delta=auth.timedelta(minutes=15),
+                )
+                response = self.client.post(
+                    f"/api/admin/community/reports/{report_id}/action",
+                    headers={"Authorization": f"Bearer {token}"},
+                    json={"action": "CONVERT_TO_KNOWLEDGE", "notes": ""},
+                )
+
+                self.assertEqual(response.status_code, 200)
+                with self.test_session() as db:
+                    entry = db.query(models.KnowledgeEntry).filter_by(
+                        source_type="VERIFIED_COMMUNITY_REPORT",
+                        source_reference=str(report_id),
+                    ).one()
+                    self.assertEqual(entry.status, "DRAFT")
+                    self.assertEqual(entry.example, "A sample message was attached.")
+
+    def test_community_resolve_and_escalate_update_status_and_audit(self):
+        with self.test_session() as db:
+            admin = db.query(models.User).filter_by(email="admin@example.com").first()
+            reporter = db.query(models.User).filter_by(email="user@example.com").first()
+            reports = [
+                models.CommunityReport(
+                    user_id=reporter.id,
+                    content=f"Moderation test {action}",
+                    category="Phishing",
+                    status="Pending",
+                )
+                for action in ("RESOLVE", "ESCALATE")
+            ]
+            db.add_all(reports)
+            db.commit()
+            admin_id = admin.id
+            report_ids = [report.id for report in reports]
+
+        token = auth.create_access_token(
+            {"sub": str(admin_id), "email": "admin@example.com", "role": "admin"},
+            expires_delta=auth.timedelta(minutes=15),
+        )
+        for report_id, (action, expected_status) in zip(
+            report_ids,
+            (("RESOLVE", "RESOLVED"), ("ESCALATE", "ESCALATED")),
+        ):
+            with self.subTest(action=action):
+                response = self.client.post(
+                    f"/api/admin/community/reports/{report_id}/action",
+                    headers={"Authorization": f"Bearer {token}"},
+                    json={"action": action, "notes": "Moderation test"},
+                )
+                self.assertEqual(response.status_code, 200)
+                self.assertEqual(response.json()["report_status"], expected_status)
+
+                with self.test_session() as db:
+                    report = db.get(models.CommunityReport, report_id)
+                    audit = db.query(models.AuditLog).filter_by(
+                        action=f"COMMUNITY_{action}",
+                        resource_id=str(report_id),
+                    ).one()
+                    self.assertEqual(report.status, expected_status)
+                    self.assertEqual(audit.result, "SUCCESS")
+
+    def test_review_detail_uses_explanation_without_exposing_hidden_reasoning(self):
+        with self.test_session() as db:
+            admin = db.query(models.User).filter_by(email="admin@example.com").first()
+            user = db.query(models.User).filter_by(email="user@example.com").first()
+            analysis = models.Analysis(
+                user_id=user.id,
+                content="Suspicious link",
+                original_text="Suspicious link",
+                risk_score=90,
+                risk_level="HIGH",
+                classification="SCAM",
+                ml_probability=0.9,
+                category="Phishing",
+                indicators=[],
+                explanation="The message requests urgent payment.",
+                llm_reasoning="Private internal reasoning must not be exposed.",
+                evidence=[],
+                recommended_action="Verify with the official organization.",
+            )
+            db.add(analysis)
+            db.flush()
+            case = models.ReviewCase(
+                analysis_id=analysis.id,
+                user_id=user.id,
+                status="IN_REVIEW",
+                priority="HIGH",
+                escalation_reason="User requested review",
+                escalation_reasons_json=[],
+            )
+            db.add(case)
+            db.commit()
+            admin_id = admin.id
+            case_id = case.id
+
+        token = auth.create_access_token(
+            {"sub": str(admin_id), "email": "admin@example.com", "role": "admin"},
+            expires_delta=auth.timedelta(minutes=15),
+        )
+        response = self.client.get(
+            f"/api/reviews/admin/{case_id}",
+            headers={"Authorization": f"Bearer {token}"},
+        )
+
+        self.assertEqual(response.status_code, 200)
+        analysis_response = response.json()["analysis"]
+        self.assertEqual(
+            analysis_response["explanation"],
+            "The message requests urgent payment.",
+        )
+        self.assertNotIn("llm_reasoning", analysis_response)
+
+    def test_knowledge_created_manually_requires_approval(self):
+                with self.test_session() as db:
+                    admin = db.query(models.User).filter_by(email="admin@example.com").first()
+                    admin_id = admin.id
+
+                token = auth.create_access_token(
+                    {"sub": str(admin_id), "email": "admin@example.com", "role": "admin"},
+                    expires_delta=auth.timedelta(minutes=15),
+                )
+                response = self.client.post(
+                    "/api/admin/knowledge",
+                    headers={"Authorization": f"Bearer {token}"},
+                    json={
+                        "title": "Test pattern",
+                        "pattern": "Suspicious test content",
+                        "category": "PHISHING",
+                        "risk_level": "HIGH",
+                        "safe_action": "Verify through official channels",
+                    },
+                )
+
+                self.assertEqual(response.status_code, 200)
+                with self.test_session() as db:
+                    entry = db.query(models.KnowledgeEntry).filter_by(
+                        title="Test pattern",
+                        source_type="MANUAL_ENTRY",
+                    ).one()
+                    self.assertEqual(entry.status, "DRAFT")
+
+    def test_review_decision_rejects_cases_not_in_review(self):
+                with self.test_session() as db:
+                    admin = db.query(models.User).filter_by(email="admin@example.com").first()
+                    user = db.query(models.User).filter_by(email="user@example.com").first()
+                    analysis = models.Analysis(
+                        user_id=user.id,
+                        content="Review test",
+                        risk_score=70,
+                        risk_level="HIGH",
+                        classification="SCAM",
+                        ml_probability=0.7,
+                        category="Phishing",
+                        indicators=[],
+                        explanation="Review test",
+                        evidence=[],
+                        recommended_action="Verify independently.",
+                    )
+                    db.add(analysis)
+                    db.flush()
+                    case = models.ReviewCase(
+                        analysis_id=analysis.id,
+                        user_id=user.id,
+                        status="PENDING",
+                        priority="HIGH",
+                        escalation_reason="Test",
+                        escalation_reasons_json=[],
+                    )
+                    db.add(case)
+                    db.commit()
+                    admin_id = admin.id
+                    case_id = case.id
+
+                token = auth.create_access_token(
+                    {"sub": str(admin_id), "email": "admin@example.com", "role": "admin"},
+                    expires_delta=auth.timedelta(minutes=15),
+                )
+                response = self.client.post(
+                    f"/api/reviews/admin/{case_id}/decision",
+                    headers={"Authorization": f"Bearer {token}"},
+                    json={"decision": "CONFIRMED_SCAM", "notes": ""},
+                )
+
+                self.assertEqual(response.status_code, 409)
+                with self.test_session() as db:
+                    case = db.query(models.ReviewCase).filter_by(id=case_id).one()
+                    self.assertIsNone(case.review_decision)
+
     def test_user_token_can_use_user_analysis_routes(self):
         response = self.portal_login(
             "user", "user@example.com", "Test-User-Password-2026"
@@ -494,6 +724,38 @@ class AuthRoleBoundaryTests(unittest.TestCase):
     def test_anonymous_community_access_is_rejected(self):
         response = self.client.get("/api/community/reports")
         self.assertEqual(response.status_code, 401)
+
+
+class NotificationWorkerRecoveryTests(unittest.TestCase):
+    def test_retries_interrupted_notification_recovery_after_failure(self):
+        worker = NotificationWorker()
+        worker.poll_seconds = 0
+        recovery_attempts = 0
+
+        def recover():
+            nonlocal recovery_attempts
+            recovery_attempts += 1
+            if recovery_attempts == 1:
+                raise RuntimeError("temporary database failure")
+
+        def process_pending():
+            worker._stop_event.set()
+
+        with (
+            patch(
+                "app.services.notification_worker.recover_interrupted_notifications",
+                side_effect=recover,
+            ) as recover_mock,
+            patch(
+                "app.services.notification_worker.process_pending_analysis_notifications",
+                side_effect=process_pending,
+            ) as process_mock,
+            self.assertLogs("app.services.notification_worker", level="ERROR"),
+        ):
+            worker._run()
+
+        self.assertEqual(recover_mock.call_count, 2)
+        process_mock.assert_called_once_with()
 
 
 if __name__ == "__main__":

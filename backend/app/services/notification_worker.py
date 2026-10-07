@@ -37,9 +37,12 @@ class NotificationWorker:
             self._thread = None
 
     def _run(self) -> None:
-        recover_interrupted_notifications()
+        recovered = False
         while not self._stop_event.is_set():
             try:
+                if not recovered:
+                    recover_interrupted_notifications()
+                    recovered = True
                 process_pending_analysis_notifications()
             except Exception:
                 logger.exception("Notification outbox polling failed.")

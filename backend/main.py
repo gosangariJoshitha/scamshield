@@ -13,6 +13,9 @@ from community import router as community_router
 from monitoring import router as monitoring_router
 from reviews import router as reviews_router
 from admin import router as admin_router
+from guardian_transcription import router as guardian_transcription_router
+from guardian_analysis import router as guardian_analysis_router
+from calls import router as calls_router
 from app.services.notification_worker import notification_worker
 
 load_dotenv()
@@ -104,6 +107,9 @@ app.include_router(community_router, prefix="/api")
 app.include_router(monitoring_router, prefix="/api")
 app.include_router(reviews_router, prefix="/api/reviews")
 app.include_router(admin_router, prefix="/api/admin")
+app.include_router(guardian_transcription_router, prefix="/api")
+app.include_router(guardian_analysis_router, prefix="/api")
+app.include_router(calls_router, prefix="/api")
 
 
 @app.on_event("startup")

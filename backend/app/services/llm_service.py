@@ -13,14 +13,48 @@ logger = logging.getLogger(__name__)
 class LLMService:
     def __init__(self):
         load_dotenv()
-        self.api_key = os.getenv("GROQ_API_KEY")
-        self.model = os.getenv("GROQ_MODEL", "qwen/qwen3.8-27b")
-        self.base_url = os.getenv("GROQ_BASE_URL", "https://api.groq.com/openai/v1")
+        provider_preference = os.getenv("LLM_PROVIDER", "auto").strip().lower()
+        if provider_preference not in {"auto", "openrouter", "groq"}:
+            raise ValueError("LLM_PROVIDER must be auto, openrouter, or groq.")
+
+        openrouter_key = os.getenv("OPENROUTER_API_KEY")
+        groq_key = os.getenv("GROQ_API_KEY")
+        if provider_preference == "openrouter":
+            self.provider = "openrouter"
+        elif provider_preference == "groq":
+            self.provider = "groq"
+        else:
+            self.provider = "openrouter" if openrouter_key else "groq"
+
+        self.api_key = openrouter_key if self.provider == "openrouter" else groq_key
+        if self.provider == "openrouter":
+            self.model = os.getenv(
+                "OPENROUTER_MODEL",
+                "openai/gpt-4o-mini",
+            )
+            self.base_url = os.getenv(
+                "OPENROUTER_BASE_URL",
+                "https://openrouter.ai/api/v1",
+            )
+        else:
+            self.model = os.getenv("GROQ_MODEL", "qwen/qwen3.8-27b")
+            self.base_url = os.getenv(
+                "GROQ_BASE_URL",
+                "https://api.groq.com/openai/v1",
+            )
         self.headers = {
             "Content-Type": "application/json",
         }
         if self.api_key:
             self.headers["Authorization"] = f"Bearer {self.api_key}"
+        if self.provider == "openrouter":
+            site_url = os.getenv("OPENROUTER_SITE_URL")
+            if site_url:
+                self.headers["HTTP-Referer"] = site_url
+            self.headers["X-Title"] = os.getenv(
+                "OPENROUTER_APP_NAME",
+                "ScamShield",
+            )
 
     def _build_system_prompt(self) -> str:
         return """You are ScamShield's analysis reasoning component. Your job is to explain why a message is or isn't a scam based on ML probabilities and RAG retrieved evidence.
@@ -85,7 +119,10 @@ Analyze the information and return the JSON."""
 
     async def generate_reasoning(self, text: str, ml_result: Dict[str, Any], retrieved_evidence: List[Dict[str, Any]], indicators: List[str], default_language: str = "en") -> Optional[LLMReasoningResponse]:
         if not self.api_key:
-            logger.warning("GROQ_API_KEY is not set. LLM analysis skipped.")
+            logger.warning(
+                "%s API key is not set. LLM analysis skipped.",
+                self.provider.title(),
+            )
             return None
 
         system_prompt = self._build_system_prompt()
@@ -140,18 +177,28 @@ Analyze the information and return the JSON."""
                 validated_response = LLMReasoningResponse(**parsed_json)
                 return validated_response
                 
-        except httpx.HTTPError as e:
-            status_code = e.response.status_code if e.response is not None else None
+        except httpx.HTTPStatusError as error:
             logger.error(
-                "Groq request failed%s.",
-                f" with HTTP {status_code}" if status_code is not None else " due to a network error",
+                "%s request failed%s.",
+                self.provider.title(),
+                f" with HTTP {error.response.status_code}",
             )
             return None
-        except ValidationError as e:
-            logger.error(f"Validation Error for LLM Response: {e}")
+        except httpx.HTTPError as error:
+            logger.error(
+                "%s request failed due to a network error (%s).",
+                self.provider.title(),
+                type(error).__name__,
+            )
             return None
-        except Exception as e:
-            logger.error(f"Unexpected error in LLM Service: {e}")
+        except ValidationError:
+            logger.error("LLM response validation failed.")
+            return None
+        except Exception as error:
+            logger.error(
+                "Unexpected LLM service error (%s).",
+                type(error).__name__,
+            )
             return None
 
 llm_service = LLMService()

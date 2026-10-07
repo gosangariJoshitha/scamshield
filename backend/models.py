@@ -37,6 +37,7 @@ class User(Base):
     analyses = relationship("Analysis", back_populates="user")
     reports = relationship("CommunityReport", back_populates="user")
     notifications = relationship("Notification", back_populates="user")
+    call_histories = relationship("CallHistory", back_populates="user", cascade="all, delete-orphan")
 
 class Analysis(Base):
     __tablename__ = "analyses"
@@ -310,3 +311,39 @@ class AuthChallenge(Base):
     attempts = Column(Integer, nullable=False, default=0)
     consumed_at = Column(DateTime, nullable=True)
     created_at = Column(DateTime, nullable=False, server_default=func.now())
+
+
+class CallHistory(Base):
+    __tablename__ = "call_history"
+
+    id = Column(Integer, primary_key=True, index=True)
+    session_id = Column(String, unique=True, index=True, nullable=False)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), index=True, nullable=False)
+
+    started_at = Column(DateTime(timezone=True), nullable=True)
+    ended_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now())
+    duration_seconds = Column(Integer, default=0, nullable=False)
+
+    guardian_enabled = Column(Boolean, default=True, nullable=False)
+    guardian_status = Column(String, default="ENABLED", nullable=False)
+
+    final_risk_score = Column(Integer, default=0, nullable=False)
+    final_risk_level = Column(String, default="LOW", nullable=False)
+    classification = Column(String, default="GENUINE", nullable=False)
+    scam_category = Column(String, default="General", nullable=False)
+
+    risk_reasoning = Column(String, nullable=True)
+    safe_action = Column(String, nullable=True)
+    detected_indicators = Column(JSON, nullable=True)
+    supporting_evidence = Column(JSON, nullable=True)
+    protection_actions = Column(JSON, nullable=True)
+
+    analysis_status = Column(String, default="COMPLETED", nullable=False)
+    transcription_status = Column(String, default="COMPLETED", nullable=False)
+    audio_status = Column(String, default="AVAILABLE", nullable=False)
+
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+
+    user = relationship("User", back_populates="call_histories")
+

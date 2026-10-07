@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 import logging
 import os
 import time
@@ -128,8 +128,8 @@ def get_admin_overview(
 
 @router.get("/analyses")
 def get_admin_analyses(
-    skip: int = 0,
-    limit: int = 50,
+    skip: int = Query(0, ge=0),
+    limit: int = Query(50, ge=1, le=200),
     classification: str = None,
     risk_level: str = None,
     status: str = None,
@@ -235,8 +235,8 @@ def get_admin_analysis(analysis_id: int, db: Session = Depends(get_db), current_
 
 @router.get("/community/reports")
 def get_admin_community_reports(
-    skip: int = 0,
-    limit: int = 50,
+    skip: int = Query(0, ge=0),
+    limit: int = Query(50, ge=1, le=200),
     report_id: int | None = None,
     status: str = None,
     category: str = None,
@@ -301,14 +301,19 @@ def action_community_report(
     report = db.query(models.CommunityReport).filter(models.CommunityReport.id == report_id).first()
     if not report:
         raise HTTPException(status_code=404, detail="Report not found")
-        
-    if payload.action == "VERIFY":
+    action = payload.action.strip().upper()
+
+    if action == "VERIFY":
         report.status = "VERIFIED"
-    elif payload.action == "REJECT":
+    elif action == "REJECT":
         report.status = "REJECTED"
-    elif payload.action == "NEEDS_INFORMATION":
+    elif action == "NEEDS_INFORMATION":
         report.status = "NEEDS_INFORMATION"
-    elif payload.action == "CONVERT_TO_KNOWLEDGE":
+    elif action == "RESOLVE":
+        report.status = "RESOLVED"
+    elif action == "ESCALATE":
+        report.status = "ESCALATED"
+    elif action == "CONVERT_TO_KNOWLEDGE":
         if report.status != "VERIFIED":
             raise HTTPException(
                 status_code=400,
@@ -331,17 +336,16 @@ def action_community_report(
             source="Verified Community Report",
             source_type="VERIFIED_COMMUNITY_REPORT",
             source_reference=str(report.id),
-            status="APPROVED"
+            status="DRAFT",
+            example=report.evidence,
         )
         db.add(k_entry)
-        db.flush()
-        rag_service.upsert_knowledge_entry(k_entry)
     else:
         raise HTTPException(status_code=400, detail="Invalid action")
 
     audit = models.AuditLog(
         actor_id=current_admin.id,
-        action=f"COMMUNITY_{payload.action}",
+        action=f"COMMUNITY_{action}",
         resource_type="COMMUNITY_REPORT",
         resource_id=str(report.id),
         result="SUCCESS",
@@ -352,13 +356,13 @@ def action_community_report(
     return {
         "status": "success",
         "report_status": report.status,
-        "knowledge_id": k_entry.id if payload.action == "CONVERT_TO_KNOWLEDGE" else None,
+        "knowledge_id": k_entry.id if action == "CONVERT_TO_KNOWLEDGE" else None,
     }
 
 @router.get("/knowledge")
 def get_admin_knowledge(
-    skip: int = 0,
-    limit: int = 50,
+    skip: int = Query(0, ge=0),
+    limit: int = Query(50, ge=1, le=200),
     status: str = None,
     category: str = None,
     search: str = None,
@@ -396,6 +400,7 @@ def get_admin_knowledge(
                 "pattern": e.pattern,
                 "description": e.description,
                 "safe_action": e.safe_action,
+                "example": e.example,
                 "indicators": e.indicators or [],
                 "source_type": e.source_type,
                 "source_reference": e.source_reference,
@@ -415,6 +420,7 @@ class KnowledgeCreate(BaseModel):
     safe_action: str
     indicators: List[str] = Field(default_factory=list)
     description: str = ""
+    example: str = ""
     source: str = "Admin"
 
 @router.post("/knowledge")
@@ -431,13 +437,12 @@ def create_knowledge_entry(
         safe_action=payload.safe_action,
         indicators=payload.indicators,
         description=payload.description,
+        example=payload.example,
         source=payload.source,
         source_type="MANUAL_ENTRY",
-        status="APPROVED"
+        status="DRAFT"
     )
     db.add(entry)
-    db.flush()
-    rag_service.upsert_knowledge_entry(entry)
     db.commit()
     
     audit = models.AuditLog(
@@ -460,6 +465,7 @@ class KnowledgeUpdate(BaseModel):
     safe_action: str | None = None
     indicators: List[str] | None = None
     description: str | None = None
+    example: str | None = None
     source: str | None = None
 
 
@@ -608,8 +614,8 @@ def get_admin_user(user_id: int, db: Session = Depends(get_db), current_admin: m
 
 @router.get("/users")
 def get_admin_users(
-    skip: int = 0,
-    limit: int = 50,
+    skip: int = Query(0, ge=0),
+    limit: int = Query(50, ge=1, le=200),
     role: str = None,
     status: str = None,
     search: str = None,
@@ -719,8 +725,8 @@ def update_user_status(user_id: int, payload: UserStatusUpdate, db: Session = De
 
 @router.get("/audit")
 def get_admin_audit_logs(
-    skip: int = 0,
-    limit: int = 50,
+    skip: int = Query(0, ge=0),
+    limit: int = Query(50, ge=1, le=200),
     action: str = None,
     db: Session = Depends(get_db),
     current_admin: models.User = Depends(require_admin)
