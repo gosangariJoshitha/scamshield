@@ -122,10 +122,13 @@ app.include_router(calls_router, prefix="/api")
 
 @app.on_event("startup")
 def startup_event():
-    try:
-        init_admin()
-    except Exception as exc:
-        print(f"Admin bootstrap deferred during startup ({type(exc).__name__}).")
+    import threading
+    def _bootstrap():
+        try:
+            init_admin()
+        except Exception as exc:
+            print(f"Admin bootstrap deferred during startup ({type(exc).__name__}).")
+    threading.Thread(target=_bootstrap, daemon=True, name="admin-bootstrap").start()
     notification_worker.start()
 
 

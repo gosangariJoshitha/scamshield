@@ -3,12 +3,10 @@ import os
 from pathlib import Path
 from fastapi import UploadFile, HTTPException
 from schemas import NormalizedAnalysisInput
-from app.services.pdf_service import PDFService
-from app.services.ocr_service import OCRService
-from app.services.audio_service import audio_service
 import json
 
 logger = logging.getLogger(__name__)
+
 MAX_UPLOAD_BYTES = int(os.getenv("ANALYSIS_MAX_UPLOAD_BYTES", str(50 * 1024 * 1024)))
 MAX_IMAGE_BYTES = int(os.getenv("ANALYSIS_MAX_IMAGE_BYTES", str(10 * 1024 * 1024)))
 MAX_PDF_BYTES = int(os.getenv("ANALYSIS_MAX_PDF_BYTES", str(20 * 1024 * 1024)))
@@ -36,9 +34,30 @@ _AUDIO_TYPES = {
     ".webm": ({"audio/webm"},),
 }
 
-# Instantiate services globally so models are loaded once
-pdf_service = PDFService()
-ocr_service = OCRService()
+_pdf_service = None
+_ocr_service = None
+_audio_service = None
+
+def _get_pdf_service():
+    global _pdf_service
+    if _pdf_service is None:
+        from app.services.pdf_service import PDFService
+        _pdf_service = PDFService()
+    return _pdf_service
+
+def _get_ocr_service():
+    global _ocr_service
+    if _ocr_service is None:
+        from app.services.ocr_service import OCRService
+        _ocr_service = OCRService()
+    return _ocr_service
+
+def _get_audio_service():
+    global _audio_service
+    if _audio_service is None:
+        from app.services.audio_service import audio_service
+        _audio_service = audio_service
+    return _audio_service
 async def _read_upload(file: UploadFile, max_bytes: int) -> bytes:
     effective_limit = min(MAX_UPLOAD_BYTES, max_bytes)
     file_bytes = await file.read(effective_limit + 1)
@@ -154,7 +173,7 @@ class InputRouter:
             if not file_bytes.startswith(b"%PDF-"):
                 raise HTTPException(status_code=400, detail="Uploaded file is not a valid PDF.")
             
-            extracted_text, metadata = pdf_service.extract_text(file_bytes)
+            extracted_text, metadata = _get_pdf_service().extract_text(file_bytes)
             
         elif input_type == "image" or input_type == "screenshot":
             input_type = "image"
@@ -169,7 +188,7 @@ class InputRouter:
             if extension == ".webp" and file_bytes[8:12] != b"WEBP":
                 raise HTTPException(status_code=400, detail="Uploaded file is not a valid image.")
             
-            extracted_text, metadata = ocr_service.extract_text(file_bytes, image_language)
+            extracted_text, metadata = _get_ocr_service().extract_text(file_bytes, image_language)
             
         elif input_type == "audio":
             if not file:
@@ -187,7 +206,7 @@ class InputRouter:
             if not _has_audio_signature(audio_extension, file_bytes):
                 raise HTTPException(status_code=400, detail="Uploaded file is not a valid audio file.")
             audio_filename = file.filename or f"audio{audio_extension}"
-            extracted_text, metadata = audio_service.extract_text(file_bytes, audio_filename)
+            extracted_text, metadata = _get_audio_service().extract_text(file_bytes, audio_filename)
             if metadata.get("duration_seconds", 0) > MAX_AUDIO_SECONDS:
                 raise HTTPException(status_code=413, detail="Audio exceeds the allowed duration limit.")
             

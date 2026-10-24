@@ -13,8 +13,7 @@ MAX_EXTRACTED_CHARS = int(os.getenv("ANALYSIS_MAX_EXTRACTED_CHARS", "30000"))
 
 class OCRService:
     def __init__(self):
-        logger.info("Initializing EasyOCR model...")
-        self.readers = {"en": easyocr.Reader(["en"], gpu=False)}
+        self.readers = {}
         self.reader_lock = Lock()
 
     def _get_reader(self, language: str):
@@ -24,7 +23,8 @@ class OCRService:
         with self.reader_lock:
             if language not in self.readers:
                 logger.info("Loading EasyOCR reader for language %s", language)
-                self.readers[language] = easyocr.Reader([language, "en"], gpu=False)
+                lang_list = [language, "en"] if language != "en" else ["en"]
+                self.readers[language] = easyocr.Reader(lang_list, gpu=False)
             return self.readers[language]
 
     def extract_text(self, file_content: bytes, language: str = "en") -> tuple[str, dict]:
