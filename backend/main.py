@@ -137,6 +137,16 @@ def stop_notification_worker():
     notification_worker.stop()
 
 
+@app.get("/")
+def root():
+    return {
+        "status": "ok",
+        "service": "ScamShield API",
+        "health": "/health",
+        "docs": "/docs",
+    }
+
+
 @app.get("/health")
 @app.get("/api/health")
 def health_check():
