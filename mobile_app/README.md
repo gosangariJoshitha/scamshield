@@ -63,12 +63,20 @@ Android system light/dark setting.
 
 ## Configure and run
 
-The emulator default is `http://10.0.2.2:8000/api`. Start the existing backend,
-then run from this directory:
+The default backend is the deployed Render cloud API: `https://scamshield-backend-f0wc.onrender.com/api`.
+To run with the production backend directly:
 
 ```powershell
 flutter pub get
-flutter run --dart-define=API_BASE_URL=http://10.0.2.2:8000/api
+flutter run
+```
+
+To run with a custom or local backend instead, pass `--dart-define=API_BASE_URL=...`:
+
+```powershell
+flutter run --dart-define=API_BASE_URL=https://scamshield-backend-f0wc.onrender.com/api
+# Or for local emulator:
+# flutter run --dart-define=API_BASE_URL=http://10.0.2.2:8000/api
 ```
 
 For a physical Android device, use the USB launcher below for local development.
@@ -248,5 +256,5 @@ Run the targeted checks from this directory:
 ```powershell
 flutter analyze
 flutter test
-flutter build apk --debug --dart-define=API_BASE_URL=http://10.0.2.2:8000/api
+flutter build apk --debug --dart-define=API_BASE_URL=https://scamshield-backend-f0wc.onrender.com/api
 ```

@@ -21,6 +21,15 @@ WHISPER_CHUNK_MAX_BYTES = WHISPER_CHUNK_SAMPLE_RATE * 1 * 2 * WHISPER_CHUNK_MAX_
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/guardian/transcription", tags=["guardian"])
 
+
+class _LazyAudioService:
+    def __getattr__(self, name):
+        from app.services.audio_service import audio_service as _impl
+        return getattr(_impl, name)
+
+
+audio_service = _LazyAudioService()
+
 _CACHE_TTL_SECONDS = 10 * 60
 _CACHE_MAX_CHUNKS = 256
 _cache_lock = threading.Lock()
@@ -150,7 +159,6 @@ async def transcribe_guardian_chunk(
         (timestamp_ms - duration_ms - call_started_at_ms) / 1000,
     )
     try:
-        from app.services.audio_service import audio_service
         segments = await asyncio.to_thread(
             audio_service.transcribe_pcm_chunk,
             pcm_bytes=pcm_bytes,

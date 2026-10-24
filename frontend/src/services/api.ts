@@ -4,7 +4,7 @@ import { getToken } from './token';
 const rawUrl = (
   import.meta.env.VITE_API_URL ||
   import.meta.env.VITE_API_BASE_URL ||
-  '/api'
+  'https://scamshield-backend-f0wc.onrender.com/api'
 ).trim().replace(/\/+$/, '');
 
 const API_URL = rawUrl.endsWith('/api') ? rawUrl : `${rawUrl}/api`;

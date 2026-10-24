@@ -22,6 +22,11 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/guardian/analysis", tags=["guardian"])
 
 
+async def analyze_text_core(*args, **kwargs):
+    from app.pipeline.analysis_pipeline import analyze_text_core as _impl
+    return await _impl(*args, **kwargs)
+
+
 def _positive_int(name: str, default: int, maximum: int) -> int:
     value = int(os.getenv(name, str(default)))
     if value < 1 or value > maximum:
@@ -379,7 +384,6 @@ async def _process_segment(
             return _duplicate_response(state, session_id, window_id)
 
         try:
-            from app.pipeline.analysis_pipeline import analyze_text_core
             core_result = await analyze_text_core(
                 window_text,
                 segment.language if segment.language != "und" else None,
