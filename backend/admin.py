@@ -10,8 +10,20 @@ from typing import List, Dict, Any
 from database import get_db
 import models
 from auth import get_current_user
-from app.services.classifier_service import classifier_service
-from app.services.rag_service import rag_service
+
+class _LazyRagService:
+    def __getattr__(self, name):
+        from app.services.rag_service import rag_service
+        return getattr(rag_service, name)
+
+rag_service = _LazyRagService()
+
+class _LazyClassifierService:
+    def __getattr__(self, name):
+        from app.services.classifier_service import classifier_service
+        return getattr(classifier_service, name)
+
+classifier_service = _LazyClassifierService()
 
 logger = logging.getLogger(__name__)
 router = APIRouter()

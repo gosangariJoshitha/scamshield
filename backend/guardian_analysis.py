@@ -14,7 +14,6 @@ from fastapi import APIRouter, Depends, HTTPException, Request, Response
 
 import models
 import schemas
-from app.pipeline.analysis_pipeline import analyze_text_core
 from app.services.rate_limiter import rate_limit_analysis
 from app.services.text_service import normalize_text
 from auth import get_current_verified_user
@@ -380,6 +379,7 @@ async def _process_segment(
             return _duplicate_response(state, session_id, window_id)
 
         try:
+            from app.pipeline.analysis_pipeline import analyze_text_core
             core_result = await analyze_text_core(
                 window_text,
                 segment.language if segment.language != "und" else None,

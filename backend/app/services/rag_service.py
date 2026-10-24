@@ -47,6 +47,8 @@ class RagIndexNotReadyError(RuntimeError):
     pass
 
 
+import threading
+
 class RagService:
     def __init__(self):
         configured_path = os.getenv("CHROMA_PERSIST_DIRECTORY", "chroma_db")
@@ -58,7 +60,18 @@ class RagService:
         self.collection = None
         self.index_status = "UNAVAILABLE"
         self.vector_count = None
-        self._initialize_collection()
+        self._init_lock = threading.Lock()
+        self._initialized = False
+
+    def _ensure_initialized(self):
+        if not getattr(self, "_initialized", False):
+            if not hasattr(self, "_init_lock"):
+                self._init_lock = threading.Lock()
+            with self._init_lock:
+                if not getattr(self, "_initialized", False):
+                    if hasattr(self, "persist_directory") and getattr(self, "client", None) is None:
+                        self._initialize_collection()
+                    self._initialized = True
 
     def _initialize_collection(self):
         try:
@@ -77,9 +90,9 @@ class RagService:
                 self.persist_directory,
             )
             return
-        self.get_index_health()
 
     def get_index_health(self) -> dict[str, int | str | None]:
+        self._ensure_initialized()
         if self.collection is None:
             self.index_status = "UNAVAILABLE"
             self.vector_count = None
@@ -106,6 +119,7 @@ class RagService:
 
     def upsert_knowledge_entry(self, entry: Any) -> None:
         """Keep an approved SQL knowledge entry available to semantic search."""
+        self._ensure_initialized()
         if self.collection is None:
             raise RagIndexNotReadyError("ChromaDB collection is unavailable.")
         indicators = entry.indicators or []
@@ -147,6 +161,7 @@ class RagService:
         )
 
     def delete_knowledge_entry(self, entry_id: int) -> None:
+        self._ensure_initialized()
         if self.collection is None:
             raise RagIndexNotReadyError("ChromaDB collection is unavailable.")
         self.collection.delete(

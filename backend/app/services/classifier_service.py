@@ -32,6 +32,8 @@ MODEL_DIR = _find_model_dir()
 METADATA_PATH = os.path.join(MODEL_DIR, 'model_metadata.json')
 logger = logging.getLogger(__name__)
 
+import threading
+
 class ClassifierService:
     def __init__(self):
         self.clf = None

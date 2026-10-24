@@ -10,8 +10,11 @@ import models
 import schemas
 from database import get_db
 from app.pipeline.input_router import input_router
-from app.pipeline.analysis_pipeline import run_analysis_pipeline
 from app.services.rate_limiter import rate_limit_analysis
+
+async def run_analysis_pipeline(*args, **kwargs):
+    from app.pipeline.analysis_pipeline import run_analysis_pipeline as _impl
+    return await _impl(*args, **kwargs)
 
 
 logger = logging.getLogger(__name__)

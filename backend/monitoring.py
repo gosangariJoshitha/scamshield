@@ -9,7 +9,6 @@ from sqlalchemy import case, desc, func, text
 from sqlalchemy.orm import Session
 
 import models
-from app.services.rag_service import rag_service
 from auth import get_current_user
 from database import get_db
 
@@ -246,6 +245,7 @@ def get_system_health(
     db: Session = Depends(get_db),
     current_admin: models.User = Depends(require_admin),
 ):
+    from app.services.rag_service import rag_service
     active_model_version, active_model_available = _active_model_status()
     health = {
         "api": "Healthy",

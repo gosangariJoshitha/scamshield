@@ -58,6 +58,16 @@ def _get_audio_service():
         from app.services.audio_service import audio_service
         _audio_service = audio_service
     return _audio_service
+
+class _LazyServiceProxy:
+    def __init__(self, getter):
+        self._getter = getter
+    def __getattr__(self, name):
+        return getattr(self._getter(), name)
+
+pdf_service = _LazyServiceProxy(_get_pdf_service)
+ocr_service = _LazyServiceProxy(_get_ocr_service)
+audio_service = _LazyServiceProxy(_get_audio_service)
 async def _read_upload(file: UploadFile, max_bytes: int) -> bytes:
     effective_limit = min(MAX_UPLOAD_BYTES, max_bytes)
     file_bytes = await file.read(effective_limit + 1)
@@ -173,7 +183,7 @@ class InputRouter:
             if not file_bytes.startswith(b"%PDF-"):
                 raise HTTPException(status_code=400, detail="Uploaded file is not a valid PDF.")
             
-            extracted_text, metadata = _get_pdf_service().extract_text(file_bytes)
+            extracted_text, metadata = pdf_service.extract_text(file_bytes)
             
         elif input_type == "image" or input_type == "screenshot":
             input_type = "image"
@@ -188,7 +198,7 @@ class InputRouter:
             if extension == ".webp" and file_bytes[8:12] != b"WEBP":
                 raise HTTPException(status_code=400, detail="Uploaded file is not a valid image.")
             
-            extracted_text, metadata = _get_ocr_service().extract_text(file_bytes, image_language)
+            extracted_text, metadata = ocr_service.extract_text(file_bytes, image_language)
             
         elif input_type == "audio":
             if not file:
@@ -206,7 +216,7 @@ class InputRouter:
             if not _has_audio_signature(audio_extension, file_bytes):
                 raise HTTPException(status_code=400, detail="Uploaded file is not a valid audio file.")
             audio_filename = file.filename or f"audio{audio_extension}"
-            extracted_text, metadata = _get_audio_service().extract_text(file_bytes, audio_filename)
+            extracted_text, metadata = audio_service.extract_text(file_bytes, audio_filename)
             if metadata.get("duration_seconds", 0) > MAX_AUDIO_SECONDS:
                 raise HTTPException(status_code=413, detail="Audio exceeds the allowed duration limit.")
             

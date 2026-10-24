@@ -6,7 +6,6 @@ from database import get_db
 from models import AuditLog, User, ReviewCase, Analysis, KnowledgeEntry, ReviewCaseEvent
 from app.services.escalation_service import EscalationService
 from app.services.jira_service import JiraService
-from app.services.rag_service import rag_service
 from auth import get_current_regular_user, get_current_user, get_current_verified_user
 import json
 from typing import List, Literal

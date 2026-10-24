@@ -11,14 +11,12 @@ from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, Uplo
 from pydantic import BaseModel
 
 import models
-from app.services.audio_service import (
-    WHISPER_CHUNK_MAX_BYTES,
-    WHISPER_CHUNK_MAX_SECONDS,
-    WHISPER_CHUNK_SAMPLE_RATE,
-    audio_service,
-)
 from app.services.rate_limiter import rate_limit_analysis
 from auth import get_current_verified_user
+
+WHISPER_CHUNK_SAMPLE_RATE = 16_000
+WHISPER_CHUNK_MAX_SECONDS = 5
+WHISPER_CHUNK_MAX_BYTES = WHISPER_CHUNK_SAMPLE_RATE * 1 * 2 * WHISPER_CHUNK_MAX_SECONDS
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/guardian/transcription", tags=["guardian"])
@@ -152,6 +150,7 @@ async def transcribe_guardian_chunk(
         (timestamp_ms - duration_ms - call_started_at_ms) / 1000,
     )
     try:
+        from app.services.audio_service import audio_service
         segments = await asyncio.to_thread(
             audio_service.transcribe_pcm_chunk,
             pcm_bytes=pcm_bytes,
