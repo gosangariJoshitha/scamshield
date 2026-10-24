@@ -73,7 +73,7 @@ def init_admin():
     finally:
         db.close()
 
-init_admin()
+# Admin bootstrap is handled safely during application startup
 
 app = FastAPI(title="ScamShield API")
 
@@ -113,7 +113,11 @@ app.include_router(calls_router, prefix="/api")
 
 
 @app.on_event("startup")
-def start_notification_worker():
+def startup_event():
+    try:
+        init_admin()
+    except Exception as exc:
+        print(f"Admin bootstrap deferred during startup ({type(exc).__name__}).")
     notification_worker.start()
 
 
@@ -122,6 +126,27 @@ def stop_notification_worker():
     notification_worker.stop()
 
 
+@app.get("/health")
 @app.get("/api/health")
 def health_check():
     return {"status": "ok", "message": "ScamShield backend is running"}
+
+
+@app.get("/api/ready")
+def readiness_check():
+    db_ok = False
+    db = None
+    try:
+        db = SessionLocal()
+        db.execute(func.now())
+        db_ok = True
+    except Exception:
+        db_ok = False
+    finally:
+        if db:
+            db.close()
+    return {
+        "status": "ready" if db_ok else "degraded",
+        "database": "connected" if db_ok else "unreachable",
+    }
+

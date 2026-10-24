@@ -158,7 +158,7 @@ class EmailService:
                 "https://api.sendgrid.com/v3/mail/send",
                 json=payload,
                 headers={
-                    "Authorization": f"******",
+                    "Authorization": f"Bearer {self.api_key}",
                     "Content-Type": "application/json",
                 },
                 timeout=10,

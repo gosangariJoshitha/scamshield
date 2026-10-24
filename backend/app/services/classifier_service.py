@@ -10,8 +10,25 @@ import torch
 import joblib
 from app.services.text_service import preprocess_text
 
-BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
-MODEL_DIR = os.path.join(BASE_DIR, 'ml', 'models', 'classifier')
+def _find_model_dir():
+    env_dir = os.getenv("MODEL_DIR")
+    if env_dir and os.path.isdir(env_dir):
+        return env_dir
+    candidates = [
+        # Standard repo root (backend/app/services/../../..)
+        os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))), 'ml', 'models', 'classifier'),
+        # Nested in backend directory
+        os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), 'ml', 'models', 'classifier'),
+        # Working directory relative
+        os.path.join(os.getcwd(), 'ml', 'models', 'classifier'),
+        os.path.join(os.getcwd(), 'backend', 'ml', 'models', 'classifier'),
+    ]
+    for candidate in candidates:
+        if os.path.isfile(os.path.join(candidate, 'model_metadata.json')) or os.path.isdir(candidate):
+            return candidate
+    return candidates[0]
+
+MODEL_DIR = _find_model_dir()
 METADATA_PATH = os.path.join(MODEL_DIR, 'model_metadata.json')
 logger = logging.getLogger(__name__)
 
