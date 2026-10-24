@@ -1,4 +1,11 @@
+import sys
 import os
+
+# Ensure backend directory is in sys.path regardless of execution working directory
+BACKEND_DIR = os.path.dirname(os.path.abspath(__file__))
+if BACKEND_DIR not in sys.path:
+    sys.path.insert(0, BACKEND_DIR)
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import func
@@ -18,6 +25,7 @@ from guardian_analysis import router as guardian_analysis_router
 from calls import router as calls_router
 from app.services.notification_worker import notification_worker
 
+load_dotenv(os.path.join(BACKEND_DIR, ".env"))
 load_dotenv()
 
 def init_admin():

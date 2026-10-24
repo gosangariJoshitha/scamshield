@@ -18,11 +18,12 @@ import models, schemas, database
 from app.services.email_service import EmailDeliveryError, email_service
 from app.services.rate_limiter import rate_limit_auth
 
+load_dotenv(os.path.join(os.path.dirname(os.path.abspath(__file__)), ".env"))
 load_dotenv()
 
-SECRET_KEY = os.getenv("JWT_SECRET_KEY")
+SECRET_KEY = os.getenv("JWT_SECRET_KEY") or os.getenv("JWT_SECRET")
 if not SECRET_KEY or len(SECRET_KEY.encode("utf-8")) < 32:
-    raise RuntimeError("JWT_SECRET_KEY must contain at least 32 UTF-8 bytes")
+    raise RuntimeError("JWT_SECRET_KEY (or JWT_SECRET) must contain at least 32 UTF-8 bytes")
 
 ALGORITHM = os.getenv("JWT_ALGORITHM", "HS256")
 ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("JWT_ACCESS_TOKEN_EXPIRE_MINUTES", "60"))
