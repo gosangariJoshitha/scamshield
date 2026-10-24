@@ -100,9 +100,9 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=FRONTEND_URLS,
     allow_origin_regex=(
-        r"^http://(?:localhost|127\.0\.0\.1):517[0-9]$"
+        r"^(http://(?:localhost|127\.0\.0\.1):517[0-9]|https://.*\.vercel\.app)$"
         if has_local_frontend
-        else None
+        else r"^https://.*\.vercel\.app$"
     ),
     allow_credentials=True,
     allow_methods=["*"],
