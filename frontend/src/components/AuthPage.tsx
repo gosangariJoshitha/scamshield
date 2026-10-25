@@ -203,7 +203,7 @@ export default function AuthPage({ initialMode, adminOnly = false }: AuthPagePro
         setError('This account does not have administrator privileges.');
         return;
       }
-      if (!adminOnly && userData.role !== 'user') {
+      if (!adminOnly && userData.role !== 'user' && userData.role !== 'admin') {
         auth.logout();
         setError('This account cannot sign in to the user portal.');
         return;
