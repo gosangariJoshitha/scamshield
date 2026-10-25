@@ -134,12 +134,10 @@ def startup_event():
 
     def _warmup_ai():
         try:
-            from app.services.embedding_service import embedding_service
             from app.services.rag_service import rag_service
-            _ = embedding_service.model
             _ = rag_service.get_index_health()
         except Exception as exc:
-            print(f"AI model background warmup deferred ({type(exc).__name__}).")
+            print(f"AI health check deferred ({type(exc).__name__}).")
     threading.Thread(target=_warmup_ai, daemon=True, name="ai-warmup").start()
 
     notification_worker.start()

@@ -147,14 +147,18 @@ export default function AuthPage({ initialMode, adminOnly = false }: AuthPagePro
       if (tokenStored) auth.logout();
       if (axios.isAxiosError(err)) {
         const status = err.response?.status;
-        if (status === 401) {
+        if (err.code === 'ECONNABORTED' || err.message?.includes('timeout')) {
+          setError('The authentication service took too long to respond. The backend is waking up, please try again in a few seconds.');
+        } else if (status === 401) {
           setError('Invalid email or password, or this account is not allowed in this portal.');
         } else if (status === 409) {
           setError('An account with this email already exists. Try signing in instead.');
+        } else if (status === 502 || status === 503 || status === 504) {
+          setError('The authentication backend is currently warming up on Render. Please wait 10 seconds and try again.');
         } else if (status && status >= 500) {
           setError(`The authentication service failed (HTTP ${status}). Please try again shortly.`);
         } else if (!err.response) {
-          setError('Could not reach the authentication service. Check your connection and try again.');
+          setError('Could not reach the authentication service. The backend server may be waking up, please retry in a moment.');
         } else {
           const detail = err.response.data?.detail;
           if (typeof detail === 'string') {
