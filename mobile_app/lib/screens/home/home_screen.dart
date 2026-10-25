@@ -320,6 +320,8 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
               .toInt()
           : _activeCallSeconds;
       final finalResult = _analysisSnapshot?.result;
+      final localHeuristic = _analysisSnapshot?.localHeuristicResult;
+      final hasLocalWarning = localHeuristic != null && localHeuristic.hasMatches;
       final protectionActions =
           _guardianProtectionService.exportSessionActions();
 
@@ -337,10 +339,14 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
         transcriptionStatus = 'TRANSCRIPTION_UNAVAILABLE';
       }
       if (finalResult == null) {
-        if (audioStatus == 'AUDIO_UNAVAILABLE') {
+        if (hasLocalWarning) {
+          analysisStatus = 'OFFLINE_HEURISTIC';
+        } else if (audioStatus == 'AUDIO_UNAVAILABLE') {
           analysisStatus = 'AUDIO_UNAVAILABLE';
         } else if (transcriptionStatus == 'TRANSCRIPTION_UNAVAILABLE') {
           analysisStatus = 'TRANSCRIPTION_UNAVAILABLE';
+        } else if (sessionDuration < 5) {
+          analysisStatus = 'INCOMPLETE';
         } else {
           analysisStatus = 'ANALYSIS_UNAVAILABLE';
         }
@@ -356,12 +362,26 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
             ? 'RUNNING'
             : (_guardianStatus?.enabled == true ? 'ENABLED' : 'DISABLED'),
         finalRiskScore: finalResult?.riskScore ?? 0,
-        finalRiskLevel: finalResult?.riskLevel ?? 'LOW',
-        classification: finalResult?.classification ?? 'GENUINE',
-        scamCategory: finalResult?.scamCategory ?? 'General',
-        riskReasoning: finalResult?.reasoning,
-        safeAction: finalResult?.safeAction,
-        detectedIndicators: finalResult?.detectedIndicators,
+        finalRiskLevel: finalResult != null
+            ? finalResult.riskLevel
+            : (hasLocalWarning ? 'HIGH' : 'LOW'),
+        classification: finalResult != null
+            ? finalResult.classification
+            : (hasLocalWarning ? 'SUSPICIOUS' : 'GENUINE'),
+        scamCategory: finalResult != null
+            ? finalResult.scamCategory
+            : (hasLocalWarning && localHeuristic.matchedRules.isNotEmpty
+                ? localHeuristic.matchedRules.first
+                : 'General'),
+        riskReasoning: finalResult?.reasoning ??
+            (hasLocalWarning
+                ? '[Offline Heuristic Rule] ${localHeuristic.warningHeadline}'
+                : (analysisStatus == 'INCOMPLETE'
+                    ? 'Call ended before conversation analysis was completed.'
+                    : null)),
+        safeAction: finalResult?.safeAction ?? (hasLocalWarning ? localHeuristic.safeAction : null),
+        detectedIndicators: finalResult?.detectedIndicators ??
+            (hasLocalWarning ? localHeuristic.matchedRules : null),
         supportingEvidence: finalResult != null &&
                 finalResult.supportingEvidence.isNotEmpty
             ? finalResult.supportingEvidence
@@ -408,7 +428,33 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
         });
       }
     } catch (_) {
-      // Offline / network failure handled gracefully
+      // Offline / network failure: retain local summary from payload so user still has summary
+      if (mounted) {
+        setState(() {
+          _lastFinalizedSummary = CallHistoryDetail(
+            id: 0,
+            sessionId: payload.sessionId,
+            startedAt: payload.startedAt,
+            endedAt: payload.endedAt ?? DateTime.now(),
+            durationSeconds: payload.durationSeconds,
+            guardianEnabled: payload.guardianEnabled,
+            guardianStatus: payload.guardianStatus,
+            finalRiskScore: payload.finalRiskScore,
+            finalRiskLevel: payload.finalRiskLevel,
+            classification: payload.classification,
+            scamCategory: payload.scamCategory,
+            riskReasoning: payload.riskReasoning,
+            safeAction: payload.safeAction,
+            detectedIndicators: payload.detectedIndicators ?? const [],
+            supportingEvidence: payload.supportingEvidence ?? const [],
+            protectionActions: payload.protectionActions ?? const [],
+            analysisStatus: payload.analysisStatus,
+            transcriptionStatus: payload.transcriptionStatus,
+            audioStatus: payload.audioStatus,
+          );
+          _historyRevision++;
+        });
+      }
     }
   }
 
@@ -417,6 +463,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       MaterialPageRoute<void>(
         builder: (_) => CallSummaryScreen(
           call: detail,
+          callHistoryService: _callHistoryService,
           onBack: () => Navigator.of(context).pop(),
         ),
       ),
@@ -639,7 +686,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       builder: (context) => AlertDialog(
         title: const Text('Enable live transcription?'),
         content: const Text(
-          'Supported call audio will be sent to your configured ScamShield server for temporary transcription. The server uses its configured Faster-Whisper model, keeps retry data in memory for up to 10 minutes, and does not save transcripts to your account. The current Android pipeline provides device-microphone audio only, not cellular-call audio, so transcription will remain unavailable for this call and microphone audio will not be uploaded.',
+          'With your consent, ScamShield captures speakerphone audio during active calls and sends temporary 5-second PCM chunks to your configured ScamShield server for Whisper transcription and real-time scam analysis. Transcripts are held in ephemeral memory for the duration of the call and never saved to your account. For best results, place your phone on speakerphone so incoming speech can be analyzed.',
         ),
         actions: [
           TextButton(
@@ -849,6 +896,9 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
             onOpenSettings: () => _openSettings(),
             onRequestCallScreeningRole: _requestCallScreeningRole,
             onDismissCallEnded: () => _guardianLiveAnalysisService.dismissCallEndedResult(),
+            onRetryAnalysis: () => _guardianLiveAnalysisService.retry(
+              segment: _transcriptionSnapshot?.segments.lastOrNull,
+            ),
             lastFinalizedSummary: _lastFinalizedSummary,
             onViewCallSummary: _lastFinalizedSummary != null
                 ? () => _openCallDetail(_lastFinalizedSummary!)
@@ -1859,6 +1909,7 @@ class _GuardianSection extends StatelessWidget {
     required this.onOpenSettings,
     required this.onRequestCallScreeningRole,
     this.onDismissCallEnded,
+    this.onRetryAnalysis,
     this.protectionService,
     this.lastFinalizedSummary,
     this.onViewCallSummary,
@@ -1881,6 +1932,7 @@ class _GuardianSection extends StatelessWidget {
   final VoidCallback onOpenSettings;
   final VoidCallback onRequestCallScreeningRole;
   final VoidCallback? onDismissCallEnded;
+  final VoidCallback? onRetryAnalysis;
   final GuardianProtectionService? protectionService;
   final CallHistoryDetail? lastFinalizedSummary;
   final VoidCallback? onViewCallSummary;
@@ -1968,6 +2020,7 @@ class _GuardianSection extends StatelessWidget {
             onToggleTranscription: onToggleTranscription,
             onRequestCallScreeningRole: onRequestCallScreeningRole,
             onDismissCallEnded: onDismissCallEnded,
+            onRetryAnalysis: onRetryAnalysis,
             protectionService: protectionService,
             lastFinalizedSummary: lastFinalizedSummary,
             onViewCallSummary: onViewCallSummary,
@@ -2002,6 +2055,7 @@ class _GuardianControlCard extends StatelessWidget {
     required this.onToggleTranscription,
     required this.onRequestCallScreeningRole,
     this.onDismissCallEnded,
+    this.onRetryAnalysis,
     this.protectionService,
     this.lastFinalizedSummary,
     this.onViewCallSummary,
@@ -2024,6 +2078,7 @@ class _GuardianControlCard extends StatelessWidget {
   final ValueChanged<bool> onToggleTranscription;
   final VoidCallback onRequestCallScreeningRole;
   final VoidCallback? onDismissCallEnded;
+  final VoidCallback? onRetryAnalysis;
   final GuardianProtectionService? protectionService;
   final CallHistoryDetail? lastFinalizedSummary;
   final VoidCallback? onViewCallSummary;
@@ -2143,6 +2198,7 @@ class _GuardianControlCard extends StatelessWidget {
               isCallActive: callEvent?.event == 'CALL_ACTIVE',
               transcriptSegments: transcriptionSnapshot?.segments,
               onDismissCallEnded: onDismissCallEnded,
+              onRetryAnalysis: onRetryAnalysis,
               protectionService: protectionService,
             ),
           ],
@@ -2389,7 +2445,7 @@ class _GuardianControlCard extends StatelessWidget {
                   ],
                   const SizedBox(height: 10),
                   Text(
-                    'Only verified CALL_AUDIO input can be transcribed. This device currently provides microphone input, not cellular-call audio; those microphone chunks are not uploaded. Transcript and retry data are temporary.',
+                    'Consented speakerphone audio is transcribed in temporary 5-second PCM chunks via Whisper. Chunks and transcripts are held in memory for live protection and not stored permanently.',
                     style: Theme.of(context).textTheme.bodySmall?.copyWith(
                       color: colors.onSurfaceVariant,
                       height: 1.35,
@@ -2404,6 +2460,7 @@ class _GuardianControlCard extends StatelessWidget {
               isCallActive: callEvent?.event == 'CALL_ACTIVE',
               transcriptSegments: transcriptionSnapshot?.segments,
               onDismissCallEnded: onDismissCallEnded,
+              onRetryAnalysis: onRetryAnalysis,
               protectionService: protectionService,
             ),
           ],

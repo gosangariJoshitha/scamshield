@@ -39,6 +39,7 @@ class ApiService {
     String path,
     Map<String, dynamic> body, {
     String? token,
+    Duration? requestTimeout,
   }) async {
     return _send(
       'POST',
@@ -46,6 +47,7 @@ class ApiService {
       token: token,
       body: jsonEncode(body),
       contentType: 'application/json',
+      requestTimeout: requestTimeout,
     );
   }
 
@@ -84,6 +86,7 @@ class ApiService {
     required String filename,
     required String token,
     Map<String, String> fields = const {},
+    Duration? requestTimeout,
   }) async {
     final request = http.MultipartRequest('POST', _resolve(path))
       ..headers['Accept'] = 'application/json'
@@ -96,7 +99,7 @@ class ApiService {
       final response = await _client
           .send(request)
           .then(http.Response.fromStream)
-          .timeout(timeout);
+          .timeout(requestTimeout ?? timeout);
       final decoded = _decode(response);
       if (response.statusCode < 200 || response.statusCode >= 300) {
         throw ApiException(

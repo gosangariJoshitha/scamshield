@@ -313,11 +313,11 @@ class CallStateGuardianService : Service() {
             return "Microphone capture only during detected active calls"
         }
         return when (GuardianAudioPipeline.snapshot().state) {
-            "AUDIO_INITIALIZING" -> "Active call · preparing device microphone"
-            "AUDIO_READY" -> "Active call · device microphone ready"
-            "AUDIO_STREAMING" -> "Active call · device microphone input flowing"
-            "AUDIO_UNAVAILABLE" -> "Active call · microphone capture unavailable"
-            else -> "Active call · microphone capture not started"
+            "AUDIO_INITIALIZING" -> "Active call · preparing speakerphone audio"
+            "AUDIO_READY" -> "Active call · speakerphone protection ready"
+            "AUDIO_STREAMING" -> "Active call · speakerphone audio protection active"
+            "AUDIO_UNAVAILABLE" -> "Active call · speakerphone audio unavailable"
+            else -> "Active call · audio protection not started"
         }
     }
 

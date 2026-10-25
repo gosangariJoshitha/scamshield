@@ -1,4 +1,5 @@
 import 'package:flutter/foundation.dart';
+import '../services/guardian_local_heuristic_engine.dart';
 
 @immutable
 class GuardianRetrievedEvidence {
@@ -202,6 +203,14 @@ class GuardianLiveAnalysisResponse {
   }
 }
 
+enum GuardianNetworkStatus {
+  online,
+  backendUnreachable,
+  noNetwork,
+  analysisFailed,
+  unknown,
+}
+
 @immutable
 class GuardianLiveAnalysisSnapshot {
   const GuardianLiveAnalysisSnapshot({
@@ -213,6 +222,9 @@ class GuardianLiveAnalysisSnapshot {
     this.activeSessionId,
     this.isCallEnded = false,
     this.lastAnalysisTime,
+    this.networkStatus = GuardianNetworkStatus.unknown,
+    this.localHeuristicResult,
+    this.queuedCount = 0,
   });
 
   final String state;
@@ -223,5 +235,9 @@ class GuardianLiveAnalysisSnapshot {
   final String? activeSessionId;
   final bool isCallEnded;
   final DateTime? lastAnalysisTime;
+  final GuardianNetworkStatus networkStatus;
+  final GuardianLocalHeuristicResult? localHeuristicResult;
+  final int queuedCount;
 }
+
 

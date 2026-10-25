@@ -108,7 +108,7 @@ object GuardianAudioPipeline {
         activeSessionId = sessionId ?: UUID.randomUUID().toString()
         chunksCreated = 0
         chunksDropped = 0
-        source = "DEVICE_MICROPHONE"
+        source = "SPEAKERPHONE_AUDIO"
         route = "UNKNOWN"
         reason = ""
         state = "AUDIO_INITIALIZING"
@@ -236,7 +236,7 @@ object GuardianAudioPipeline {
         activeSessionId = null
         clearBufferedChunks()
         state = "AUDIO_UNAVAILABLE"
-        source = "DEVICE_MICROPHONE"
+        source = "SPEAKERPHONE_AUDIO"
         route = "UNKNOWN"
         reason = message
         publishStatus()

@@ -1,16 +1,21 @@
 import 'package:flutter/material.dart';
 
 import '../../models/call_history_models.dart';
+import '../../services/call_history_service.dart';
 
 class CallSummaryScreen extends StatefulWidget {
   const CallSummaryScreen({
     required this.call,
     this.onBack,
+    this.callHistoryService,
+    this.onRetry,
     super.key,
   });
 
   final CallHistoryDetail call;
   final VoidCallback? onBack;
+  final CallHistoryService? callHistoryService;
+  final Future<CallHistoryDetail?> Function()? onRetry;
 
   @override
   State<CallSummaryScreen> createState() => _CallSummaryScreenState();
@@ -18,11 +23,55 @@ class CallSummaryScreen extends StatefulWidget {
 
 class _CallSummaryScreenState extends State<CallSummaryScreen> {
   bool _expandedReasoning = false;
+  bool _retrying = false;
+  late CallHistoryDetail _currentCall;
+
+  @override
+  void initState() {
+    super.initState();
+    _currentCall = widget.call;
+  }
+
+  @override
+  void didUpdateWidget(CallSummaryScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.call != widget.call) {
+      _currentCall = widget.call;
+    }
+  }
+
+  bool get _isRetryable =>
+      _currentCall.id == 0 ||
+      _currentCall.riskReasoning == 'Detailed summary could not be retrieved from server.' ||
+      _currentCall.analysisStatus == 'INCOMPLETE';
+
+  Future<void> _handleRetry() async {
+    setState(() => _retrying = true);
+    try {
+      if (widget.onRetry != null) {
+        final updated = await widget.onRetry!();
+        if (updated != null && mounted) {
+          setState(() => _currentCall = updated);
+        }
+      } else if (widget.callHistoryService != null) {
+        final updated = await widget.callHistoryService!.getCallSummary(_currentCall.sessionId);
+        if (mounted) setState(() => _currentCall = updated);
+      }
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Could not refresh summary from server.')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _retrying = false);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
-    final call = widget.call;
+    final call = _currentCall;
     final riskColor = call.riskColor(colors);
 
     return Scaffold(
@@ -46,6 +95,20 @@ class _CallSummaryScreenState extends State<CallSummaryScreen> {
           children: [
             _buildRiskHeader(context, call, colors, riskColor),
             const SizedBox(height: 18),
+            if (_isRetryable) ...[
+              FilledButton.tonalIcon(
+                onPressed: _retrying ? null : _handleRetry,
+                icon: _retrying
+                    ? const SizedBox(
+                        width: 16,
+                        height: 16,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Icon(Icons.refresh_rounded),
+                label: Text(_retrying ? 'Refreshing...' : 'Retry loading full summary'),
+              ),
+              const SizedBox(height: 14),
+            ],
             if (call.analysisStatus == 'AUDIO_UNAVAILABLE' ||
                 call.audioStatus == 'AUDIO_UNAVAILABLE')
               _buildUnavailableNotice(
@@ -73,6 +136,24 @@ class _CallSummaryScreenState extends State<CallSummaryScreen> {
                     'ScamShield could not complete AI analysis for this call.',
                 icon: Icons.info_outline,
                 color: colors.onSurfaceVariant,
+              )
+            else if (call.analysisStatus == 'INCOMPLETE')
+              _buildUnavailableNotice(
+                context,
+                title: 'Call Session Incomplete',
+                description:
+                    'The call session ended prematurely before complete analysis could be finalized.',
+                icon: Icons.timelapse_rounded,
+                color: colors.onSurfaceVariant,
+              )
+            else if (call.analysisStatus == 'OFFLINE_HEURISTIC')
+              _buildUnavailableNotice(
+                context,
+                title: 'Offline Heuristic Assessment',
+                description:
+                    'Evaluated strictly on-device by deterministic safety rules during network disruption. No online AI model score was calculated.',
+                icon: Icons.wifi_off_rounded,
+                color: const Color(0xFFC27500),
               ),
             if (call.riskReasoning != null && call.riskReasoning!.trim().isNotEmpty) ...[
               const SizedBox(height: 16),
@@ -109,6 +190,7 @@ class _CallSummaryScreenState extends State<CallSummaryScreen> {
     final isUnavailable = call.analysisStatus == 'AUDIO_UNAVAILABLE' ||
         call.analysisStatus == 'ANALYSIS_UNAVAILABLE' ||
         call.audioStatus == 'AUDIO_UNAVAILABLE';
+    final isOfflineHeuristic = call.analysisStatus == 'OFFLINE_HEURISTIC';
 
     return Container(
       padding: const EdgeInsets.all(20),
@@ -139,7 +221,9 @@ class _CallSummaryScreenState extends State<CallSummaryScreen> {
               Semantics(
                 label: isUnavailable
                     ? 'Status: Unavailable'
-                    : '${call.finalRiskLevel} RISK — ${call.finalRiskScore} out of 100',
+                    : isOfflineHeuristic
+                        ? 'Offline Heuristic: ${call.finalRiskLevel} severity'
+                        : '${call.finalRiskLevel} RISK — ${call.finalRiskScore} out of 100',
                 child: Container(
                   padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                   decoration: BoxDecoration(
@@ -149,7 +233,11 @@ class _CallSummaryScreenState extends State<CallSummaryScreen> {
                     borderRadius: BorderRadius.circular(10),
                   ),
                   child: Text(
-                    isUnavailable ? 'PROTECTED CALL' : '${call.finalRiskLevel} RISK',
+                    isUnavailable
+                        ? 'PROTECTED CALL'
+                        : isOfflineHeuristic
+                            ? 'OFFLINE HEURISTIC'
+                            : '${call.finalRiskLevel} RISK',
                     style: TextStyle(
                       color: isUnavailable ? colors.onSurfaceVariant : riskColor,
                       fontWeight: FontWeight.w900,
@@ -159,11 +247,20 @@ class _CallSummaryScreenState extends State<CallSummaryScreen> {
                   ),
                 ),
               ),
-              if (!isUnavailable)
+              if (!isUnavailable && !isOfflineHeuristic)
                 Text(
                   '${call.finalRiskScore} / 100',
                   style: TextStyle(
                     fontSize: 22,
+                    fontWeight: FontWeight.w900,
+                    color: riskColor,
+                  ),
+                )
+              else if (isOfflineHeuristic)
+                Text(
+                  call.finalRiskLevel,
+                  style: TextStyle(
+                    fontSize: 18,
                     fontWeight: FontWeight.w900,
                     color: riskColor,
                   ),
@@ -555,6 +652,8 @@ class _CallSummaryScreenState extends State<CallSummaryScreen> {
       'AUDIO_UNAVAILABLE' => 'Unavailable',
       'TRANSCRIPTION_UNAVAILABLE' => 'Unavailable',
       'ANALYSIS_UNAVAILABLE' => 'Unavailable',
+      'INCOMPLETE' => 'Incomplete',
+      'OFFLINE_HEURISTIC' => 'Offline Heuristic',
       _ => status.replaceAll('_', ' ').toLowerCase(),
     };
   }

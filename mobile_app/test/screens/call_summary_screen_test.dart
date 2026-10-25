@@ -123,4 +123,77 @@ void main() {
     expect(find.text('Transcription unavailable'), findsOneWidget);
     expect(find.textContaining('speech-to-text could not be completed'), findsOneWidget);
   });
+
+  testWidgets('CallSummaryScreen displays incomplete call session notice and retry button', (tester) async {
+    final detail = _testDetail(
+      analysisStatus: 'INCOMPLETE',
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: CallSummaryScreen(call: detail),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Call Session Incomplete'), findsOneWidget);
+    expect(find.textContaining('call session ended prematurely'), findsOneWidget);
+    expect(find.text('Retry loading full summary'), findsOneWidget);
+  });
+
+  testWidgets('CallSummaryScreen displays offline heuristic notice with truthful header', (tester) async {
+    final detail = _testDetail(
+      analysisStatus: 'OFFLINE_HEURISTIC',
+      riskLevel: 'HIGH',
+      riskScore: 0,
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: CallSummaryScreen(call: detail),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('OFFLINE HEURISTIC'), findsOneWidget);
+    expect(find.text('HIGH'), findsWidgets);
+    expect(find.text('Offline Heuristic Assessment'), findsOneWidget);
+    expect(find.textContaining('Evaluated strictly on-device by deterministic safety rules'), findsOneWidget);
+  });
+
+  testWidgets('CallSummaryScreen retry button executes onRetry and updates summary', (tester) async {
+    var retried = false;
+    final initialDetail = _testDetail(
+      analysisStatus: 'INCOMPLETE',
+      riskScore: 0,
+      riskLevel: 'LOW',
+    );
+    final refreshedDetail = _testDetail(
+      analysisStatus: 'COMPLETED',
+      riskScore: 85,
+      riskLevel: 'CRITICAL',
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: CallSummaryScreen(
+          call: initialDetail,
+          onRetry: () async {
+            retried = true;
+            return refreshedDetail;
+          },
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Retry loading full summary'), findsOneWidget);
+    await tester.tap(find.text('Retry loading full summary'));
+    await tester.pumpAndSettle();
+
+    expect(retried, isTrue);
+    expect(find.text('CRITICAL RISK'), findsWidgets);
+    expect(find.text('85 / 100'), findsOneWidget);
+  });
 }
+

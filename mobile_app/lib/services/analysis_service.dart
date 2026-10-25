@@ -86,9 +86,12 @@ class AnalysisService {
 
   Future<AnalysisRecord> analyzeText(String content) async {
     final token = await _requireToken();
-    final response = await api.postJson('/analysis/text', {
-      'content': content,
-    }, token: token);
+    final response = await api.postJson(
+      '/analysis/text',
+      {'content': content},
+      token: token,
+      requestTimeout: const Duration(seconds: 60),
+    );
     return AnalysisRecord.fromJson(_asObject(response, 'Text analysis'));
   }
 
@@ -104,6 +107,7 @@ class AnalysisService {
       bytes: bytes,
       filename: filename,
       token: token,
+      requestTimeout: const Duration(seconds: 60),
     );
     return AnalysisRecord.fromJson(_asObject(response, 'File analysis'));
   }

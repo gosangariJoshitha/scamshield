@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../models/guardian_analysis_models.dart';
+import '../services/guardian_local_heuristic_engine.dart';
 import '../services/guardian_protection_service.dart';
 import '../services/guardian_transcription_service.dart';
 import 'guardian_protection_panel.dart';
@@ -247,6 +248,234 @@ class _GuardianLiveRiskCardState extends State<GuardianLiveRiskCard> {
     }
   }
 
+  String _formatTime(DateTime dt) {
+    final local = dt.toLocal();
+    final h = local.hour.toString().padLeft(2, '0');
+    final m = local.minute.toString().padLeft(2, '0');
+    final s = local.second.toString().padLeft(2, '0');
+    return '$h:$m:$s';
+  }
+
+  String _resolveSafeAction(GuardianLiveAnalysisResult result) {
+    final lang = result.language;
+    final actionsMap = result.safeActions;
+    if (actionsMap != null && lang != 'en') {
+      final translations = actionsMap['translations'];
+      if (translations is Map) {
+        final list = translations[lang];
+        if (list is List && list.isNotEmpty) {
+          final joined = list.whereType<String>().join('\n');
+          if (joined.isNotEmpty) return joined;
+        }
+      }
+    }
+    if (result.safeAction.isNotEmpty) {
+      return result.safeAction;
+    }
+    return 'Verify the caller independently through official public contacts before sharing any information.';
+  }
+
+  Widget _buildNetworkStatusBadge(
+    GuardianNetworkStatus status,
+    ThemeData theme,
+    ColorScheme colors,
+  ) {
+    IconData icon;
+    String label;
+    Color badgeColor;
+
+    switch (status) {
+      case GuardianNetworkStatus.noNetwork:
+        icon = Icons.wifi_off_rounded;
+        label = 'No Internet';
+        badgeColor = colors.error;
+        break;
+      case GuardianNetworkStatus.backendUnreachable:
+        icon = Icons.cloud_off_rounded;
+        label = 'Backend Unreachable';
+        badgeColor = const Color(0xFFE65100);
+        break;
+      case GuardianNetworkStatus.analysisFailed:
+        icon = Icons.error_outline_rounded;
+        label = 'Analysis Failed';
+        badgeColor = colors.error;
+        break;
+      case GuardianNetworkStatus.online:
+        icon = Icons.cloud_done_rounded;
+        label = 'Online';
+        badgeColor = const Color(0xFF2E7D32);
+        break;
+      case GuardianNetworkStatus.unknown:
+        icon = Icons.help_outline_rounded;
+        label = 'Checking';
+        badgeColor = colors.onSurfaceVariant;
+        break;
+    }
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+      decoration: BoxDecoration(
+        color: badgeColor.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(6),
+        border: Border.all(color: badgeColor.withValues(alpha: 0.3)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 12, color: badgeColor),
+          const SizedBox(width: 4),
+          Text(
+            label,
+            style: theme.textTheme.labelSmall?.copyWith(
+              color: badgeColor,
+              fontWeight: FontWeight.w700,
+              fontSize: 10,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildLocalHeuristicSection({
+    required GuardianLocalHeuristicResult? heuristic,
+    required ThemeData theme,
+    required ColorScheme colors,
+    required bool isDark,
+  }) {
+    if (heuristic == null) return const SizedBox.shrink();
+
+    final hasMatches = heuristic.hasMatches;
+    final alertColor =
+        hasMatches ? const Color(0xFFD32F2F) : colors.outlineVariant;
+    final bgColor = hasMatches
+        ? (isDark ? const Color(0xFF381212) : const Color(0xFFFFEBEE))
+        : (isDark
+            ? const Color(0xFF1E1E1E)
+            : colors.surfaceContainerHighest.withValues(alpha: 0.4));
+
+    return Container(
+      margin: const EdgeInsets.only(top: 10),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: bgColor,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: alertColor.withValues(alpha: hasMatches ? 0.6 : 0.4),
+          width: hasMatches ? 1.5 : 1.0,
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(
+                hasMatches
+                    ? Icons.warning_amber_rounded
+                    : Icons.info_outline_rounded,
+                size: 16,
+                color: hasMatches ? alertColor : colors.onSurfaceVariant,
+              ),
+              const SizedBox(width: 6),
+              Text(
+                'LOCAL HEURISTIC — OFFLINE',
+                style: theme.textTheme.labelSmall?.copyWith(
+                  color: hasMatches ? alertColor : colors.onSurfaceVariant,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: 0.5,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          if (hasMatches) ...[
+            Text(
+              heuristic.warningHeadline,
+              style: theme.textTheme.bodySmall?.copyWith(
+                fontWeight: FontWeight.w700,
+                color: alertColor,
+              ),
+            ),
+            if (heuristic.matchedPhrases.isNotEmpty) ...[
+              const SizedBox(height: 6),
+              Wrap(
+                spacing: 6,
+                runSpacing: 4,
+                children: heuristic.matchedPhrases.map((phrase) {
+                  return Container(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: alertColor.withValues(alpha: 0.15),
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                    child: Text(
+                      '"$phrase"',
+                      style: theme.textTheme.labelSmall?.copyWith(
+                        color: alertColor,
+                        fontSize: 10,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  );
+                }).toList(),
+              ),
+            ],
+            const SizedBox(height: 8),
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: colors.surface.withValues(alpha: 0.5),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Icon(Icons.shield_outlined, size: 14, color: alertColor),
+                  const SizedBox(width: 6),
+                  Expanded(
+                    child: Text(
+                      heuristic.safeAction,
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 6),
+            Text(
+              'Local heuristic evaluation on device. Does not include AI reasoning or RAG verification.',
+              style: theme.textTheme.labelSmall?.copyWith(
+                fontSize: 9,
+                color: colors.onSurfaceVariant.withValues(alpha: 0.7),
+              ),
+            ),
+          ] else ...[
+            Text(
+              GuardianLocalHeuristicResult.noMatchNotice,
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: colors.onSurfaceVariant,
+                fontStyle: FontStyle.italic,
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              'Full AI analysis requires backend connectivity.',
+              style: theme.textTheme.labelSmall?.copyWith(
+                fontSize: 10,
+                color: colors.onSurfaceVariant.withValues(alpha: 0.7),
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -352,6 +581,14 @@ class _GuardianLiveRiskCardState extends State<GuardianLiveRiskCard> {
 
     // 3. Unavailable or Error State (when no previous result exists)
     if (result == null && (state == 'AI_UNAVAILABLE' || state == 'AI_ERROR')) {
+      final netStatus =
+          snapshot?.networkStatus ?? GuardianNetworkStatus.unknown;
+      final title = netStatus == GuardianNetworkStatus.noNetwork
+          ? 'Offline — No Internet Connection'
+          : netStatus == GuardianNetworkStatus.backendUnreachable
+              ? 'Offline — Backend Unreachable'
+              : 'Live AI Analysis Unavailable';
+
       return Container(
         width: double.infinity,
         padding: const EdgeInsets.all(14),
@@ -360,44 +597,85 @@ class _GuardianLiveRiskCardState extends State<GuardianLiveRiskCard> {
           borderRadius: BorderRadius.circular(14),
           border: Border.all(color: colors.error.withValues(alpha: 0.3)),
         ),
-        child: Row(
+        child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Icon(Icons.info_outline, size: 20, color: colors.error),
-            const SizedBox(width: 10),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Live AI Analysis Unavailable',
-                    style: theme.textTheme.titleSmall?.copyWith(
-                      fontWeight: FontWeight.w700,
-                      color: colors.error,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    snapshot?.message ?? 'Live AI analysis is temporarily unavailable.',
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      color: colors.onSurfaceVariant,
-                    ),
-                  ),
-                  if (widget.onRetryAnalysis != null) ...[
-                    const SizedBox(height: 8),
-                    TextButton.icon(
-                      onPressed: widget.onRetryAnalysis,
-                      icon: const Icon(Icons.refresh_rounded, size: 16),
-                      label: const Text('Retry analysis'),
-                      style: TextButton.styleFrom(
-                        padding: EdgeInsets.zero,
-                        visualDensity: VisualDensity.compact,
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Icon(
+                  netStatus == GuardianNetworkStatus.noNetwork
+                      ? Icons.wifi_off_rounded
+                      : netStatus == GuardianNetworkStatus.backendUnreachable
+                          ? Icons.cloud_off_rounded
+                          : Icons.info_outline,
+                  size: 20,
+                  color: colors.error,
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        title,
+                        style: theme.textTheme.titleSmall?.copyWith(
+                          fontWeight: FontWeight.w700,
+                          color: colors.error,
+                        ),
                       ),
-                    ),
-                  ],
-                ],
-              ),
+                      const SizedBox(height: 4),
+                      Text(
+                        snapshot?.message ??
+                            'Live AI analysis is temporarily unavailable. Full AI reasoning requires backend connectivity.',
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: colors.onSurfaceVariant,
+                        ),
+                      ),
+                      if (snapshot?.queuedCount != null &&
+                          snapshot!.queuedCount > 0) ...[
+                        const SizedBox(height: 4),
+                        Text(
+                          '${snapshot.queuedCount} analysis request(s) queued for reconnection.',
+                          style: theme.textTheme.labelSmall?.copyWith(
+                            color: colors.primary,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 6),
+                _buildNetworkStatusBadge(netStatus, theme, colors),
+              ],
             ),
+            if (snapshot?.localHeuristicResult != null) ...[
+              _buildLocalHeuristicSection(
+                heuristic: snapshot!.localHeuristicResult,
+                theme: theme,
+                colors: colors,
+                isDark: isDark,
+              ),
+            ],
+            if (widget.onRetryAnalysis != null) ...[
+              const SizedBox(height: 10),
+              Align(
+                alignment: Alignment.centerRight,
+                child: TextButton.icon(
+                  onPressed: widget.onRetryAnalysis,
+                  icon: const Icon(Icons.refresh_rounded, size: 16),
+                  label: const Text('Retry analysis'),
+                  style: TextButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 2,
+                    ),
+                    visualDensity: VisualDensity.compact,
+                  ),
+                ),
+              ),
+            ],
           ],
         ),
       );
@@ -442,7 +720,58 @@ class _GuardianLiveRiskCardState extends State<GuardianLiveRiskCard> {
                   ),
                 ),
                 const Spacer(),
-                if (isAnalyzing && !isCallEnded) ...[
+                if ((state == 'AI_UNAVAILABLE' ||
+                        state == 'AI_ERROR' ||
+                        snapshot?.networkStatus ==
+                            GuardianNetworkStatus.noNetwork ||
+                        snapshot?.networkStatus ==
+                            GuardianNetworkStatus.backendUnreachable) &&
+                    !isCallEnded) ...[
+                  Icon(
+                    snapshot?.networkStatus == GuardianNetworkStatus.noNetwork
+                        ? Icons.wifi_off_rounded
+                        : Icons.cloud_off_rounded,
+                    size: 13,
+                    color: colors.error,
+                  ),
+                  const SizedBox(width: 4),
+                  Text(
+                    'Updates paused',
+                    style: theme.textTheme.labelSmall?.copyWith(
+                      color: colors.error,
+                      fontSize: 11,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  if (snapshot?.queuedCount != null &&
+                      snapshot!.queuedCount > 0) ...[
+                    const SizedBox(width: 4),
+                    Text(
+                      '(${snapshot.queuedCount} queued)',
+                      style: theme.textTheme.labelSmall?.copyWith(
+                        color: colors.onSurfaceVariant,
+                        fontSize: 10,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                  if (widget.onRetryAnalysis != null) ...[
+                    const SizedBox(width: 4),
+                    GestureDetector(
+                      onTap: widget.onRetryAnalysis,
+                      child: Text(
+                        'Retry',
+                        style: theme.textTheme.labelSmall?.copyWith(
+                          color: colors.primary,
+                          fontSize: 11,
+                          fontWeight: FontWeight.w700,
+                          decoration: TextDecoration.underline,
+                        ),
+                      ),
+                    ),
+                  ],
+                  const SizedBox(width: 8),
+                ] else if (isAnalyzing && !isCallEnded) ...[
                   SizedBox(
                     width: 12,
                     height: 12,
@@ -558,6 +887,66 @@ class _GuardianLiveRiskCardState extends State<GuardianLiveRiskCard> {
             ),
           ),
           const SizedBox(height: 12),
+          if ((state == 'AI_UNAVAILABLE' ||
+                  state == 'AI_ERROR' ||
+                  snapshot?.networkStatus == GuardianNetworkStatus.noNetwork ||
+                  snapshot?.networkStatus ==
+                      GuardianNetworkStatus.backendUnreachable) &&
+              !isCallEnded) ...[
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 14),
+              child: Container(
+                width: double.infinity,
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                decoration: BoxDecoration(
+                  color: colors.errorContainer.withValues(alpha: 0.35),
+                  borderRadius: BorderRadius.circular(8),
+                  border:
+                      Border.all(color: colors.error.withValues(alpha: 0.3)),
+                ),
+                child: Row(
+                  children: [
+                    Icon(
+                      snapshot?.networkStatus == GuardianNetworkStatus.noNetwork
+                          ? Icons.wifi_off_rounded
+                          : Icons.info_outline,
+                      size: 14,
+                      color: colors.error,
+                    ),
+                    const SizedBox(width: 6),
+                    Expanded(
+                      child: Text(
+                        snapshot?.networkStatus ==
+                                GuardianNetworkStatus.noNetwork
+                            ? 'Offline (no internet). Showing last confirmed assessment (potentially stale).'
+                            : snapshot?.networkStatus ==
+                                    GuardianNetworkStatus.backendUnreachable
+                                ? 'Backend unreachable. Showing last confirmed assessment (potentially stale).'
+                                : 'Live updates temporarily paused. Showing last confirmed assessment.',
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: colors.error,
+                          fontSize: 11,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            if (snapshot?.localHeuristicResult != null) ...[
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 14),
+                child: _buildLocalHeuristicSection(
+                  heuristic: snapshot!.localHeuristicResult,
+                  theme: theme,
+                  colors: colors,
+                  isDark: isDark,
+                ),
+              ),
+            ],
+            const SizedBox(height: 8),
+          ],
 
           // Live Warning Card (for MEDIUM, HIGH, CRITICAL)
           if (isMeaningfulRisk) ...[
@@ -702,17 +1091,16 @@ class _GuardianLiveRiskCardState extends State<GuardianLiveRiskCard> {
                           color: colors.onSurfaceVariant,
                         ),
                       ),
-                      if (result.supportingEvidence.isNotEmpty)
-                        GestureDetector(
-                          onTap: () => setState(() => _expandedEvidence = !_expandedEvidence),
-                          child: Text(
-                            _expandedEvidence ? 'Collapse' : 'Details >',
-                            style: theme.textTheme.labelSmall?.copyWith(
-                              color: colors.primary,
-                              fontWeight: FontWeight.w700,
-                            ),
+                      GestureDetector(
+                        onTap: () => setState(() => _expandedEvidence = !_expandedEvidence),
+                        child: Text(
+                          _expandedEvidence ? 'Collapse' : 'Details >',
+                          style: theme.textTheme.labelSmall?.copyWith(
+                            color: colors.primary,
+                            fontWeight: FontWeight.w700,
                           ),
                         ),
+                      ),
                     ],
                   ),
                   const SizedBox(height: 4),
@@ -726,45 +1114,102 @@ class _GuardianLiveRiskCardState extends State<GuardianLiveRiskCard> {
                   for (final ev in result.supportingEvidence.take(_expandedEvidence ? 5 : 2)) ...[
                     Container(
                       margin: const EdgeInsets.only(bottom: 5),
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
                       decoration: BoxDecoration(
                         color: colors.surface.withValues(alpha: 0.65),
                         borderRadius: BorderRadius.circular(6),
                         border: Border.all(color: colors.outlineVariant.withValues(alpha: 0.4)),
                       ),
-                      child: Row(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Icon(Icons.pattern_rounded, size: 14, color: riskColor),
-                          const SizedBox(width: 6),
-                          Expanded(
-                            child: Text(
-                              ev.title.isNotEmpty ? ev.title : ev.category,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: theme.textTheme.bodySmall?.copyWith(
-                                fontWeight: FontWeight.w600,
+                          Row(
+                            children: [
+                              Icon(Icons.pattern_rounded, size: 14, color: riskColor),
+                              const SizedBox(width: 6),
+                              Expanded(
+                                child: Text(
+                                  ev.title.isNotEmpty ? ev.title : ev.category,
+                                  maxLines: _expandedEvidence ? 2 : 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: theme.textTheme.bodySmall?.copyWith(
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
                               ),
-                            ),
-                          ),
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
-                            decoration: BoxDecoration(
-                              color: riskColor.withValues(alpha: 0.12),
-                              borderRadius: BorderRadius.circular(4),
-                            ),
-                            child: Text(
-                              '${(ev.similarityScore * 100).round()}% match',
-                              style: theme.textTheme.labelSmall?.copyWith(
-                                fontSize: 10,
-                                fontWeight: FontWeight.w700,
-                                color: riskColor,
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                                decoration: BoxDecoration(
+                                  color: riskColor.withValues(alpha: 0.12),
+                                  borderRadius: BorderRadius.circular(4),
+                                ),
+                                child: Text(
+                                  '${(ev.similarityScore * 100).round()}% match',
+                                  style: theme.textTheme.labelSmall?.copyWith(
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.w700,
+                                    color: riskColor,
+                                  ),
+                                ),
                               ),
-                            ),
+                            ],
                           ),
+                          if (_expandedEvidence && (ev.description.isNotEmpty || ev.source.isNotEmpty)) ...[
+                            const SizedBox(height: 4),
+                            if (ev.description.isNotEmpty)
+                              Text(
+                                ev.description,
+                                style: theme.textTheme.bodySmall?.copyWith(
+                                  color: colors.onSurfaceVariant,
+                                  fontSize: 11,
+                                  height: 1.3,
+                                ),
+                              ),
+                            if (ev.source.isNotEmpty) ...[
+                              const SizedBox(height: 2),
+                              Text(
+                                'Source: ${ev.source}',
+                                style: theme.textTheme.labelSmall?.copyWith(
+                                  color: colors.onSurfaceVariant.withValues(alpha: 0.7),
+                                  fontSize: 10,
+                                ),
+                              ),
+                            ],
+                          ],
                         ],
                       ),
                     ),
                   ],
+                  const SizedBox(height: 8),
+                ],
+              ),
+            ),
+          ] else ...[
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 14),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Supporting evidence',
+                    style: theme.textTheme.labelSmall?.copyWith(
+                      fontWeight: FontWeight.w700,
+                      color: colors.onSurfaceVariant,
+                    ),
+                  ),
+                  const SizedBox(height: 3),
+                  Text(
+                    result.evidenceStatus == 'RETRIEVAL_UNAVAILABLE'
+                        ? 'Advisory evidence retrieval is temporarily unavailable.'
+                        : isMeaningfulRisk
+                            ? 'No direct fraud advisory match found; assessment based on conversational and linguistic patterns.'
+                            : 'No known scam pattern matches found in current advisory knowledge base.',
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: colors.onSurfaceVariant,
+                      fontStyle: FontStyle.italic,
+                      fontSize: 11,
+                    ),
+                  ),
                   const SizedBox(height: 8),
                 ],
               ),
@@ -820,6 +1265,34 @@ class _GuardianLiveRiskCardState extends State<GuardianLiveRiskCard> {
             ),
           ],
 
+          // Analysis Verification & Timestamp
+          Padding(
+            padding: const EdgeInsets.fromLTRB(14, 0, 14, 6),
+            child: Row(
+              children: [
+                Icon(
+                  result.processingStatus == 'COMPLETED_WITH_LIMITATIONS'
+                      ? Icons.info_outline
+                      : Icons.check_circle_outline,
+                  size: 13,
+                  color: colors.onSurfaceVariant.withValues(alpha: 0.6),
+                ),
+                const SizedBox(width: 4),
+                Expanded(
+                  child: Text(
+                    result.processingStatus == 'COMPLETED_WITH_LIMITATIONS'
+                        ? 'Basic analysis (AI reasoning limited) · ${_formatTime(result.timestamp)}'
+                        : 'AI verified (${result.modelVersion.isNotEmpty ? result.modelVersion : 'v5'}) · ${_formatTime(result.timestamp)}',
+                    style: theme.textTheme.labelSmall?.copyWith(
+                      color: colors.onSurfaceVariant.withValues(alpha: 0.75),
+                      fontSize: 10,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+
           // Recommended Safe Guidance ("What you should do")
           if (result.safeAction.isNotEmpty) ...[
             Container(
@@ -854,7 +1327,7 @@ class _GuardianLiveRiskCardState extends State<GuardianLiveRiskCard> {
                         ),
                         const SizedBox(height: 2),
                         Text(
-                          result.safeAction,
+                          _resolveSafeAction(result),
                           style: theme.textTheme.bodySmall?.copyWith(
                             fontWeight: FontWeight.w600,
                             color: colors.onSurface,

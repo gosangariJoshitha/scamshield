@@ -186,4 +186,65 @@ void main() {
     await tester.pumpAndSettle();
     expect(openedGuardian, isTrue);
   });
+
+  testWidgets('HistoryScreen displays error state on call history failure and recovers on retry', (tester) async {
+    var attempt = 0;
+    final client = MockClient((request) async {
+      if (request.url.path.endsWith('/analysis/history')) {
+        return http.Response(jsonEncode([]), 200);
+      }
+      if (request.url.path.endsWith('/calls/history')) {
+        attempt++;
+        if (attempt == 1) {
+          return http.Response('Internal Server Error', 500);
+        }
+        return http.Response(
+          jsonEncode({
+            'items': [
+              _mockCallItem(id: 99, sessionId: 's-recovered', riskLevel: 'LOW', riskScore: 12),
+            ],
+            'total': 1,
+            'page': 1,
+            'limit': 20,
+            'has_next': false,
+          }),
+          200,
+        );
+      }
+      return http.Response('Not found', 404);
+    });
+
+    final api = ApiService(client: client, baseUri: Uri.parse('https://api.example.test/api'));
+    final analysisService = AnalysisService(api: api, tokenProvider: () async => 'token');
+    final callHistoryService = CallHistoryService(api: api, tokenProvider: () async => 'token');
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: HistoryScreen(
+            analysisService: analysisService,
+            callHistoryService: callHistoryService,
+            onSessionExpired: () async {},
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    // Switch to Calls tab
+    await tester.tap(find.text('Calls'));
+    await tester.pumpAndSettle();
+
+    // Verify error state
+    expect(find.text('Unable to load call history.'), findsOneWidget);
+    expect(find.text('Retry'), findsOneWidget);
+
+    // Tap retry button
+    await tester.tap(find.text('Retry'));
+    await tester.pumpAndSettle();
+
+    // Verify recovered state
+    expect(find.text('LOW RISK'), findsOneWidget);
+    expect(find.text('12/100'), findsOneWidget);
+  });
 }

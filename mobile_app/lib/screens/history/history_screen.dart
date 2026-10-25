@@ -123,6 +123,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
         MaterialPageRoute<void>(
           builder: (_) => CallSummaryScreen(
             call: detail,
+            callHistoryService: _callHistoryService,
             onBack: () => Navigator.of(context).pop(),
           ),
         ),
@@ -155,6 +156,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
         MaterialPageRoute<void>(
           builder: (_) => CallSummaryScreen(
             call: fallbackDetail,
+            callHistoryService: _callHistoryService,
             onBack: () => Navigator.of(context).pop(),
           ),
         ),

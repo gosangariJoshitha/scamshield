@@ -16,6 +16,7 @@ class TranscriptSegment {
     required this.isFinal,
     required this.language,
     required this.createdAt,
+    this.source = 'CALL_AUDIO',
   });
 
   final String sessionId;
@@ -27,6 +28,7 @@ class TranscriptSegment {
   final bool isFinal;
   final String language;
   final DateTime createdAt;
+  final String source;
 
   factory TranscriptSegment.fromJson(Map<String, dynamic> json) {
     final sessionId = json['session_id'];
@@ -38,6 +40,7 @@ class TranscriptSegment {
     final isFinal = json['is_final'];
     final language = json['language'];
     final createdAt = json['created_at'];
+    final source = json['source'];
     if (sessionId is! String ||
         segmentId is! String ||
         sequence is! int ||
@@ -65,6 +68,7 @@ class TranscriptSegment {
       isFinal: isFinal,
       language: language,
       createdAt: parsedCreatedAt,
+      source: source is String && source.isNotEmpty ? source : 'CALL_AUDIO',
     );
   }
 }
@@ -102,6 +106,7 @@ class GuardianTranscriptionService {
     );
   }
 
+  static const supportedSources = {'CALL_AUDIO', 'SPEAKERPHONE_AUDIO'};
   static const _maxQueuedChunks = 2;
   static const _maxRecentChunkIds = 256;
   static const _maxTranscriptSegments = 60;
@@ -158,11 +163,11 @@ class GuardianTranscriptionService {
 
   void setAudioSource(String source) {
     if (!_enabled || !_callActive) return;
-    if (source != 'CALL_AUDIO') {
+    if (!supportedSources.contains(source)) {
       _queue.clear();
       _setState(
         'TRANSCRIPTION_UNAVAILABLE',
-        "Live transcription isn't available for this call on this device.",
+        "Live transcription isn't available for this audio source ($source). Enable speakerphone to protect this call.",
       );
     }
   }
@@ -250,7 +255,7 @@ class GuardianTranscriptionService {
   void _acceptChunk(GuardianAudioChunk chunk) {
     if (_disposed || !_enabled || !_callActive) return;
     if (_sessionId != chunk.sessionId) return;
-    if (chunk.source != 'CALL_AUDIO') {
+    if (!supportedSources.contains(chunk.source)) {
       setAudioSource(chunk.source);
       return;
     }
@@ -334,7 +339,21 @@ class GuardianTranscriptionService {
           final parsedSegments =
               (response['segments'] as List)
                   .whereType<Map<String, dynamic>>()
-                  .map(TranscriptSegment.fromJson)
+                  .map((item) {
+                    final segment = TranscriptSegment.fromJson(item);
+                    return TranscriptSegment(
+                      sessionId: segment.sessionId,
+                      segmentId: segment.segmentId,
+                      sequence: segment.sequence,
+                      startTime: segment.startTime,
+                      endTime: segment.endTime,
+                      text: segment.text,
+                      isFinal: segment.isFinal,
+                      language: segment.language,
+                      createdAt: segment.createdAt,
+                      source: chunk.source,
+                    );
+                  })
                   .toList(growable: false)
                 ..sort((a, b) {
                   final sequenceOrder = a.sequence.compareTo(b.sequence);

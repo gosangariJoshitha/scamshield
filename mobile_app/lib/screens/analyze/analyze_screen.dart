@@ -156,8 +156,7 @@ class _AnalyzeScreenState extends State<AnalyzeScreen> {
       }
       if (mounted) {
         setState(
-          () =>
-              _error = 'We couldn’t complete this analysis. Please try again.',
+          () => _error = error.message,
         );
       }
     } catch (_) {

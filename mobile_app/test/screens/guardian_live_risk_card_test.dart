@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:scamshield_guardian/models/guardian_analysis_models.dart';
+import 'package:scamshield_guardian/services/guardian_local_heuristic_engine.dart';
 import 'package:scamshield_guardian/services/guardian_transcription_service.dart';
 import 'package:scamshield_guardian/widgets/guardian_live_risk_card.dart';
 
@@ -403,4 +404,404 @@ void main() {
     await tester.pump();
     expect(dismissed, isTrue);
   });
+
+  testWidgets('renders updates paused badge with retry option when previous result exists but updates fail', (
+    tester,
+  ) async {
+    var retried = false;
+    final result = GuardianLiveAnalysisResult(
+      riskScore: 65,
+      riskLevel: 'HIGH',
+      classification: 'SUSPICIOUS',
+      scamCategory: 'KYC Update',
+      detectedIndicators: ['Urgency'],
+      reasoning: 'Caller asks to update KYC immediately.',
+      supportingEvidence: const [],
+      mlProbability: 0.70,
+      llmConfidence: 0.75,
+      safeAction: 'Do not click unknown links.',
+      safeActions: null,
+      timestamp: DateTime.utc(2026, 10, 7, 14, 30),
+      sessionId: '00000000-0000-4000-8000-000000000014',
+      language: 'en',
+      evidenceStatus: 'NO_RELEVANT_MATCH',
+      processingStatus: 'COMPLETED',
+      modelVersion: 'scamshield-classifier-v5',
+      ragVersion: 'scamshield-rag-v1',
+      timingsMs: const {},
+    );
+
+    final snapshot = GuardianLiveAnalysisSnapshot(
+      state: 'AI_UNAVAILABLE',
+      message: 'Live AI analysis is temporarily unavailable.',
+      result: result,
+      lastAnalyzedSequence: 2,
+      isAnalyzing: false,
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: GuardianLiveRiskCard(
+            snapshot: snapshot,
+            onRetryAnalysis: () => retried = true,
+          ),
+        ),
+      ),
+    );
+
+    expect(find.text('65'), findsOneWidget);
+    expect(find.text('Updates paused'), findsOneWidget);
+    expect(find.text('Retry'), findsOneWidget);
+    expect(
+      find.text('Live updates temporarily paused. Showing last confirmed assessment.'),
+      findsOneWidget,
+    );
+
+    await tester.tap(find.text('Retry'));
+    await tester.pump();
+    expect(retried, isTrue);
+  });
+
+  testWidgets('renders expanded supporting evidence description and source', (
+    tester,
+  ) async {
+    final result = GuardianLiveAnalysisResult(
+      riskScore: 90,
+      riskLevel: 'CRITICAL',
+      classification: 'SCAM',
+      scamCategory: 'Police Impersonation',
+      detectedIndicators: ['Arrest threat'],
+      reasoning: 'Impersonating police and threatening digital arrest.',
+      supportingEvidence: [
+        GuardianRetrievedEvidence(
+          knowledgeId: 101,
+          title: 'Digital Arrest Scam Advisory',
+          category: 'impersonation',
+          similarityScore: 0.94,
+          pattern: 'Threatens digital arrest via video call',
+          description: 'Cyber criminals impersonate law enforcement and demand immediate money transfer.',
+          indicators: ['Arrest threat', 'Money transfer'],
+          safeAction: 'Law enforcement never conducts digital arrests via phone.',
+          source: 'Indian Cyber Crime Coordination Centre (I4C)',
+          language: 'en',
+        ),
+      ],
+      mlProbability: 0.98,
+      llmConfidence: 0.95,
+      safeAction: 'Disconnect call immediately.',
+      safeActions: null,
+      timestamp: DateTime.utc(2026, 10, 7),
+      sessionId: '00000000-0000-4000-8000-000000000015',
+      language: 'en',
+      evidenceStatus: 'MATCH_FOUND',
+      processingStatus: 'COMPLETED',
+      modelVersion: 'scamshield-classifier-v5',
+      ragVersion: 'scamshield-rag-v1',
+      timingsMs: const {},
+    );
+
+    final snapshot = GuardianLiveAnalysisSnapshot(
+      state: 'AI_RESULT_READY',
+      message: 'Analysis ready.',
+      result: result,
+      lastAnalyzedSequence: 1,
+      isAnalyzing: false,
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: GuardianLiveRiskCard(snapshot: snapshot),
+        ),
+      ),
+    );
+
+    // Initial collapsed state
+    expect(find.text('Digital Arrest Scam Advisory'), findsOneWidget);
+    expect(find.text('Details >'), findsOneWidget);
+    expect(find.textContaining('Cyber criminals impersonate law enforcement'), findsNothing);
+
+    // Tap Details > to expand
+    await tester.tap(find.text('Details >'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Collapse'), findsOneWidget);
+    expect(find.textContaining('Cyber criminals impersonate law enforcement'), findsOneWidget);
+    expect(find.textContaining('Source: Indian Cyber Crime Coordination Centre (I4C)'), findsOneWidget);
+  });
+
+  testWidgets('renders honest explanation when evidence retrieval is unavailable', (
+    tester,
+  ) async {
+    final result = GuardianLiveAnalysisResult(
+      riskScore: 70,
+      riskLevel: 'HIGH',
+      classification: 'SUSPICIOUS',
+      scamCategory: 'Prize Lottery',
+      detectedIndicators: ['Urgency'],
+      reasoning: 'Lottery win claims.',
+      supportingEvidence: const [],
+      mlProbability: 0.75,
+      llmConfidence: null,
+      safeAction: 'Do not pay fees to claim prizes.',
+      safeActions: null,
+      timestamp: DateTime.utc(2026, 10, 7),
+      sessionId: '00000000-0000-4000-8000-000000000016',
+      language: 'en',
+      evidenceStatus: 'RETRIEVAL_UNAVAILABLE',
+      processingStatus: 'COMPLETED_WITH_LIMITATIONS',
+      modelVersion: 'scamshield-classifier-v5',
+      ragVersion: 'scamshield-rag-v1',
+      timingsMs: const {},
+    );
+
+    final snapshot = GuardianLiveAnalysisSnapshot(
+      state: 'AI_RESULT_READY',
+      message: 'Analysis ready.',
+      result: result,
+      lastAnalyzedSequence: 1,
+      isAnalyzing: false,
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: GuardianLiveRiskCard(snapshot: snapshot),
+        ),
+      ),
+    );
+
+    expect(
+      find.text('Advisory evidence retrieval is temporarily unavailable.'),
+      findsOneWidget,
+    );
+    expect(
+      find.textContaining('Basic analysis (AI reasoning limited)'),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets('resolves multilingual safe action when translations match detected language', (
+    tester,
+  ) async {
+    final result = GuardianLiveAnalysisResult(
+      riskScore: 85,
+      riskLevel: 'CRITICAL',
+      classification: 'SCAM',
+      scamCategory: 'OTP/Verification',
+      detectedIndicators: ['OTP'],
+      reasoning: 'Caller asks for OTP.',
+      supportingEvidence: const [],
+      mlProbability: 0.90,
+      llmConfidence: 0.90,
+      safeAction: 'Do not share your OTP with anyone.',
+      safeActions: const {
+        'canonical': ['Do not share your OTP with anyone.'],
+        'translations': {
+          'hi': ['किसी के साथ अपना ओटीपी साझा न करें।'],
+          'te': ['ఎవరితోనూ మీ ఓటీపీని పంచుకోవద్దు.'],
+        },
+      },
+      timestamp: DateTime.utc(2026, 10, 7),
+      sessionId: '00000000-0000-4000-8000-000000000017',
+      language: 'te',
+      evidenceStatus: 'NO_RELEVANT_MATCH',
+      processingStatus: 'COMPLETED',
+      modelVersion: 'scamshield-classifier-v5',
+      ragVersion: 'scamshield-rag-v1',
+      timingsMs: const {},
+    );
+
+    final snapshot = GuardianLiveAnalysisSnapshot(
+      state: 'AI_RESULT_READY',
+      message: 'Analysis ready.',
+      result: result,
+      lastAnalyzedSequence: 1,
+      isAnalyzing: false,
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: GuardianLiveRiskCard(snapshot: snapshot),
+        ),
+      ),
+    );
+
+    // Should display Telugu translation
+    expect(find.text('ఎవరితోనూ మీ ఓటీపీని పంచుకోవద్దు.'), findsOneWidget);
+  });
+
+  testWidgets(
+      'renders offline no-network state with network status badge and queued count',
+      (tester) async {
+    const snapshot = GuardianLiveAnalysisSnapshot(
+      state: 'AI_ERROR',
+      message: 'Network connection failed.',
+      result: null,
+      lastAnalyzedSequence: 0,
+      isAnalyzing: false,
+      networkStatus: GuardianNetworkStatus.noNetwork,
+      queuedCount: 2,
+    );
+
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: Scaffold(
+          body: GuardianLiveRiskCard(snapshot: snapshot),
+        ),
+      ),
+    );
+
+    expect(find.text('Offline — No Internet Connection'), findsOneWidget);
+    expect(find.text('No Internet'), findsOneWidget);
+    expect(
+      find.text('2 analysis request(s) queued for reconnection.'),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets(
+      'renders local heuristic warning when rule matched during offline state',
+      (tester) async {
+    final heuristic = GuardianLocalHeuristicResult(
+      matchedRules: const [GuardianLocalHeuristicEngine.ruleRemoteAccessTool],
+      matchedPhrases: const ['anydesk'],
+      warningHeadline: 'Urgent: Screen-sharing application installation requested',
+      safeAction:
+          'Never install AnyDesk, TeamViewer, or remote access apps on instructions from unknown callers.',
+      evaluatedAt: DateTime.utc(2026, 10, 7),
+      engineVersion: '1.0.0',
+      hasMatches: true,
+    );
+
+    final snapshot = GuardianLiveAnalysisSnapshot(
+      state: 'AI_UNAVAILABLE',
+      message: 'Backend unreachable.',
+      result: null,
+      lastAnalyzedSequence: 0,
+      isAnalyzing: false,
+      networkStatus: GuardianNetworkStatus.backendUnreachable,
+      localHeuristicResult: heuristic,
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: GuardianLiveRiskCard(snapshot: snapshot),
+        ),
+      ),
+    );
+
+    expect(find.text('LOCAL HEURISTIC — OFFLINE'), findsOneWidget);
+    expect(find.text('"anydesk"'), findsOneWidget);
+    expect(
+      find.textContaining('Never install AnyDesk'),
+      findsOneWidget,
+    );
+    expect(
+      find.textContaining('Does not include AI reasoning'),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets(
+      'renders honest no-match notice when offline and no local rule matches',
+      (tester) async {
+    final heuristic = GuardianLocalHeuristicResult(
+      matchedRules: const [],
+      matchedPhrases: const [],
+      warningHeadline: 'No local rule matched.',
+      safeAction: GuardianLocalHeuristicResult.noMatchNotice,
+      evaluatedAt: DateTime.utc(2026, 10, 7),
+      engineVersion: '1.0.0',
+      hasMatches: false,
+    );
+
+    final snapshot = GuardianLiveAnalysisSnapshot(
+      state: 'AI_UNAVAILABLE',
+      message: 'Backend unreachable.',
+      result: null,
+      lastAnalyzedSequence: 0,
+      isAnalyzing: false,
+      networkStatus: GuardianNetworkStatus.backendUnreachable,
+      localHeuristicResult: heuristic,
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: GuardianLiveRiskCard(snapshot: snapshot),
+        ),
+      ),
+    );
+
+    expect(find.text('LOCAL HEURISTIC — OFFLINE'), findsOneWidget);
+    expect(
+      find.text('No local rule matched. This does not establish that the conversation is safe.'),
+      findsOneWidget,
+    );
+    expect(
+      find.text('Full AI analysis requires backend connectivity.'),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets(
+      'preserves previous online result with stale warning and local heuristic alert',
+      (tester) async {
+    final result = GuardianLiveAnalysisResult(
+      riskScore: 78,
+      riskLevel: 'HIGH',
+      classification: 'SCAM',
+      scamCategory: 'Govt Impersonation',
+      detectedIndicators: ['Intimidation'],
+      reasoning: 'Impersonates customs authority.',
+      supportingEvidence: const [],
+      mlProbability: 0.88,
+      llmConfidence: 0.85,
+      safeAction: 'Do not transfer funds.',
+      safeActions: null,
+      timestamp: DateTime.utc(2026, 10, 7),
+      sessionId: '00000000-0000-4000-8000-000000000018',
+      language: 'en',
+      evidenceStatus: 'NO_RELEVANT_MATCH',
+      processingStatus: 'COMPLETED',
+      modelVersion: 'scamshield-classifier-v5',
+      ragVersion: 'scamshield-rag-v1',
+      timingsMs: const {},
+    );
+
+    final snapshot = GuardianLiveAnalysisSnapshot(
+      state: 'AI_UNAVAILABLE',
+      message: 'Network offline.',
+      result: result,
+      lastAnalyzedSequence: 2,
+      isAnalyzing: false,
+      networkStatus: GuardianNetworkStatus.backendUnreachable,
+      queuedCount: 1,
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: GuardianLiveRiskCard(snapshot: snapshot),
+        ),
+      ),
+    );
+
+    // Risk score 78 preserved
+    expect(find.text('78'), findsOneWidget);
+    expect(find.text('HIGH RISK'), findsOneWidget);
+
+    // Stale & updates paused indicators rendered
+    expect(find.text('Updates paused'), findsOneWidget);
+    expect(find.text('(1 queued)'), findsOneWidget);
+    expect(
+      find.textContaining('Backend unreachable. Showing last confirmed assessment (potentially stale).'),
+      findsOneWidget,
+    );
+  });
 }
+
