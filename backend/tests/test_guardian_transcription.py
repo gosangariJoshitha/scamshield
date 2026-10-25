@@ -113,6 +113,29 @@ class GuardianTranscriptionApiTests(unittest.TestCase):
             0,
         )
 
+    def test_speakerphone_audio_source_is_accepted_for_whisper(self):
+        segment = TranscriptionSegment(
+            segment_id=f"{self.chunk_id}:0",
+            sequence=1,
+            start_time=0.5,
+            end_time=3.0,
+            text="Speakerphone acoustic speech.",
+            is_final=True,
+            language="en",
+            created_at=datetime(2026, 10, 7, tzinfo=timezone.utc),
+        )
+        with patch(
+            "guardian_transcription.audio_service.transcribe_pcm_chunk",
+            return_value=[segment],
+        ) as transcribe:
+            response = self._post_chunk(source="SPEAKERPHONE_AUDIO")
+
+        self.assertEqual(response.status_code, 200)
+        body = response.json()
+        self.assertEqual(len(body["segments"]), 1)
+        self.assertEqual(body["segments"][0]["text"], "Speakerphone acoustic speech.")
+        transcribe.assert_called_once()
+
     def test_duplicate_chunk_returns_cached_transcript_without_retranscribing(self):
         segment = TranscriptionSegment(
             segment_id=f"{self.chunk_id}:0",

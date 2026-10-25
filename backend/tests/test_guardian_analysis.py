@@ -163,6 +163,23 @@ class GuardianAnalysisApiTests(unittest.TestCase):
         self.assertEqual(response.status_code, 422)
         analyze.assert_not_awaited()
 
+    def test_speakerphone_audio_source_is_accepted_for_analysis(self):
+        with patch(
+            "guardian_analysis.analyze_text_core",
+            new_callable=AsyncMock,
+            return_value=self._core_result(),
+        ) as analyze:
+            response = self.client.post(
+                "/api/guardian/analysis/segment",
+                json=self._segment(source="SPEAKERPHONE_AUDIO"),
+            )
+
+        self.assertEqual(response.status_code, 200)
+        body = response.json()
+        self.assertEqual(body["status"], "AI_RESULT_READY")
+        self.assertEqual(body["result"]["classification"], "SCAM")
+        analyze.assert_awaited_once()
+
     def test_pipeline_failure_returns_unavailable_without_text(self):
         with patch(
             "guardian_analysis.analyze_text_core",

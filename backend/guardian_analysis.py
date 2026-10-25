@@ -20,6 +20,7 @@ from auth import get_current_verified_user
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/guardian/analysis", tags=["guardian"])
+SUPPORTED_AUDIO_SOURCES = {"CALL_AUDIO", "SPEAKERPHONE_AUDIO"}
 
 
 async def analyze_text_core(*args, **kwargs):
@@ -288,7 +289,7 @@ def _result_payload(
     result = schemas.GuardianLiveAnalysisResult(
         risk_score=risk["risk_score"],
         risk_level=risk["risk_level"],
-        classification=core_result.ml_result["classification"].upper(),
+        classification=getattr(core_result, "classification", core_result.ml_result["classification"]).upper(),
         scam_category=core_result.category,
         detected_indicators=core_result.final_indicators,
         reasoning=reasoning,
@@ -434,7 +435,7 @@ async def analyze_guardian_transcript_segment(
     current_user: models.User = Depends(get_current_verified_user),
 ):
     rate_limit_analysis(request, current_user=current_user)
-    if payload.source != "CALL_AUDIO":
+    if payload.source not in SUPPORTED_AUDIO_SOURCES:
         raise HTTPException(
             status_code=422,
             detail="Live AI analysis is unavailable for this audio source.",

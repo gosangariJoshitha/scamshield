@@ -1,6 +1,6 @@
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { FileText, Image as ImageIcon, File, Mic, Trash2, Search, Lock, Mail, Link as LinkIcon, MessageSquare, Briefcase, Phone, Smartphone, AlertTriangle } from 'lucide-react';
+import { FileText, Image as ImageIcon, File, Mic, Trash2, Search, Lock, Mail, Link as LinkIcon, MessageSquare, Briefcase, Phone, Smartphone, AlertTriangle, Loader2, RefreshCw, XCircle } from 'lucide-react';
 import { api } from '../services/api';
 
 const MAX_UPLOAD_BYTES = 50 * 1024 * 1024;
@@ -13,30 +13,73 @@ export default function Analyze() {
   const [emailData, setEmailData] = useState({ subject: '', sender: '', body: '' });
   const [file, setFile] = useState<File | null>(null);
   const [loading, setLoading] = useState(false);
+  const [elapsedSeconds, setElapsedSeconds] = useState(0);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const abortControllerRef = useRef<AbortController | null>(null);
   const navigate = useNavigate();
 
+  useEffect(() => {
+    let interval: any;
+    if (loading) {
+      interval = setInterval(() => {
+        setElapsedSeconds((prev) => prev + 1);
+      }, 1000);
+    } else {
+      setElapsedSeconds(0);
+    }
+    return () => {
+      if (interval) clearInterval(interval);
+    };
+  }, [loading]);
+
   const selectType = (nextType: string) => {
+    if (loading) return;
     setType(nextType);
     setFile(null);
+    setErrorMessage(null);
+  };
+
+  const handleCancel = () => {
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+      abortControllerRef.current = null;
+    }
+    setLoading(false);
+    setErrorMessage('Analysis was cancelled by user.');
+  };
+
+  const getAnalysisStage = (seconds: number) => {
+    if (seconds < 3) return 'Connecting to ScamShield AI engine...';
+    if (seconds < 8) return 'Running ML classifier and RAG vector search...';
+    if (seconds < 20) return 'Synthesizing AI reasoning and safe actions...';
+    return 'Inference underway. Backend may be warming up, please hold on...';
   };
 
   const handleAnalyze = async () => {
+    if (loading) return; // Prevent duplicate submissions
     if (type === 'text' && !text.trim()) return;
     if (type === 'email' && !emailData.body.trim() && !emailData.subject.trim()) return;
     if ((type === 'image' || type === 'pdf' || type === 'audio') && !file) return;
     
+    setErrorMessage(null);
     setLoading(true);
+    setElapsedSeconds(0);
+
+    const controller = new AbortController();
+    abortControllerRef.current = controller;
+
     try {
       let res;
       if (type === 'text') {
-        res = await api.post('/analysis/text', { content: text });
+        res = await api.post('/analysis/text', { content: text }, { signal: controller.signal });
       } else if (type === 'email') {
-        res = await api.post('/analysis/email', emailData);
+        res = await api.post('/analysis/email', emailData, { signal: controller.signal });
       } else {
         const formData = new FormData();
         formData.append('file', file as File);
         if (type === 'image') formData.append('language', ocrLanguage);
         res = await api.post(`/analysis/${type}`, formData, {
+          signal: controller.signal,
           headers: {
             'Content-Type': 'multipart/form-data'
           }
@@ -44,6 +87,10 @@ export default function Analyze() {
       }
       navigate(`/results/${res.data.id}`, { state: { result: res.data, from: '/analyze', analysisCreated: true } });
     } catch (err: any) {
+      if (controller.signal.aborted) {
+        setErrorMessage('Analysis was cancelled.');
+        return;
+      }
       console.error(err);
       if (
         err.response?.status === 403
@@ -53,9 +100,11 @@ export default function Analyze() {
         navigate('/verify-email');
         return;
       }
-      alert(err.response?.data?.detail || "An error occurred during analysis.");
+      const detail = err.response?.data?.detail || err.message || "An error occurred during analysis.";
+      setErrorMessage(detail);
     } finally {
       setLoading(false);
+      abortControllerRef.current = null;
     }
   };
 
@@ -148,6 +197,70 @@ export default function Analyze() {
         {/* Main Work Area */}
         <div className="@content-lg:col-span-8 space-y-6">
           <div className="bg-card rounded-2xl shadow-sm border border-border-light p-6">
+
+            {/* Error Banner with Retry */}
+            {errorMessage && (
+              <div className="p-4 rounded-xl border border-danger/30 bg-danger/10 text-danger flex items-start justify-between space-x-3 mb-6" role="alert">
+                <div className="flex items-start space-x-3">
+                  <AlertTriangle className="w-5 h-5 mt-0.5 shrink-0 text-danger" />
+                  <div>
+                    <h4 className="font-bold text-sm">Analysis Could Not Complete</h4>
+                    <p className="text-sm mt-0.5 opacity-90">{errorMessage}</p>
+                  </div>
+                </div>
+                <div className="flex items-center space-x-2 shrink-0">
+                  <button
+                    onClick={handleAnalyze}
+                    disabled={loading}
+                    className="px-3 py-1.5 bg-danger text-white rounded-lg text-xs font-bold hover:bg-danger/90 transition flex items-center space-x-1"
+                  >
+                    <RefreshCw className="w-3.5 h-3.5" />
+                    <span>Retry</span>
+                  </button>
+                  <button
+                    onClick={() => setErrorMessage(null)}
+                    className="p-1 hover:bg-danger/20 rounded-lg text-danger transition"
+                    aria-label="Dismiss error"
+                  >
+                    <XCircle className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* Live Progress Card */}
+            {loading && (
+              <div className="p-5 rounded-2xl border border-primary/30 bg-primary/5 space-y-3 mb-6" role="status">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center space-x-3">
+                    <div className="w-8 h-8 rounded-full bg-primary/20 flex items-center justify-center text-primary">
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                    </div>
+                    <div>
+                      <p className="text-sm font-bold text-text-main">{getAnalysisStage(elapsedSeconds)}</p>
+                      <p className="text-xs text-text-muted">Analyzing content with trained models and knowledge base</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center space-x-3">
+                    <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-primary/10 text-primary border border-primary/20">
+                      {elapsedSeconds}s
+                    </span>
+                    <button
+                      onClick={handleCancel}
+                      className="text-xs text-text-muted hover:text-danger border border-border-light hover:border-danger/40 px-3 py-1 rounded-lg transition"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+                <div className="w-full bg-border-light h-1.5 rounded-full overflow-hidden">
+                  <div
+                    className="bg-primary h-full transition-all duration-1000"
+                    style={{ width: `${Math.min(95, 15 + elapsedSeconds * 4)}%` }}
+                  />
+                </div>
+              </div>
+            )}
             
             {type === 'text' && (
               <>
@@ -160,6 +273,7 @@ export default function Analyze() {
                   maxLength={10000}
                   value={text}
                   onChange={(e) => setText(e.target.value)}
+                  disabled={loading}
                 ></textarea>
                 
                 <div className="flex justify-between items-center mb-6">
@@ -169,7 +283,7 @@ export default function Analyze() {
                   <button 
                     onClick={() => setText('')}
                     className="flex items-center space-x-1.5 text-sm font-bold text-primary hover:text-blue-700 transition disabled:opacity-50"
-                    disabled={!text}
+                    disabled={!text || loading}
                   >
                     <Trash2 className="w-3.5 h-3.5" />
                     <span>Clear</span>
@@ -178,11 +292,20 @@ export default function Analyze() {
                 
                 <button 
                   onClick={handleAnalyze} 
-                  disabled={!text || loading}
+                  disabled={!text.trim() || loading}
                   className="bg-primary hover:bg-primary-hover text-white font-bold py-3 px-8 rounded-xl shadow-md shadow-primary/20 transition-all disabled:opacity-50 text-base flex items-center space-x-2"
                 >
-                  <Search className="w-4 h-4" />
-                  <span>{loading ? 'Analyzing...' : 'Analyze'}</span>
+                  {loading ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      <span>Analyzing ({elapsedSeconds}s)...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Search className="w-4 h-4" />
+                      <span>Analyze</span>
+                    </>
+                  )}
                 </button>
               </>
             )}
@@ -196,6 +319,7 @@ export default function Analyze() {
                   placeholder="Subject"
                   value={emailData.subject}
                   onChange={(e) => setEmailData({...emailData, subject: e.target.value})}
+                  disabled={loading}
                   className="w-full p-4 border border-border-light rounded-xl focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all shadow-sm"
                 />
                 <input 
@@ -203,6 +327,7 @@ export default function Analyze() {
                   placeholder="Sender (e.g. support@paypal.com)"
                   value={emailData.sender}
                   onChange={(e) => setEmailData({...emailData, sender: e.target.value})}
+                  disabled={loading}
                   className="w-full p-4 border border-border-light rounded-xl focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all shadow-sm"
                 />
                 <textarea
@@ -210,15 +335,25 @@ export default function Analyze() {
                   className="w-full h-48 p-5 border border-border-light rounded-2xl resize-none focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all text-base shadow-sm bg-background"
                   value={emailData.body}
                   onChange={(e) => setEmailData({...emailData, body: e.target.value})}
+                  disabled={loading}
                 ></textarea>
                 <div className="flex justify-end mt-4">
                   <button 
                     onClick={handleAnalyze} 
-                    disabled={(!emailData.body && !emailData.subject) || loading}
+                    disabled={(!emailData.body.trim() && !emailData.subject.trim()) || loading}
                     className="bg-primary hover:bg-primary-hover text-white font-bold py-3 px-8 rounded-xl shadow-md shadow-primary/20 transition-all disabled:opacity-50 text-base flex items-center space-x-2"
                   >
-                    <Search className="w-4 h-4" />
-                    <span>{loading ? 'Analyzing...' : 'Analyze'}</span>
+                    {loading ? (
+                      <>
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                        <span>Analyzing ({elapsedSeconds}s)...</span>
+                      </>
+                    ) : (
+                      <>
+                        <Search className="w-4 h-4" />
+                        <span>Analyze</span>
+                      </>
+                    )}
                   </button>
                 </div>
               </div>
@@ -293,9 +428,16 @@ export default function Analyze() {
                        <h4 className="font-bold text-text-main text-lg mb-1">{file.name}</h4>
                        <p className="text-sm text-text-muted mb-6">{(file.size / 1024 / 1024).toFixed(2)} MB</p>
                        <div className="flex space-x-3">
-                         <button onClick={(e) => { e.preventDefault(); setFile(null); }} className="px-4 py-2 border border-border-light text-text-secondary rounded-lg font-bold hover:bg-background transition z-10 relative">Cancel</button>
-                         <button onClick={handleAnalyze} disabled={loading} className="px-6 py-2 bg-primary text-white rounded-lg font-bold hover:bg-primary-hover shadow-md shadow-primary/20 transition z-10 relative">
-                           {loading ? 'Analyzing...' : 'Analyze'}
+                         <button onClick={(e) => { e.preventDefault(); if (!loading) setFile(null); }} disabled={loading} className="px-4 py-2 border border-border-light text-text-secondary rounded-lg font-bold hover:bg-background transition z-10 relative disabled:opacity-50">Cancel</button>
+                         <button onClick={handleAnalyze} disabled={loading} className="px-6 py-2 bg-primary text-white rounded-lg font-bold hover:bg-primary-hover shadow-md shadow-primary/20 transition z-10 relative flex items-center space-x-2 disabled:opacity-50">
+                           {loading ? (
+                             <>
+                               <Loader2 className="w-4 h-4 animate-spin" />
+                               <span>Analyzing ({elapsedSeconds}s)...</span>
+                             </>
+                           ) : (
+                             <span>Analyze</span>
+                           )}
                          </button>
                        </div>
                     </div>

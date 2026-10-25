@@ -193,7 +193,7 @@ class RagService:
 
         embedding_ms = None
         retrieval_ms = None
-        candidate_limit = max(top_k * 5, top_k)
+        candidate_limit = max(top_k * 2, top_k)
         embedding_started = time.perf_counter()
         retrieval_started = None
         try:

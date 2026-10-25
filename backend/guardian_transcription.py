@@ -17,6 +17,7 @@ from auth import get_current_verified_user
 WHISPER_CHUNK_SAMPLE_RATE = 16_000
 WHISPER_CHUNK_MAX_SECONDS = 5
 WHISPER_CHUNK_MAX_BYTES = WHISPER_CHUNK_SAMPLE_RATE * 1 * 2 * WHISPER_CHUNK_MAX_SECONDS
+SUPPORTED_AUDIO_SOURCES = {"CALL_AUDIO", "SPEAKERPHONE_AUDIO"}
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/guardian/transcription", tags=["guardian"])
@@ -119,7 +120,7 @@ async def transcribe_guardian_chunk(
     session_id = _canonical_uuid(session_id, "session_id")
     chunk_id = _canonical_uuid(chunk_id, "chunk_id")
 
-    if source != "CALL_AUDIO":
+    if source not in SUPPORTED_AUDIO_SOURCES:
         raise HTTPException(
             status_code=422,
             detail="Live transcription is unavailable for this audio source.",

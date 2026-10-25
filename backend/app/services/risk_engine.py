@@ -68,10 +68,11 @@ def calculate_risk(ml_probability: float, text: str, classification: str, severi
 
     # If classification is Genuine, we want to strongly pull down the score 
     # unless adjustments are extreme, but we still respect the math.
-    if classification == 'GENUINE' and ml_probability < 0.5:
-        # For genuine messages, limit the maximum score they can reach just by mentioning OTP
-        # A genuine message asking for an OTP (e.g. "Your OTP is 12345") shouldn't become HIGH risk.
-        pass
+    if classification == 'GENUINE':
+        if not risk_factors:
+            base_score = min(base_score, 15.0)
+        else:
+            base_score = min(base_score, 25.0)
         
     # 4. Clamp the score between 0 and 100
     risk_score = round(max(0, min(100, base_score + adjustments)))

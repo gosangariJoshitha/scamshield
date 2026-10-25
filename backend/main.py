@@ -6,10 +6,13 @@ BACKEND_DIR = os.path.dirname(os.path.abspath(__file__))
 if BACKEND_DIR not in sys.path:
     sys.path.insert(0, BACKEND_DIR)
 
+from dotenv import load_dotenv
+load_dotenv(os.path.join(BACKEND_DIR, ".env"))
+load_dotenv()
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import func
-from dotenv import load_dotenv
 from urllib.parse import urlsplit
 
 import models
@@ -24,9 +27,6 @@ from guardian_transcription import router as guardian_transcription_router
 from guardian_analysis import router as guardian_analysis_router
 from calls import router as calls_router
 from app.services.notification_worker import notification_worker
-
-load_dotenv(os.path.join(BACKEND_DIR, ".env"))
-load_dotenv()
 
 def init_admin():
     admin_email = os.getenv("ADMIN_EMAIL", "").strip().lower()
@@ -99,11 +99,7 @@ has_local_frontend = any(
 app.add_middleware(
     CORSMiddleware,
     allow_origins=FRONTEND_URLS,
-    allow_origin_regex=(
-        r"^(http://(?:localhost|127\.0\.0\.1):517[0-9]|https://.*\.vercel\.app)$"
-        if has_local_frontend
-        else r"^https://.*\.vercel\.app$"
-    ),
+    allow_origin_regex=r"^(http://(?:localhost|127\.0\.0\.1):(?:517[0-9]|417[0-9]|3000)|https://.*\.vercel\.app)$",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -119,6 +115,12 @@ app.include_router(guardian_transcription_router, prefix="/api")
 app.include_router(guardian_analysis_router, prefix="/api")
 app.include_router(calls_router, prefix="/api")
 
+# Dual-mount Guardian & Calls routers at root to support clients/probes that omit the /api prefix
+app.include_router(guardian_transcription_router)
+app.include_router(guardian_analysis_router)
+app.include_router(calls_router)
+
+
 
 @app.on_event("startup")
 def startup_event():
@@ -129,6 +131,17 @@ def startup_event():
         except Exception as exc:
             print(f"Admin bootstrap deferred during startup ({type(exc).__name__}).")
     threading.Thread(target=_bootstrap, daemon=True, name="admin-bootstrap").start()
+
+    def _warmup_ai():
+        try:
+            from app.services.embedding_service import embedding_service
+            from app.services.rag_service import rag_service
+            _ = embedding_service.model
+            _ = rag_service.get_index_health()
+        except Exception as exc:
+            print(f"AI model background warmup deferred ({type(exc).__name__}).")
+    threading.Thread(target=_warmup_ai, daemon=True, name="ai-warmup").start()
+
     notification_worker.start()
 
 
@@ -153,6 +166,7 @@ def health_check():
     return {"status": "ok", "message": "ScamShield backend is running"}
 
 
+@app.get("/ready")
 @app.get("/api/ready")
 def readiness_check():
     db_ok = False

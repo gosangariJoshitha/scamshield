@@ -12,6 +12,11 @@ logger = logging.getLogger(__name__)
 
 class LLMService:
     def __init__(self):
+        backend_env = os.path.join(
+            os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))),
+            ".env"
+        )
+        load_dotenv(backend_env)
         load_dotenv()
         provider_preference = os.getenv("LLM_PROVIDER", "auto").strip().lower()
         if provider_preference not in {"auto", "openrouter", "groq"}:
@@ -153,29 +158,29 @@ Analyze the information and return the JSON."""
                 )
                 response.raise_for_status()
                 result = response.json()
-                
-                content = result['choices'][0]['message']['content']
-                
-                # Attempt to parse JSON safely
-                try:
-                    parsed_json = json.loads(content)
-                except json.JSONDecodeError:
-                    # Try to extract JSON if there's markdown wrapping
-                    if "```json" in content:
-                        content_clean = content.split("```json")[1].split("```")[0].strip()
-                        parsed_json = json.loads(content_clean)
-                    else:
-                        raise ValueError("Could not parse JSON from LLM response.")
-                
-                parsed_json["safe_actions"] = normalize_safe_actions(
-                    parsed_json.get("safe_actions"),
-                    default_language,
-                )
-                parsed_json["safe_action"] = "\n".join(
-                    parsed_json["safe_actions"]["canonical"]
-                )
-                validated_response = LLMReasoningResponse(**parsed_json)
-                return validated_response
+            
+            content = result['choices'][0]['message']['content']
+            
+            # Attempt to parse JSON safely
+            try:
+                parsed_json = json.loads(content)
+            except json.JSONDecodeError:
+                # Try to extract JSON if there's markdown wrapping
+                if "```json" in content:
+                    content_clean = content.split("```json")[1].split("```")[0].strip()
+                    parsed_json = json.loads(content_clean)
+                else:
+                    raise ValueError("Could not parse JSON from LLM response.")
+            
+            parsed_json["safe_actions"] = normalize_safe_actions(
+                parsed_json.get("safe_actions"),
+                default_language,
+            )
+            parsed_json["safe_action"] = "\n".join(
+                parsed_json["safe_actions"]["canonical"]
+            )
+            validated_response = LLMReasoningResponse(**parsed_json)
+            return validated_response
                 
         except httpx.HTTPStatusError as error:
             logger.error(

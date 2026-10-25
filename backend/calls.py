@@ -3,7 +3,7 @@ from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 
-from auth import get_current_user
+from auth import get_current_verified_user
 from database import get_db
 import models
 from schemas import (
@@ -19,12 +19,13 @@ router = APIRouter(prefix="/calls", tags=["calls"])
 @router.post("/finalize", response_model=CallHistoryDetailResponse, status_code=status.HTTP_200_OK)
 def finalize_call(
     payload: CallFinalizeRequest,
-    current_user: models.User = Depends(get_current_user),
+    current_user: models.User = Depends(get_current_verified_user),
     db: Session = Depends(get_db),
 ):
     """
     Persist a completed Guardian call.
-    Idempotent: If a record with this session_id already exists for this user, return it directly.
+    Idempotent: If a record with this session_id already exists for this user, return it directly
+    or safely update incomplete analysis if the retry payload contains completed analysis results.
     """
     existing = (
         db.query(models.CallHistory)
@@ -37,6 +38,25 @@ def finalize_call(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="Call session belongs to a different user.",
             )
+        # If existing record was incomplete/unavailable and incoming payload is completed, update in-place safely
+        if (
+            existing.analysis_status in ["ANALYSIS_UNAVAILABLE", "PENDING", "INCOMPLETE"]
+            and payload.analysis_status == "COMPLETED"
+        ):
+            existing.final_risk_score = payload.final_risk_score
+            existing.final_risk_level = payload.final_risk_level
+            existing.classification = payload.classification
+            existing.scam_category = payload.scam_category
+            existing.risk_reasoning = payload.risk_reasoning
+            existing.safe_action = payload.safe_action
+            existing.detected_indicators = payload.detected_indicators
+            existing.supporting_evidence = payload.supporting_evidence
+            existing.protection_actions = payload.protection_actions
+            existing.analysis_status = payload.analysis_status
+            existing.transcription_status = payload.transcription_status
+            existing.audio_status = payload.audio_status
+            db.commit()
+            db.refresh(existing)
         return existing
 
     ended_at = payload.ended_at or datetime.now(timezone.utc)
@@ -80,7 +100,7 @@ def get_call_history(
     risk_level: Optional[str] = Query(default=None, description="Filter by risk level (LOW, MEDIUM, HIGH, CRITICAL)"),
     page: int = Query(default=1, ge=1),
     limit: int = Query(default=20, ge=1, le=100),
-    current_user: models.User = Depends(get_current_user),
+    current_user: models.User = Depends(get_current_verified_user),
     db: Session = Depends(get_db),
 ):
     """
@@ -107,7 +127,7 @@ def get_call_history(
 @router.get("/{session_id}", response_model=CallHistoryDetailResponse)
 def get_call_summary(
     session_id: str,
-    current_user: models.User = Depends(get_current_user),
+    current_user: models.User = Depends(get_current_verified_user),
     db: Session = Depends(get_db),
 ):
     """

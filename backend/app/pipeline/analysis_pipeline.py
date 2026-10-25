@@ -47,6 +47,7 @@ class AnalysisCoreResult:
     llm_ms: float
     risk_engine_ms: float
     total_ms: float
+    classification: str = "GENUINE"
 
 
 def _fallback_category(text: str, classification: str) -> str:
@@ -147,11 +148,21 @@ async def analyze_text_core(
         safe_action = "\n".join(safe_actions["canonical"])
 
     all_indicators = list(set(llm_indicators))
+    effective_classification = ml_result["classification"]
+    if llm_response and getattr(llm_response, "classification", None):
+        llm_class = llm_response.classification.strip().upper()
+        if llm_class == "GENUINE" and len(llm_indicators) == 0:
+            effective_classification = "GENUINE"
+        elif llm_class in {"SCAM", "SUSPICIOUS"}:
+            effective_classification = "SCAM"
+        elif ml_result["classification"] == "GENUINE":
+            effective_classification = "GENUINE"
+
     risk_started = time.perf_counter()
     risk_result = calculate_risk(
         ml_probability=ml_result["ml_probability"],
         text=text,
-        classification=ml_result["classification"],
+        classification=effective_classification,
         llm_indicators=all_indicators,
         retrieved_evidence=retrieved_evidence,
     )
@@ -183,6 +194,7 @@ async def analyze_text_core(
         llm_ms=llm_ms,
         risk_engine_ms=risk_engine_ms,
         total_ms=(time.perf_counter() - total_started) * 1000,
+        classification=effective_classification,
     )
 
 
@@ -230,7 +242,7 @@ async def run_analysis_pipeline(
         original_text=input_data.original_text,
         risk_score=risk_result["risk_score"],
         risk_level=risk_result["risk_level"],
-        classification=ml_result["classification"],
+        classification=core_result.classification,
         ml_probability=ml_result["ml_probability"],
         category=category,
         indicators=final_indicators,
@@ -270,9 +282,6 @@ async def run_analysis_pipeline(
                 idempotency_key=f"analysis-{analysis_record.id}-jira",
             )
         )
-    db.commit()
-    db.refresh(analysis_record)
-
     for evidence in retrieved_evidence:
         db.add(
             AnalysisEvidence(
@@ -286,8 +295,8 @@ async def run_analysis_pipeline(
                 localized_safe_action=evidence.get("safe_action"),
             )
         )
-    if retrieved_evidence:
-        db.commit()
+    db.commit()
+    db.refresh(analysis_record)
 
     escalation_service = EscalationService(db)
     evaluation = escalation_service.evaluate_analysis(

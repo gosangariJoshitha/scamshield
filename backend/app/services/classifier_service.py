@@ -6,7 +6,6 @@ try:
     import pyarrow
 except ImportError:
     pass
-import torch
 import joblib
 from app.services.text_service import preprocess_text
 

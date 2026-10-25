@@ -1,4 +1,7 @@
-import pymupdf as fitz
+try:
+    import pymupdf as fitz
+except ImportError:
+    import fitz
 import io
 import logging
 import os

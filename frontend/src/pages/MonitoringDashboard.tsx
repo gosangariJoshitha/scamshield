@@ -104,8 +104,9 @@ export const MonitoringDashboard: React.FC = () => {
       ) : data && (
         <>
           <section aria-label="Service health" className="grid grid-cols-1 gap-4 @content-sm:grid-cols-2 @content-xl:grid-cols-3">
-            {healthEntries.map(([name, status]) => {
-              const healthy = status.toLowerCase() === 'healthy';
+            {healthEntries.map(([name, rawStatus]) => {
+              const statusStr = String(rawStatus ?? '');
+              const healthy = ['healthy', 'configured', 'up'].includes(statusStr.toLowerCase());
               return (
                 <div key={name} className="flex items-center justify-between rounded-xl border border-border-light bg-card p-4 shadow-sm">
                   <div className="flex items-center gap-3">
@@ -115,7 +116,7 @@ export const MonitoringDashboard: React.FC = () => {
                     <span className="font-semibold capitalize text-text-main">{name.replaceAll('_', ' ')}</span>
                   </div>
                   <span className={`rounded-full px-2.5 py-1 text-xs font-bold ${healthy ? 'bg-success/10 text-success' : 'bg-warning/10 text-warning'}`}>
-                    {status}
+                    {statusStr}
                   </span>
                 </div>
               );

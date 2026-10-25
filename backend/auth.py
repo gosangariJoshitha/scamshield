@@ -281,6 +281,7 @@ def _create_email_challenge(
     )
     db.add(challenge)
     db.commit()
+    logger.info("Generated %s verification code: %s", purpose, code)
     try:
         email_service.send_verification_code(user.email, code, purpose)
     except EmailDeliveryError as exc:
