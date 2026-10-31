@@ -397,3 +397,29 @@ class CallHistoryListResponse(BaseModel):
     limit: int
     has_next: bool
 
+
+class NotificationResponse(BaseModel):
+    id: int
+    user_id: int
+    type: Optional[str] = "SYSTEM"
+    title: str
+    message: str
+    is_read: bool
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+class NotificationListResponse(BaseModel):
+    items: List[NotificationResponse]
+    total: int
+    unread_count: int
+    page: int
+    limit: int
+    has_next: bool
+
+
+class NotificationUnreadCountResponse(BaseModel):
+    unread_count: int
+

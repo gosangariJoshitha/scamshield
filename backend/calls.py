@@ -90,6 +90,24 @@ def finalize_call(
         audio_status=payload.audio_status,
     )
     db.add(record)
+
+    is_high_risk = payload.final_risk_level.upper() in {"HIGH", "CRITICAL"}
+    call_title = "🚨 Live Call Threat Detected" if is_high_risk else "🛡️ Protected Call Completed"
+    call_msg = (
+        f"Protected call session {payload.session_id} flagged as {payload.final_risk_level} ({payload.scam_category or 'Scam activity'})."
+        if is_high_risk
+        else f"Protected call session {payload.session_id} completed and verified safe."
+    )
+    db.add(
+        models.Notification(
+            user_id=current_user.id,
+            type="CALL_ALERT" if is_high_risk else "CALL_COMPLETE",
+            title=call_title,
+            message=call_msg,
+            is_read=False,
+        )
+    )
+
     db.commit()
     db.refresh(record)
     return record

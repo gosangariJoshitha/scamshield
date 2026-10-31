@@ -26,6 +26,7 @@ from admin import router as admin_router
 from guardian_transcription import router as guardian_transcription_router
 from guardian_analysis import router as guardian_analysis_router
 from calls import router as calls_router
+from notifications import router as notifications_router
 from app.services.notification_worker import notification_worker
 
 def init_admin():
@@ -114,11 +115,13 @@ app.include_router(admin_router, prefix="/api/admin")
 app.include_router(guardian_transcription_router, prefix="/api")
 app.include_router(guardian_analysis_router, prefix="/api")
 app.include_router(calls_router, prefix="/api")
+app.include_router(notifications_router, prefix="/api")
 
-# Dual-mount Guardian & Calls routers at root to support clients/probes that omit the /api prefix
+# Dual-mount Guardian, Calls & Notifications routers at root to support clients/probes that omit the /api prefix
 app.include_router(guardian_transcription_router)
 app.include_router(guardian_analysis_router)
 app.include_router(calls_router)
+app.include_router(notifications_router)
 
 
 

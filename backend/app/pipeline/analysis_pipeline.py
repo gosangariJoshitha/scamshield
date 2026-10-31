@@ -16,7 +16,7 @@ from app.services.risk_engine import calculate_risk
 from app.services.safety_actions import detect_language, fallback_safe_actions
 from app.services.text_service import preprocess_text
 from app.services.analysis_notifications import process_analysis_notifications
-from models import Analysis, AnalysisEvidence, AnalysisNotification, AnalysisPerformance
+from models import Analysis, AnalysisEvidence, AnalysisNotification, AnalysisPerformance, Notification
 from schemas import NormalizedAnalysisInput
 
 
@@ -280,6 +280,23 @@ async def run_analysis_pipeline(
                 channel="JIRA",
                 status="PENDING",
                 idempotency_key=f"analysis-{analysis_record.id}-jira",
+            )
+        )
+    if analysis_record.user_id:
+        is_threat = risk_result["risk_level"] in {"HIGH", "CRITICAL"}
+        notif_title = "⚠️ High Risk Threat Detected" if is_threat else "✓ Analysis Verified Safe"
+        notif_msg = (
+            f"Analysis #{analysis_record.id} flagged as {category or 'High Risk'} (Risk Score: {risk_result['risk_score']})."
+            if is_threat
+            else f"Analysis #{analysis_record.id} completed and verified safe (Risk Score: {risk_result['risk_score']})."
+        )
+        db.add(
+            Notification(
+                user_id=analysis_record.user_id,
+                type="SECURITY_ALERT" if is_threat else "ANALYSIS_COMPLETE",
+                title=notif_title,
+                message=notif_msg,
+                is_read=False,
             )
         )
     for evidence in retrieved_evidence:
