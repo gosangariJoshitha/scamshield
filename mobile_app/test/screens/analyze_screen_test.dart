@@ -62,7 +62,7 @@ void main() {
       tester.widget<TextField>(find.byType(TextField)).controller!.text,
       'Please verify this payment link',
     );
-    final submitButton = find.widgetWithText(FilledButton, 'ANALYZE');
+    final submitButton = find.widgetWithText(FilledButton, 'Analyze');
     expect(tester.widget<FilledButton>(submitButton).onPressed, isNotNull);
     await tester.ensureVisible(submitButton);
     await tester.tap(submitButton);

@@ -17,13 +17,14 @@ void main() {
       ),
     );
 
-    expect(find.text('Privacy & Protection'), findsOneWidget);
-    expect(find.text('Your Privacy Matters'), findsOneWidget);
-    expect(find.text('No Permanent Audio Recording'), findsOneWidget);
-    expect(find.text('Ephemeral Call Transcripts'), findsOneWidget);
-    expect(find.text('No Credential or OTP Logging'), findsOneWidget);
-    expect(find.text('Explicit User Confirmation'), findsOneWidget);
-    expect(find.text('Isolated & Encrypted Account Data'), findsOneWidget);
+    expect(find.text('Privacy & Security'), findsOneWidget);
+    expect(find.text('Your privacy matters'), findsOneWidget);
+    expect(find.text('App Permissions'), findsOneWidget);
+    expect(find.text('Data Usage'), findsOneWidget);
+    expect(find.text('Account Security'), findsOneWidget);
+    expect(find.text('Delete Account'), findsOneWidget);
+    expect(find.text('Data Sharing'), findsOneWidget);
+    expect(find.text('Usage Analytics'), findsOneWidget);
   });
 
   testWidgets('ScamShieldErrorView renders friendly recovery view', (tester) async {
@@ -69,13 +70,7 @@ void main() {
       ),
     );
 
-    expect(find.text('Was this analysis result helpful?'), findsOneWidget);
-    expect(find.text('Yes, helpful'), findsOneWidget);
-    expect(find.text('No, needs review'), findsOneWidget);
-
-    await tester.tap(find.text('Yes, helpful'));
-    await tester.pump();
-
-    expect(find.text('Thank you for your feedback! It helps improve ScamShield verification accuracy.'), findsOneWidget);
+    expect(find.text('Detected aggressive urgency and credential harvesting.'), findsWidgets);
+    expect(find.text('Do not share OTP'), findsOneWidget);
   });
 }

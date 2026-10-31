@@ -97,14 +97,13 @@ void main() {
     await tester.pumpWidget(_home());
     await tester.pumpAndSettle();
 
-    expect(find.text('Hello, Sam 👋'), findsOneWidget);
-    expect(find.text('Your Activity Overview'), findsOneWidget);
-    expect(find.text('Total Analyses'), findsOneWidget);
-    expect(find.text('Scams detected'), findsOneWidget);
-    expect(find.text('High Risk'), findsOneWidget);
-    expect(find.text('1'), findsNWidgets(3));
-    expect(find.text('Phishing detected'), findsOneWidget);
-    expect(find.text('HIGH'), findsOneWidget);
+    expect(find.textContaining('Sam 👋'), findsOneWidget);
+    expect(find.text('Stay alert and stay safe with ScamShield.'), findsOneWidget);
+    expect(find.text('Overall Stats'), findsOneWidget);
+    expect(find.text('Quick Actions'), findsOneWidget);
+    expect(find.text('Recent Activity'), findsOneWidget);
+    expect(find.text('Stay Informed'), findsOneWidget);
+    expect(find.text('Messages\nAnalyzed'), findsOneWidget);
   });
 
   testWidgets('quick actions open the selected backend analysis workflow', (
@@ -113,12 +112,14 @@ void main() {
     await tester.pumpWidget(_home());
     await tester.pumpAndSettle();
 
-    await tester.tap(find.text('Image'));
+    await tester.ensureVisible(find.text('Image &\nDocument'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Image &\nDocument'));
     await tester.pumpAndSettle();
 
-    expect(find.text('Analyze an image'), findsOneWidget);
-    expect(find.text('Choose file'), findsOneWidget);
-    expect(find.text('ANALYZE'), findsOneWidget);
+    expect(find.text('Upload an image or screenshot'), findsOneWidget);
+    expect(find.text('Choose from Gallery'), findsOneWidget);
+    expect(find.widgetWithText(FilledButton, 'Analyze'), findsOneWidget);
   });
 
   testWidgets('history tab reads data and Guardian reports native readiness', (
@@ -166,17 +167,17 @@ void main() {
     await tester.tap(find.text('History'));
     await tester.pumpAndSettle();
     expect(find.text('Analysis History'), findsOneWidget);
-    expect(find.text('Phishing detected'), findsOneWidget);
-    await tester.tap(find.text('Calls'));
+    expect(find.text('Unusual payment request'), findsOneWidget);
+    await tester.tap(find.text('Call History'));
     await tester.pumpAndSettle();
     expect(find.text('No protected calls yet'), findsOneWidget);
     expect(
-      find.textContaining('ScamShield Guardian call summaries will appear here'),
+      find.textContaining('ScamShield Sentinel call summaries will appear here'),
       findsOneWidget,
     );
-    await tester.tap(find.text('Analysis'));
+    await tester.tap(find.text('Analysis History'));
     await tester.pumpAndSettle();
-    expect(find.text('Phishing detected'), findsOneWidget);
+    expect(find.text('Unusual payment request'), findsOneWidget);
 
     await tester.tap(find.text('Guardian'));
     await tester.pumpAndSettle();
@@ -560,11 +561,9 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('0'), findsNWidgets(4));
-    expect(find.text('No analyses yet.'), findsOneWidget);
-    expect(find.text('Text'), findsOneWidget);
-    expect(find.text('Image'), findsOneWidget);
-    expect(find.text('PDF'), findsOneWidget);
-    expect(find.text('Audio'), findsOneWidget);
+    expect(find.text('No activity yet'), findsOneWidget);
+    expect(find.text('Your completed analyses will appear here.'), findsOneWidget);
+    expect(find.text('Analyze Content'), findsOneWidget);
   });
 
   testWidgets('top theme and profile menu actions work', (tester) async {
@@ -592,7 +591,7 @@ void main() {
     await tester.tap(find.text('Profile').last);
     await tester.pumpAndSettle();
     expect(find.byType(ProfileScreen), findsOneWidget);
-    expect(find.text('sam@example.com'), findsOneWidget);
+    expect(find.text('Sam User'), findsOneWidget);
   });
 
   testWidgets('call-protection settings opens the real Guardian controls', (
@@ -604,7 +603,7 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.text('Settings').last);
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Live Call Guardian').first);
+    await tester.tap(find.text('Call Analysis Settings').first);
     await tester.pumpAndSettle();
     await tester.tap(find.text('Open Guardian'));
     await tester.pumpAndSettle();
@@ -626,13 +625,13 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(tester.takeException(), isNull);
-    expect(find.text('Analyze Something'), findsOneWidget);
+    expect(find.text('Quick Actions'), findsOneWidget);
     await tester.scrollUntilVisible(
-      find.text('Recent Analyses'),
+      find.text('Recent Activity'),
       250,
       scrollable: find.byType(Scrollable).first,
     );
-    expect(find.text('Recent Analyses'), findsOneWidget);
+    expect(find.text('Recent Activity'), findsOneWidget);
   });
 
   testWidgets('dashboard adapts to a large screen and larger text scale', (
@@ -652,7 +651,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(tester.takeException(), isNull);
-    expect(find.text('Hello, Sam 👋'), findsOneWidget);
-    expect(find.text('Recent Analyses'), findsOneWidget);
+    expect(find.textContaining('Sam 👋'), findsOneWidget);
+    expect(find.text('Recent Activity'), findsOneWidget);
   });
 }

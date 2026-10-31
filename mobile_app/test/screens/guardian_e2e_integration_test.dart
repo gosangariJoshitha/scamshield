@@ -239,7 +239,7 @@ void main() {
     expect(find.text('Hello, Alice 👋'), findsOneWidget);
 
     // Switch to Guardian tab (index 2)
-    await tester.tap(find.byIcon(Icons.shield_outlined));
+    await tester.tap(find.byIcon(Icons.shield_outlined).last);
     await tester.pumpAndSettle();
     expect(find.text('Live Call Guardian'), findsWidgets);
 

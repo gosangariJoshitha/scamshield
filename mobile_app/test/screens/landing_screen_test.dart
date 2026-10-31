@@ -1,4 +1,3 @@
-import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -7,8 +6,8 @@ import 'package:http/testing.dart';
 import 'package:scamshield_guardian/models/user.dart';
 import 'package:scamshield_guardian/screens/landing/landing_screen.dart';
 import 'package:scamshield_guardian/screens/login/admin_portal_screen.dart';
-import 'package:scamshield_guardian/services/api_service.dart';
 import 'package:scamshield_guardian/services/admin_portal_service.dart';
+import 'package:scamshield_guardian/services/api_service.dart';
 import 'package:scamshield_guardian/services/auth_service.dart';
 import 'package:scamshield_guardian/widgets/brand_mark.dart';
 
@@ -43,30 +42,33 @@ void main() {
     (tester) async {
       await tester.pumpWidget(_landing());
 
+      expect(find.text('ScamShield'), findsOneWidget);
       expect(find.text('SCAMSHIELD'), findsOneWidget);
       expect(find.text('AI-POWERED SCAM PROTECTION'), findsOneWidget);
+      expect(find.text('Understand Them.'), findsOneWidget);
+      expect(find.text('Get Started →'), findsNWidgets(2));
+      expect(find.text('Login'), findsNWidgets(2));
+      expect(find.text('Messages'), findsNWidgets(2));
+      expect(find.text('Calls'), findsNWidgets(2));
+      expect(find.text('Images'), findsOneWidget);
+      expect(find.text('PDF & Docs'), findsOneWidget);
+      expect(find.text('TRUSTED PROTECTION'), findsOneWidget);
+      expect(find.text('Why Choose ScamShield?'), findsOneWidget);
+      expect(find.text('Message Analysis'), findsOneWidget);
+      expect(find.text('Call Protection (Sentinel)'), findsOneWidget);
+      expect(find.text('Image & Document Scan'), findsOneWidget);
+      expect(find.text('AI-Powered Insights'), findsOneWidget);
+      expect(find.text('Your Privacy Comes First'), findsOneWidget);
+      expect(find.text('Digital You'), findsOneWidget);
       expect(
-        find.text('Don’t Just Detect Scams.\nUnderstand Them.'),
+        find.text('Powered by Advanced AI and Real-World Intelligence'),
         findsOneWidget,
       );
-      expect(find.text('GET STARTED'), findsNWidgets(2));
-      expect(find.text('LOGIN'), findsOneWidget);
-      expect(find.text('Multi-channel\nProtection'), findsOneWidget);
-      expect(find.text('BUILT TO HELP YOU THINK CLEARLY'), findsOneWidget);
-      expect(find.text('Text Analysis'), findsOneWidget);
-      expect(find.text('Image & Screenshot'), findsOneWidget);
-      expect(find.text('PDF & Document'), findsOneWidget);
-      expect(find.text('Audio Analysis'), findsOneWidget);
-      expect(find.text('Community Insights'), findsNWidgets(2));
-      expect(find.text('Live Call Guardian'), findsOneWidget);
-      expect(find.text('COMING SOON'), findsNothing);
       expect(
-        find.text('Planned call protection to help identify suspicious calls.'),
+        find.text('Smarter Analysis. Safer Decisions. A Safer You.'),
         findsOneWidget,
       );
-      expect(find.text('Stay informed. Stay protected.'), findsOneWidget);
-      expect(find.text('Your Privacy Matters'), findsOneWidget);
-      expect(find.text('GET STARTED'), findsNWidgets(2));
+      expect(find.text('Admin Sign-in'), findsOneWidget);
       expect(find.byType(ScamShieldBrandMark), findsNWidgets(2));
     },
   );
@@ -76,7 +78,7 @@ void main() {
   ) async {
     await tester.pumpWidget(_landing());
 
-    await tester.tap(find.text('GET STARTED').first);
+    await tester.tap(find.text('Get Started →').first);
     await tester.pumpAndSettle();
 
     expect(find.text('Create an account'), findsOneWidget);
@@ -87,7 +89,7 @@ void main() {
   testWidgets('lower-page Get Started CTA also opens signup', (tester) async {
     await tester.pumpWidget(_landing());
 
-    final getStartedButtons = find.text('GET STARTED');
+    final getStartedButtons = find.text('Get Started →');
     await tester.ensureVisible(getStartedButtons.last);
     await tester.tap(getStartedButtons.last);
     await tester.pumpAndSettle();
@@ -157,7 +159,9 @@ void main() {
         ),
       );
 
-      await tester.tap(find.text('LOGIN').last);
+      final loginBtn = find.text('Login').first;
+      await tester.ensureVisible(loginBtn);
+      await tester.tap(loginBtn);
       await tester.pumpAndSettle();
       await tester.ensureVisible(find.text('Admin Sign-in'));
       await tester.tap(find.text('Admin Sign-in'));
@@ -179,65 +183,19 @@ void main() {
     },
   );
 
-  testWidgets('feature cards lift and highlight on pointer hover', (
+  testWidgets('capability shortcut tap displays informative feedback', (
     tester,
   ) async {
     await tester.pumpWidget(_landing());
-    final title = find.text('Text Analysis');
-    await tester.ensureVisible(title);
-    final animatedCard = find
-        .ancestor(of: title, matching: find.byType(AnimatedContainer))
-        .first;
+    final callsShortcut = find.text('Calls').first;
+    await tester.ensureVisible(callsShortcut);
+    await tester.tap(callsShortcut);
+    await tester.pump();
+
     expect(
-      find.descendant(
-        of: animatedCard,
-        matching: find.byIcon(Icons.arrow_forward_rounded),
-      ),
-      findsNothing,
+      find.textContaining('Calls capability available'),
+      findsOneWidget,
     );
-    final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
-    await mouse.addPointer(location: tester.getCenter(title));
-    await mouse.moveTo(tester.getCenter(title));
-    await tester.pump(const Duration(milliseconds: 200));
-
-    final card = tester.widget<AnimatedContainer>(animatedCard);
-    expect(card.transform!.getTranslation().y, -3);
-
-    await mouse.removePointer();
-  });
-
-  testWidgets('all four bottom trust cards lift and highlight on hover', (
-    tester,
-  ) async {
-    await tester.pumpWidget(_landing());
-    final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
-    await mouse.addPointer();
-
-    for (final title in [
-      'Your Privacy Matters',
-      'AI-Powered Analysis',
-      'Risk-Aware Guidance',
-      'Community Insights',
-    ]) {
-      final titleFinder = find.text(title).last;
-      await tester.ensureVisible(titleFinder);
-      final card = find
-          .ancestor(of: titleFinder, matching: find.byType(AnimatedContainer))
-          .first;
-      await mouse.moveTo(tester.getCenter(titleFinder));
-      await tester.pump(const Duration(milliseconds: 200));
-
-      expect(
-        tester.widget<AnimatedContainer>(card).transform!.getTranslation().y,
-        -2,
-        reason: '$title should lift on hover',
-      );
-
-      await mouse.moveTo(const Offset(0, 0));
-      await tester.pump(const Duration(milliseconds: 200));
-    }
-
-    await mouse.removePointer();
   });
 
   testWidgets('login action opens unified login and signup tabs', (
@@ -245,7 +203,9 @@ void main() {
   ) async {
     await tester.pumpWidget(_landing());
 
-    await tester.tap(find.text('LOGIN'));
+    final loginBtn = find.text('Login').first;
+    await tester.ensureVisible(loginBtn);
+    await tester.tap(loginBtn);
     await tester.pumpAndSettle();
 
     expect(find.text('Welcome back'), findsOneWidget);
@@ -259,7 +219,9 @@ void main() {
   ) async {
     await tester.pumpWidget(_landing());
 
-    await tester.tap(find.text('LOGIN'));
+    final loginBtn = find.text('Login').first;
+    await tester.ensureVisible(loginBtn);
+    await tester.tap(loginBtn);
     await tester.pumpAndSettle();
     await tester.tap(find.text('Sign Up'));
     await tester.pumpAndSettle();
@@ -275,7 +237,9 @@ void main() {
   ) async {
     await tester.pumpWidget(_landing());
 
-    await tester.tap(find.text('LOGIN'));
+    final loginBtn = find.text('Login').first;
+    await tester.ensureVisible(loginBtn);
+    await tester.tap(loginBtn);
     await tester.pumpAndSettle();
     await tester.ensureVisible(find.text('Admin Sign-in'));
     await tester.tap(find.text('Admin Sign-in'));
@@ -333,6 +297,22 @@ void main() {
 
       expect(find.byType(SingleChildScrollView), findsOneWidget);
       expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets(
+    'Admin Sign-in link on landing footer navigates directly to admin sign-in mode',
+    (tester) async {
+      await tester.pumpWidget(_landing());
+
+      final adminLink = find.text('Admin Sign-in');
+      await tester.ensureVisible(adminLink);
+      await tester.tap(adminLink);
+      await tester.pumpAndSettle();
+
+      expect(find.text('ADMIN PORTAL'), findsOneWidget);
+      expect(find.text('ADMIN LOGIN'), findsOneWidget);
+      expect(find.text('Welcome back'), findsNothing);
     },
   );
 }

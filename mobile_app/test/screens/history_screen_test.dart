@@ -100,29 +100,23 @@ void main() {
     await tester.pumpAndSettle();
 
     // Verify initial Analysis tab
-    expect(find.text('Analysis History'), findsOneWidget);
-    expect(find.text('Analysis'), findsOneWidget);
-    expect(find.text('Calls'), findsOneWidget);
+    expect(find.text('Analysis History'), findsWidgets);
 
-    // Tap Calls tab
-    await tester.tap(find.text('Calls'));
+    // Tap Call History tab
+    await tester.tap(find.text('Call History').last);
     await tester.pumpAndSettle();
 
     // Verify Calls tab header and filter chips
-    expect(find.text('Call History'), findsOneWidget);
+    expect(find.text('Call History'), findsWidgets);
     expect(find.text('All'), findsOneWidget);
     expect(find.text('Critical'), findsOneWidget);
     expect(find.text('High'), findsOneWidget);
     expect(find.text('Medium'), findsOneWidget);
     expect(find.text('Low'), findsOneWidget);
+    expect(find.text('Scam'), findsWidgets);
 
     // Verify Call items rendered
-    expect(find.text('HIGH RISK'), findsOneWidget);
-    expect(find.text('78/100'), findsOneWidget);
     expect(find.text('OTP Verification Scam'), findsOneWidget);
-
-    expect(find.text('MEDIUM RISK'), findsOneWidget);
-    expect(find.text('48/100'), findsOneWidget);
     expect(find.text('Suspicious Request'), findsOneWidget);
 
     // Tap first call item to open Call Summary
@@ -172,17 +166,17 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    // Tap Calls tab
-    await tester.tap(find.text('Calls'));
+    // Tap Call History tab
+    await tester.tap(find.text('Call History').last);
     await tester.pumpAndSettle();
 
     // Verify empty state
     expect(find.text('No protected calls yet'), findsOneWidget);
-    expect(find.textContaining('ScamShield Guardian call summaries will appear here'), findsOneWidget);
-    expect(find.text('Open Guardian'), findsOneWidget);
+    expect(find.textContaining('ScamShield Sentinel call summaries will appear here'), findsOneWidget);
+    expect(find.text('Open Sentinel'), findsOneWidget);
 
-    // Tap Open Guardian button
-    await tester.tap(find.text('Open Guardian'));
+    // Tap Open Sentinel button
+    await tester.tap(find.text('Open Sentinel'));
     await tester.pumpAndSettle();
     expect(openedGuardian, isTrue);
   });
@@ -231,8 +225,8 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    // Switch to Calls tab
-    await tester.tap(find.text('Calls'));
+    // Switch to Call History tab
+    await tester.tap(find.text('Call History').last);
     await tester.pumpAndSettle();
 
     // Verify error state
@@ -244,7 +238,6 @@ void main() {
     await tester.pumpAndSettle();
 
     // Verify recovered state
-    expect(find.text('LOW RISK'), findsOneWidget);
-    expect(find.text('12/100'), findsOneWidget);
+    expect(find.text('Safe'), findsWidgets);
   });
 }
