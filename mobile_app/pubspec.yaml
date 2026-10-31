@@ -13,6 +13,7 @@ dependencies:
   flutter_secure_storage: ^10.0.0
   http: ^1.5.0
   file_picker: ^13.1.0
+  google_fonts: ^9.0.0
 
 dev_dependencies:
   flutter_test:
@@ -25,3 +26,15 @@ flutter:
     - assets/scamshield_launcher.png
     - assets/scamshield_splash_light.png
     - assets/scamshield_splash_dark.png
+    - assets/fonts/
+  fonts:
+    - family: Inter
+      fonts:
+        - asset: assets/fonts/Inter-Regular.ttf
+          weight: 400
+        - asset: assets/fonts/Inter-Medium.ttf
+          weight: 500
+        - asset: assets/fonts/Inter-SemiBold.ttf
+          weight: 600
+        - asset: assets/fonts/Inter-Bold.ttf
+          weight: 700

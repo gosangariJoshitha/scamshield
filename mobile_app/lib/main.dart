@@ -13,6 +13,7 @@ import 'services/analysis_service.dart';
 import 'services/api_service.dart';
 import 'services/auth_service.dart';
 
+import 'theme/app_theme.dart';
 import 'widgets/scamshield_error_boundary.dart';
 
 void main() {
@@ -155,8 +156,8 @@ class _ScamShieldGuardianAppState extends State<ScamShieldGuardianApp> {
       title: 'ScamShield',
       debugShowCheckedModeBanner: false,
       scaffoldMessengerKey: _messengerKey,
-      theme: _guardianTheme(Brightness.light),
-      darkTheme: _guardianTheme(Brightness.dark),
+      theme: AppTheme.lightTheme,
+      darkTheme: AppTheme.darkTheme,
       themeMode: _isDarkMode ? ThemeMode.dark : ThemeMode.light,
       home: _adminUser != null
           ? AdminPortalScreen(
@@ -186,52 +187,4 @@ class _ScamShieldGuardianAppState extends State<ScamShieldGuardianApp> {
             ),
     );
   }
-}
-
-ThemeData _guardianTheme(Brightness brightness) {
-  const brand = Color(0xFF087E8B);
-  final scheme = ColorScheme.fromSeed(
-    seedColor: brand,
-    brightness: brightness,
-    surface: brightness == Brightness.dark
-        ? const Color(0xFF151C28)
-        : const Color(0xFFFFFFFF),
-  );
-  return ThemeData(
-    useMaterial3: true,
-    colorScheme: scheme,
-    scaffoldBackgroundColor: brightness == Brightness.dark
-        ? const Color(0xFF0B111B)
-        : const Color(0xFFF4F7FA),
-    appBarTheme: AppBarTheme(
-      backgroundColor: brightness == Brightness.dark
-          ? const Color(0xFF0B111B)
-          : const Color(0xFFF4F7FA),
-      foregroundColor: scheme.onSurface,
-      centerTitle: false,
-    ),
-    inputDecorationTheme: InputDecorationTheme(
-      filled: true,
-      fillColor: scheme.surface,
-      border: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(16),
-        borderSide: BorderSide(color: scheme.outlineVariant),
-      ),
-      enabledBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(16),
-        borderSide: BorderSide(color: scheme.outlineVariant),
-      ),
-      focusedBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(16),
-        borderSide: const BorderSide(color: brand, width: 1.5),
-      ),
-    ),
-    filledButtonTheme: FilledButtonThemeData(
-      style: FilledButton.styleFrom(
-        minimumSize: const Size.fromHeight(54),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        textStyle: const TextStyle(fontWeight: FontWeight.w700),
-      ),
-    ),
-  );
 }

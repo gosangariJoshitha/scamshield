@@ -5,9 +5,19 @@ import '../../models/call_history_models.dart';
 import '../../services/analysis_service.dart';
 import '../../services/api_service.dart';
 import '../../services/call_history_service.dart';
-import '../results/analysis_result_screen.dart';
+import '../../theme/app_colors.dart';
 import '../../widgets/skeleton_loaders.dart';
+import 'analysis_details_screen.dart';
 import 'call_summary_screen.dart';
+import 'widgets/analysis_history_item_card.dart';
+import 'widgets/call_history_item_card.dart';
+import 'widgets/date_section_header.dart';
+import 'widgets/history_filter_pills.dart';
+import 'widgets/history_header.dart';
+import 'widgets/history_search_bar.dart';
+import 'widgets/history_tab_toggle.dart';
+
+enum HistoryKind { analysis, calls }
 
 class HistoryScreen extends StatefulWidget {
   const HistoryScreen({
@@ -34,24 +44,42 @@ class HistoryScreen extends StatefulWidget {
 class _HistoryScreenState extends State<HistoryScreen> {
   late final CallHistoryService _callHistoryService;
 
-  bool _loading = true;
-  String? _error;
-  List<AnalysisRecord> _analyses = const [];
+  HistoryKind _kind = HistoryKind.analysis;
 
+  // Analysis State
+  bool _loadingAnalyses = true;
+  String? _analysesError;
+  List<AnalysisRecord> _analyses = const [];
+  String _selectedAnalysisFilter = 'All';
+
+  // Calls State
   bool _loadingCalls = false;
   String? _callsError;
   List<CallHistoryItem> _calls = const [];
-  String _selectedRiskFilter = 'ALL';
+  String _selectedCallFilter = 'All';
 
-  _HistoryKind _kind = _HistoryKind.analysis;
+  // Search State
   final _searchController = TextEditingController();
   String _searchQuery = '';
 
-  @override
-  void dispose() {
-    _searchController.dispose();
-    super.dispose();
-  }
+  static const List<String> _analysisFilters = [
+    'All',
+    'Text',
+    'Image',
+    'Document',
+    'Audio',
+  ];
+
+  static const List<String> _callFilters = [
+    'All',
+    'Scam',
+    'Safe',
+    'Unknown',
+    'Critical',
+    'High',
+    'Medium',
+    'Low',
+  ];
 
   @override
   void initState() {
@@ -64,8 +92,14 @@ class _HistoryScreenState extends State<HistoryScreen> {
     _load();
   }
 
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+
   Future<void> _load() async {
-    if (_kind == _HistoryKind.analysis) {
+    if (_kind == HistoryKind.analysis) {
       await _loadAnalyses();
     } else {
       await _loadCalls();
@@ -74,22 +108,24 @@ class _HistoryScreenState extends State<HistoryScreen> {
 
   Future<void> _loadAnalyses() async {
     setState(() {
-      _loading = true;
-      _error = null;
+      _loadingAnalyses = true;
+      _analysesError = null;
     });
     try {
       final analyses = await widget.analysisService.loadHistory();
-      if (mounted) setState(() => _analyses = analyses);
+      if (mounted) {
+        setState(() => _analyses = analyses);
+      }
     } on ApiException catch (error) {
       if (error.statusCode == 401 || error.statusCode == 403) {
         await widget.onSessionExpired();
         return;
       }
-      if (mounted) setState(() => _error = 'Unable to load your history.');
+      if (mounted) setState(() => _analysesError = 'Unable to load your history.');
     } catch (_) {
-      if (mounted) setState(() => _error = 'Unable to load your history.');
+      if (mounted) setState(() => _analysesError = 'Unable to load your history.');
     } finally {
-      if (mounted) setState(() => _loading = false);
+      if (mounted) setState(() => _loadingAnalyses = false);
     }
   }
 
@@ -99,8 +135,18 @@ class _HistoryScreenState extends State<HistoryScreen> {
       _callsError = null;
     });
     try {
-      final filter = _selectedRiskFilter == 'ALL' ? null : _selectedRiskFilter;
-      final response = await _callHistoryService.loadCallHistory(riskLevel: filter);
+      final String? riskQuery;
+      final upperFilter = _selectedCallFilter.toUpperCase();
+      if (upperFilter == 'CRITICAL' ||
+          upperFilter == 'HIGH' ||
+          upperFilter == 'MEDIUM' ||
+          upperFilter == 'LOW') {
+        riskQuery = upperFilter;
+      } else {
+        riskQuery = null;
+      }
+
+      final response = await _callHistoryService.loadCallHistory(riskLevel: riskQuery);
       if (mounted) setState(() => _calls = response.items);
     } on ApiException catch (error) {
       if (error.statusCode == 401 || error.statusCode == 403) {
@@ -133,8 +179,8 @@ class _HistoryScreenState extends State<HistoryScreen> {
         await widget.onSessionExpired();
         return;
       }
-      // If full detail fetch fails, fall back to basic detail constructed from item
       if (!mounted) return;
+      // Fallback detail constructed honestly from item if detail route is unreachable
       final fallbackDetail = CallHistoryDetail(
         id: item.id,
         sessionId: item.sessionId,
@@ -169,222 +215,315 @@ class _HistoryScreenState extends State<HistoryScreen> {
     }
   }
 
-  @override
-  Widget build(BuildContext context) {
-    final colors = Theme.of(context).colorScheme;
-    return SafeArea(
-      child: RefreshIndicator(
-        onRefresh: _load,
-        child: ListView(
-          padding: const EdgeInsets.fromLTRB(20, 16, 20, 32),
-          children: [
-            Text(
-              _kind == _HistoryKind.analysis ? 'Analysis History' : 'Call History',
-              style: Theme.of(context).textTheme.headlineSmall
-                  ?.copyWith(fontWeight: FontWeight.w800),
-            ),
-            const SizedBox(height: 5),
-            Text(
-              _kind == _HistoryKind.analysis
-                  ? 'View results from your past ScamShield analyses.'
-                  : 'View protected call summaries and risk assessments.',
-              style: Theme.of(context).textTheme.bodyMedium
-                  ?.copyWith(color: colors.onSurfaceVariant),
-            ),
-            const SizedBox(height: 18),
-            SegmentedButton<_HistoryKind>(
-              segments: const [
-                ButtonSegment(
-                  value: _HistoryKind.analysis,
-                  label: Text('Analysis'),
-                  icon: Icon(Icons.manage_search_rounded),
-                ),
-                ButtonSegment(
-                  value: _HistoryKind.calls,
-                  label: Text('Calls'),
-                  icon: Icon(Icons.call_outlined),
-                ),
-              ],
-              selected: {_kind},
-              onSelectionChanged: (selection) {
-                final newKind = selection.first;
-                setState(() => _kind = newKind);
-                if (newKind == _HistoryKind.calls && _calls.isEmpty && !_loadingCalls) {
-                  _loadCalls();
-                } else if (newKind == _HistoryKind.analysis && _analyses.isEmpty && !_loading) {
-                  _loadAnalyses();
-                }
-              },
-            ),
-            const SizedBox(height: 14),
-            TextField(
-              controller: _searchController,
-              decoration: InputDecoration(
-                hintText: _kind == _HistoryKind.analysis
-                    ? 'Search analyses by category, risk, text...'
-                    : 'Search calls by category, risk level...',
-                hintStyle: TextStyle(fontSize: 13, color: colors.onSurfaceVariant),
-                prefixIcon: const Icon(Icons.search_rounded, size: 20),
-                suffixIcon: _searchQuery.isNotEmpty
-                    ? IconButton(
-                        icon: const Icon(Icons.clear_rounded, size: 18),
-                        onPressed: () {
-                          _searchController.clear();
-                          setState(() => _searchQuery = '');
-                        },
-                      )
-                    : null,
-                isDense: true,
-                contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-              ),
-              onChanged: (val) => setState(() => _searchQuery = val.trim().toLowerCase()),
-            ),
-            const SizedBox(height: 16),
-            if (_kind == _HistoryKind.calls) ...[
-              _buildRiskFilterChips(context),
-              const SizedBox(height: 14),
-              if (_loadingCalls)
-                const HistoryListSkeleton(count: 3)
-              else if (_callsError != null)
-                _HistoryError(message: _callsError!, onRetry: _loadCalls)
-              else () {
-                final filtered = _searchQuery.isEmpty
-                    ? _calls
-                    : _calls.where((call) {
-                        final q = _searchQuery;
-                        return call.scamCategory.toLowerCase().contains(q) ||
-                            call.classification.toLowerCase().contains(q) ||
-                            call.finalRiskLevel.toLowerCase().contains(q);
-                      }).toList();
-
-                if (filtered.isEmpty) {
-                  if (_searchQuery.isNotEmpty) {
-                    return _SearchNoResults(
-                      query: _searchQuery,
-                      onClear: () {
-                        _searchController.clear();
-                        setState(() => _searchQuery = '');
-                      },
-                    );
-                  }
-                  return _CallHistoryEmpty(onOpenGuardian: widget.onOpenGuardian);
-                }
-
-                return Column(
-                  children: filtered.map(
-                    (call) => Padding(
-                      padding: const EdgeInsets.only(bottom: 10),
-                      child: _CallHistoryCard(
-                        call: call,
-                        onTap: () => _openCallDetail(call),
-                      ),
-                    ),
-                  ).toList(),
-                );
-              }()
-            ] else ...[
-              if (_loading)
-                const HistoryListSkeleton(count: 3)
-              else if (_error != null)
-                _HistoryError(message: _error!, onRetry: _loadAnalyses)
-              else () {
-                final filtered = _searchQuery.isEmpty
-                    ? _analyses
-                    : _analyses.where((analysis) {
-                        final q = _searchQuery;
-                        return analysis.category.toLowerCase().contains(q) ||
-                            analysis.classification.toLowerCase().contains(q) ||
-                            analysis.riskLevel.toLowerCase().contains(q) ||
-                            analysis.content.toLowerCase().contains(q);
-                      }).toList();
-
-                if (filtered.isEmpty) {
-                  if (_searchQuery.isNotEmpty) {
-                    return _SearchNoResults(
-                      query: _searchQuery,
-                      onClear: () {
-                        _searchController.clear();
-                        setState(() => _searchQuery = '');
-                      },
-                    );
-                  }
-                  return _HistoryEmpty(onAnalyze: widget.onAnalyzeAnother);
-                }
-
-                return Column(
-                  children: filtered.map(
-                    (analysis) => Padding(
-                      padding: const EdgeInsets.only(bottom: 10),
-                      child: _HistoryTile(
-                        analysis: analysis,
-                        onTap: () => Navigator.of(context).push<void>(
-                          MaterialPageRoute<void>(
-                            builder: (_) => AnalysisResultScreen(
-                              analysis: analysis,
-                              onBackToDashboard: widget.onBackToDashboard,
-                              onAnalyzeAnother: widget.onAnalyzeAnother,
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
-                  ).toList(),
-                );
-              }()
-            ],
-          ],
+  void _openAnalysisDetail(AnalysisRecord record) {
+    Navigator.of(context).push<void>(
+      MaterialPageRoute<void>(
+        builder: (_) => AnalysisDetailsScreen(
+          recordId: record.id,
+          initialRecord: record,
+          analysisService: widget.analysisService,
+          onAnalyzeAnother: widget.onAnalyzeAnother,
+          onBack: () => Navigator.of(context).pop(),
         ),
       ),
     );
   }
 
-  Widget _buildRiskFilterChips(BuildContext context) {
-    const filters = ['ALL', 'CRITICAL', 'HIGH', 'MEDIUM', 'LOW'];
-    return SingleChildScrollView(
-      scrollDirection: Axis.horizontal,
-      child: Row(
-        children: filters.map((filter) {
-          final isSelected = _selectedRiskFilter == filter;
-          final label = filter == 'ALL' ? 'All' : '${filter[0]}${filter.substring(1).toLowerCase()}';
-          return Padding(
-            padding: const EdgeInsets.only(right: 8),
-            child: FilterChip(
-              selected: isSelected,
-              label: Text(label),
-              labelStyle: TextStyle(
-                fontWeight: isSelected ? FontWeight.w800 : FontWeight.w600,
-                fontSize: 12,
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final isCallTab = _kind == HistoryKind.calls;
+
+    return Scaffold(
+      backgroundColor: isDark ? AppColors.darkBackground : AppColors.lightBackground,
+      body: SafeArea(
+        child: RefreshIndicator(
+          onRefresh: _load,
+          child: ListView(
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
+            children: [
+              // 1. Header (Title, Subtitle, Glowing Neon Clock Badge)
+              HistoryHeader(isCallTab: isCallTab),
+
+              const SizedBox(height: 16),
+
+              // 2. Tab Switcher Pills ([Analysis History] | [Call History])
+              HistoryTabToggle(
+                isCallTab: isCallTab,
+                onChanged: (toCall) {
+                  setState(() {
+                    _kind = toCall ? HistoryKind.calls : HistoryKind.analysis;
+                  });
+                  if (toCall && _calls.isEmpty && !_loadingCalls) {
+                    _loadCalls();
+                  } else if (!toCall && _analyses.isEmpty && !_loadingAnalyses) {
+                    _loadAnalyses();
+                  }
+                },
               ),
-              onSelected: (selected) {
-                if (selected) {
-                  setState(() => _selectedRiskFilter = filter);
-                  _loadCalls();
-                }
-              },
-            ),
-          );
-        }).toList(),
+
+              const SizedBox(height: 14),
+
+              // 3. Search Bar
+              HistorySearchBar(
+                controller: _searchController,
+                hintText: isCallTab
+                    ? 'Search by phone number or contact...'
+                    : 'Search by keyword, link or content...',
+                onChanged: (val) => setState(() => _searchQuery = val.trim().toLowerCase()),
+                onClear: () {
+                  _searchController.clear();
+                  setState(() => _searchQuery = '');
+                },
+              ),
+
+              const SizedBox(height: 12),
+
+              // 4. Category / Filter Pills
+              HistoryFilterPills(
+                options: isCallTab ? _callFilters : _analysisFilters,
+                selectedOption: isCallTab ? _selectedCallFilter : _selectedAnalysisFilter,
+                onSelected: (option) {
+                  setState(() {
+                    if (isCallTab) {
+                      _selectedCallFilter = option;
+                    } else {
+                      _selectedAnalysisFilter = option;
+                    }
+                  });
+                  if (isCallTab) _loadCalls();
+                },
+              ),
+
+              const SizedBox(height: 10),
+
+              // 5. Grouped List Content
+              if (isCallTab) ...[
+                _buildCallHistorySection(context),
+              ] else ...[
+                _buildAnalysisHistorySection(context),
+              ],
+            ],
+          ),
+        ),
       ),
     );
   }
+
+  Widget _buildAnalysisHistorySection(BuildContext context) {
+    if (_loadingAnalyses) {
+      return const Padding(
+        padding: EdgeInsets.only(top: 10),
+        child: HistoryListSkeleton(count: 4),
+      );
+    }
+
+    if (_analysesError != null) {
+      return _HistoryError(message: _analysesError!, onRetry: _loadAnalyses);
+    }
+
+    // Filter by category filter pill
+    var filtered = _analyses;
+    final filter = _selectedAnalysisFilter.toUpperCase();
+    if (filter == 'TEXT') {
+      filtered = filtered.where((a) => a.inputType.toLowerCase() == 'text').toList();
+    } else if (filter == 'IMAGE') {
+      filtered = filtered.where((a) => a.inputType.toLowerCase() == 'image').toList();
+    } else if (filter == 'DOCUMENT') {
+      filtered = filtered.where((a) => a.inputType.toLowerCase() == 'pdf').toList();
+    } else if (filter == 'AUDIO') {
+      filtered = filtered.where((a) => a.inputType.toLowerCase() == 'audio').toList();
+    }
+
+    // Filter by search query
+    if (_searchQuery.isNotEmpty) {
+      final q = _searchQuery;
+      filtered = filtered.where((analysis) {
+        return analysis.category.toLowerCase().contains(q) ||
+            analysis.classification.toLowerCase().contains(q) ||
+            analysis.riskLevel.toLowerCase().contains(q) ||
+            analysis.content.toLowerCase().contains(q) ||
+            (analysis.originalFilename?.toLowerCase().contains(q) ?? false);
+      }).toList();
+    }
+
+    if (filtered.isEmpty) {
+      if (_searchQuery.isNotEmpty) {
+        return _SearchNoResults(
+          query: _searchQuery,
+          onClear: () {
+            _searchController.clear();
+            setState(() => _searchQuery = '');
+          },
+        );
+      }
+      return _AnalysisHistoryEmpty(onAnalyze: widget.onAnalyzeAnother);
+    }
+
+    // Group filtered items by date
+    final grouped = _groupByDate(filtered, (a) => a.createdAt);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: grouped.entries.map((entry) {
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            DateSectionHeader(title: entry.key),
+            ...entry.value.map(
+              (analysis) => AnalysisHistoryItemCard(
+                analysis: analysis,
+                onTap: () => _openAnalysisDetail(analysis),
+              ),
+            ),
+          ],
+        );
+      }).toList(),
+    );
+  }
+
+  Widget _buildCallHistorySection(BuildContext context) {
+    if (_loadingCalls) {
+      return const Padding(
+        padding: EdgeInsets.only(top: 10),
+        child: HistoryListSkeleton(count: 4),
+      );
+    }
+
+    if (_callsError != null) {
+      return _HistoryError(message: _callsError!, onRetry: _loadCalls);
+    }
+
+    // Filter by call filter pill
+    var filtered = _calls;
+    final filter = _selectedCallFilter.toUpperCase();
+    if (filter == 'SCAM') {
+      filtered = filtered
+          .where((c) =>
+              c.classification.toUpperCase() == 'SCAM' ||
+              c.finalRiskLevel.toUpperCase() == 'HIGH' ||
+              c.finalRiskLevel.toUpperCase() == 'CRITICAL')
+          .toList();
+    } else if (filter == 'SAFE') {
+      filtered = filtered
+          .where((c) =>
+              c.classification.toUpperCase() == 'SAFE' ||
+              c.classification.toUpperCase() == 'GENUINE' ||
+              c.finalRiskLevel.toUpperCase() == 'LOW')
+          .toList();
+    } else if (filter == 'UNKNOWN') {
+      filtered = filtered
+          .where((c) =>
+              c.analysisStatus == 'AUDIO_UNAVAILABLE' ||
+              c.analysisStatus == 'ANALYSIS_UNAVAILABLE' ||
+              c.analysisStatus == 'INCOMPLETE' ||
+              c.classification.toUpperCase() == 'UNKNOWN')
+          .toList();
+    } else if (filter == 'CRITICAL' ||
+        filter == 'HIGH' ||
+        filter == 'MEDIUM' ||
+        filter == 'LOW') {
+      filtered = filtered
+          .where((c) => c.finalRiskLevel.toUpperCase() == filter)
+          .toList();
+    }
+
+    // Filter by search query
+    if (_searchQuery.isNotEmpty) {
+      final q = _searchQuery;
+      filtered = filtered.where((call) {
+        return call.scamCategory.toLowerCase().contains(q) ||
+            call.classification.toLowerCase().contains(q) ||
+            call.finalRiskLevel.toLowerCase().contains(q) ||
+            call.sessionId.toLowerCase().contains(q);
+      }).toList();
+    }
+
+    if (filtered.isEmpty) {
+      if (_searchQuery.isNotEmpty) {
+        return _SearchNoResults(
+          query: _searchQuery,
+          onClear: () {
+            _searchController.clear();
+            setState(() => _searchQuery = '');
+          },
+        );
+      }
+      return _CallHistoryEmpty(onOpenGuardian: widget.onOpenGuardian);
+    }
+
+    // Group filtered items by date
+    final grouped = _groupByDate(filtered, (c) => c.endedAt);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: grouped.entries.map((entry) {
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            DateSectionHeader(title: entry.key),
+            ...entry.value.map(
+              (call) => CallHistoryItemCard(
+                call: call,
+                onTap: () => _openCallDetail(call),
+              ),
+            ),
+          ],
+        );
+      }).toList(),
+    );
+  }
+
+  static Map<String, List<T>> _groupByDate<T>(
+    List<T> items,
+    DateTime Function(T) getTimestamp,
+  ) {
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final yesterday = today.subtract(const Duration(days: 1));
+
+    const months = [
+      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+    ];
+
+    final groups = <String, List<T>>{};
+    for (final item in items) {
+      final dt = getTimestamp(item).toLocal();
+      final itemDay = DateTime(dt.year, dt.month, dt.day);
+
+      final String sectionTitle;
+      if (itemDay == today) {
+        sectionTitle = 'Today';
+      } else if (itemDay == yesterday) {
+        sectionTitle = 'Yesterday';
+      } else {
+        sectionTitle = '${dt.day} ${months[dt.month - 1]} ${dt.year}';
+      }
+      groups.putIfAbsent(sectionTitle, () => []).add(item);
+    }
+    return groups;
+  }
 }
 
-enum _HistoryKind { analysis, calls }
+class _AnalysisHistoryEmpty extends StatelessWidget {
+  const _AnalysisHistoryEmpty({this.onAnalyze});
 
-class _CallHistoryEmpty extends StatelessWidget {
-  const _CallHistoryEmpty({this.onOpenGuardian});
-
-  final VoidCallback? onOpenGuardian;
+  final VoidCallback? onAnalyze;
 
   @override
   Widget build(BuildContext context) {
-    final colors = Theme.of(context).colorScheme;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final cardBg = isDark ? const Color(0xFF131F2A) : Colors.white;
+    final cardBorder = isDark ? const Color(0xFF243447) : const Color(0xFFE2E8F0);
+
     return Container(
-      padding: const EdgeInsets.fromLTRB(20, 32, 20, 28),
+      margin: const EdgeInsets.symmetric(vertical: 20),
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 36),
       decoration: BoxDecoration(
-        color: colors.surface,
+        color: cardBg,
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: colors.outlineVariant),
+        border: Border.all(color: cardBorder, width: 1),
       ),
       child: Column(
         children: [
@@ -392,31 +531,45 @@ class _CallHistoryEmpty extends StatelessWidget {
             width: 58,
             height: 58,
             decoration: BoxDecoration(
-              color: colors.primaryContainer,
+              color: const Color(0xFF0284C7).withValues(alpha: 0.15),
               shape: BoxShape.circle,
             ),
-            child: Icon(Icons.call_outlined, color: colors.primary, size: 28),
+            child: const Icon(Icons.history_rounded, color: Color(0xFF0284C7), size: 28),
           ),
-          const SizedBox(height: 14),
+          const SizedBox(height: 16),
           Text(
-            'No protected calls yet',
+            'No analyses yet',
             textAlign: TextAlign.center,
-            style: Theme.of(context).textTheme.titleMedium
-                ?.copyWith(fontWeight: FontWeight.w800),
+            style: TextStyle(
+              fontFamily: 'Inter',
+              fontSize: 16,
+              fontWeight: FontWeight.w700,
+              color: isDark ? Colors.white : AppColors.navy,
+            ),
           ),
           const SizedBox(height: 6),
           Text(
-            'ScamShield Guardian call summaries will appear here after protected calls.',
+            'Analyze a suspicious message, image, PDF, or audio file to get started.',
             textAlign: TextAlign.center,
-            style: Theme.of(context).textTheme.bodyMedium
-                ?.copyWith(color: colors.onSurfaceVariant, height: 1.4),
+            style: TextStyle(
+              fontFamily: 'Inter',
+              fontSize: 13,
+              fontWeight: FontWeight.w400,
+              color: isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B),
+              height: 1.4,
+            ),
           ),
-          if (onOpenGuardian != null) ...[
+          if (onAnalyze != null) ...[
             const SizedBox(height: 18),
             FilledButton.icon(
-              onPressed: onOpenGuardian,
-              icon: const Icon(Icons.shield_outlined),
-              label: const Text('Open Guardian'),
+              onPressed: onAnalyze,
+              icon: const Icon(Icons.search_rounded, size: 18),
+              label: const Text('Analyze now'),
+              style: FilledButton.styleFrom(
+                backgroundColor: const Color(0xFF0284C7),
+                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              ),
             ),
           ],
         ],
@@ -425,208 +578,70 @@ class _CallHistoryEmpty extends StatelessWidget {
   }
 }
 
-class _CallHistoryCard extends StatelessWidget {
-  const _CallHistoryCard({required this.call, required this.onTap});
+class _CallHistoryEmpty extends StatelessWidget {
+  const _CallHistoryEmpty({this.onOpenGuardian});
 
-  final CallHistoryItem call;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = Theme.of(context).colorScheme;
-    final riskColor = call.riskColor(colors);
-    final isUnavailable = call.analysisStatus == 'AUDIO_UNAVAILABLE' ||
-        call.analysisStatus == 'ANALYSIS_UNAVAILABLE' ||
-        call.audioStatus == 'AUDIO_UNAVAILABLE';
-
-    return Card(
-      margin: EdgeInsets.zero,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16),
-        side: BorderSide(color: colors.outlineVariant),
-      ),
-      elevation: 0,
-      color: colors.surface,
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(16),
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Semantics(
-                    label: isUnavailable
-                        ? 'Status: Protected call'
-                        : '${call.finalRiskLevel} RISK — ${call.finalRiskScore} out of 100',
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
-                      decoration: BoxDecoration(
-                        color: isUnavailable
-                            ? colors.surfaceContainerHighest
-                            : riskColor.withValues(alpha: 0.12),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Text(
-                        isUnavailable ? 'PROTECTED CALL' : '${call.finalRiskLevel} RISK',
-                        style: TextStyle(
-                          color: isUnavailable ? colors.onSurfaceVariant : riskColor,
-                          fontWeight: FontWeight.w800,
-                          fontSize: 11,
-                          letterSpacing: 0.4,
-                        ),
-                      ),
-                    ),
-                  ),
-                  if (!isUnavailable)
-                    Text(
-                      '${call.finalRiskScore}/100',
-                      style: TextStyle(
-                        fontWeight: FontWeight.w800,
-                        fontSize: 14,
-                        color: riskColor,
-                      ),
-                    ),
-                ],
-              ),
-              const SizedBox(height: 10),
-              Text(
-                call.scamCategory.isNotEmpty ? call.scamCategory : 'Unknown Caller',
-                style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                      fontWeight: FontWeight.w800,
-                    ),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-              ),
-              const SizedBox(height: 5),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text(
-                    '${call.formattedDuration}   •   ${call.formattedEndedAt()}',
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: colors.onSurfaceVariant,
-                          fontWeight: FontWeight.w600,
-                        ),
-                  ),
-                  const Icon(Icons.chevron_right_rounded, size: 20),
-                ],
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _HistoryTile extends StatelessWidget {
-  const _HistoryTile({required this.analysis, required this.onTap});
-
-  final AnalysisRecord analysis;
-  final VoidCallback onTap;
+  final VoidCallback? onOpenGuardian;
 
   @override
   Widget build(BuildContext context) {
-    final colors = Theme.of(context).colorScheme;
-    final riskColor = switch (analysis.riskLevel.toUpperCase()) {
-      'HIGH' || 'CRITICAL' => colors.error,
-      'MEDIUM' => const Color(0xFFC27500),
-      _ => const Color(0xFF14804A),
-    };
-    final filename = analysis.originalFilename?.trim();
-    final category = analysis.category.trim();
-    final preview = filename != null && filename.isNotEmpty
-        ? filename
-        : category.isNotEmpty && category.toLowerCase() != 'unknown'
-        ? '${_formatHistoryCategory(category)} detected'
-        : '${analysis.inputType.toUpperCase()} analysis';
-    return Card(
-      margin: EdgeInsets.zero,
-      child: ListTile(
-        onTap: onTap,
-        leading: CircleAvatar(
-          backgroundColor: riskColor.withValues(alpha: 0.12),
-          child: Icon(_inputIcon(analysis.inputType), color: riskColor),
-        ),
-        title: Text(
-          preview.isEmpty ? 'Analysis ${analysis.id}' : preview,
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-        ),
-        subtitle: Text(
-          '${analysis.inputType.toUpperCase()} · ${_formatDate(analysis.createdAt)}',
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-        ),
-        trailing: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Text(
-              analysis.riskLevel,
-              style: Theme.of(context).textTheme.labelSmall
-                  ?.copyWith(color: riskColor, fontWeight: FontWeight.w800),
-            ),
-            const Icon(Icons.chevron_right_rounded),
-          ],
-        ),
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final cardBg = isDark ? const Color(0xFF131F2A) : Colors.white;
+    final cardBorder = isDark ? const Color(0xFF243447) : const Color(0xFFE2E8F0);
+
+    return Container(
+      margin: const EdgeInsets.symmetric(vertical: 20),
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 36),
+      decoration: BoxDecoration(
+        color: cardBg,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: cardBorder, width: 1),
       ),
-    );
-  }
-}
-
-String _formatHistoryCategory(String category) => category
-    .replaceAll(RegExp(r'[_-]+'), ' ')
-    .split(RegExp(r'\s+'))
-    .where((word) => word.isNotEmpty)
-    .map((word) {
-      final normalized = word.toLowerCase();
-      if (const {'ai', 'kyc', 'otp', 'upi', 'sms'}.contains(normalized)) {
-        return normalized.toUpperCase();
-      }
-      return '${normalized[0].toUpperCase()}${normalized.substring(1)}';
-    })
-    .join(' ');
-
-class _HistoryEmpty extends StatelessWidget {
-  const _HistoryEmpty({this.onAnalyze});
-
-  final VoidCallback? onAnalyze;
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 54),
       child: Column(
         children: [
-          Icon(
-            Icons.history_rounded,
-            size: 46,
-            color: Theme.of(context).colorScheme.primary,
+          Container(
+            width: 58,
+            height: 58,
+            decoration: BoxDecoration(
+              color: const Color(0xFF0284C7).withValues(alpha: 0.15),
+              shape: BoxShape.circle,
+            ),
+            child: const Icon(Icons.call_outlined, color: Color(0xFF0284C7), size: 28),
           ),
-          const SizedBox(height: 13),
+          const SizedBox(height: 16),
           Text(
-            'No analyses yet.',
-            style: Theme.of(context).textTheme.titleMedium
-                ?.copyWith(fontWeight: FontWeight.w800),
-          ),
-          const SizedBox(height: 5),
-          Text(
-            'Analyze a suspicious message, image, PDF, or audio file to get started.',
+            'No protected calls yet',
             textAlign: TextAlign.center,
-            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-              color: Theme.of(context).colorScheme.onSurfaceVariant,
+            style: TextStyle(
+              fontFamily: 'Inter',
+              fontSize: 16,
+              fontWeight: FontWeight.w700,
+              color: isDark ? Colors.white : AppColors.navy,
             ),
           ),
-          if (onAnalyze != null) ...[
-            const SizedBox(height: 14),
+          const SizedBox(height: 6),
+          Text(
+            'ScamShield Sentinel call summaries will appear here after protected calls.',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontFamily: 'Inter',
+              fontSize: 13,
+              fontWeight: FontWeight.w400,
+              color: isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B),
+              height: 1.4,
+            ),
+          ),
+          if (onOpenGuardian != null) ...[
+            const SizedBox(height: 18),
             FilledButton.icon(
-              onPressed: onAnalyze,
-              icon: const Icon(Icons.search_rounded),
-              label: const Text('Analyze now'),
+              onPressed: onOpenGuardian,
+              icon: const Icon(Icons.shield_outlined, size: 18),
+              label: const Text('Open Sentinel'),
+              style: FilledButton.styleFrom(
+                backgroundColor: const Color(0xFF0284C7),
+                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              ),
             ),
           ],
         ],
@@ -643,28 +658,42 @@ class _SearchNoResults extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colors = Theme.of(context).colorScheme;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final iconColor = isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B);
+
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 40),
       child: Column(
         children: [
-          Icon(Icons.search_off_rounded, size: 44, color: colors.onSurfaceVariant),
+          Icon(Icons.search_off_rounded, size: 44, color: iconColor),
           const SizedBox(height: 12),
           Text(
             'No matching results',
-            style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800),
+            style: TextStyle(
+              fontFamily: 'Inter',
+              fontSize: 16,
+              fontWeight: FontWeight.w700,
+              color: isDark ? Colors.white : AppColors.navy,
+            ),
           ),
           const SizedBox(height: 6),
           Text(
             'No records found matching "$query".',
             textAlign: TextAlign.center,
-            style: TextStyle(color: colors.onSurfaceVariant, fontSize: 13),
+            style: TextStyle(
+              fontFamily: 'Inter',
+              color: iconColor,
+              fontSize: 13,
+            ),
           ),
           const SizedBox(height: 14),
           OutlinedButton.icon(
             onPressed: onClear,
             icon: const Icon(Icons.clear_rounded, size: 16),
             label: const Text('Clear search'),
+            style: OutlinedButton.styleFrom(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+            ),
           ),
         ],
       ),
@@ -680,46 +709,35 @@ class _HistoryError extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      children: [
-        Text(message, textAlign: TextAlign.center),
-        const SizedBox(height: 12),
-        OutlinedButton.icon(
-          onPressed: onRetry,
-          icon: const Icon(Icons.refresh_rounded),
-          label: const Text('Retry'),
-        ),
-      ],
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 36),
+      child: Column(
+        children: [
+          Icon(
+            Icons.error_outline_rounded,
+            size: 40,
+            color: Theme.of(context).colorScheme.error,
+          ),
+          const SizedBox(height: 12),
+          Text(
+            message,
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontFamily: 'Inter',
+              fontSize: 14,
+              color: isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B),
+            ),
+          ),
+          const SizedBox(height: 14),
+          OutlinedButton.icon(
+            onPressed: onRetry,
+            icon: const Icon(Icons.refresh_rounded, size: 16),
+            label: const Text('Retry'),
+          ),
+        ],
+      ),
     );
   }
 }
-
-IconData _inputIcon(String type) => switch (type.toLowerCase()) {
-  'image' => Icons.image_outlined,
-  'pdf' => Icons.picture_as_pdf_outlined,
-  'audio' => Icons.graphic_eq_rounded,
-  _ => Icons.chat_bubble_outline_rounded,
-};
-
-String _formatDate(DateTime date) {
-  final local = date.toLocal();
-  final hour = local.hour % 12 == 0 ? 12 : local.hour % 12;
-  final minute = local.minute.toString().padLeft(2, '0');
-  final suffix = local.hour >= 12 ? 'PM' : 'AM';
-  return '${local.day} ${_month(local.month)} ${local.year}, $hour:$minute $suffix';
-}
-
-String _month(int month) => const [
-  'Jan',
-  'Feb',
-  'Mar',
-  'Apr',
-  'May',
-  'Jun',
-  'Jul',
-  'Aug',
-  'Sep',
-  'Oct',
-  'Nov',
-  'Dec',
-][month - 1];

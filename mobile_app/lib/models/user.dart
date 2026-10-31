@@ -7,6 +7,9 @@ class User {
     required this.isActive,
     required this.emailVerified,
     required this.twoFactorEnabled,
+    this.emailNotifications = true,
+    this.communityUpdates = true,
+    this.marketingUpdates = false,
   });
 
   final int id;
@@ -16,6 +19,35 @@ class User {
   final bool isActive;
   final bool emailVerified;
   final bool twoFactorEnabled;
+  final bool emailNotifications;
+  final bool communityUpdates;
+  final bool marketingUpdates;
+
+  User copyWith({
+    int? id,
+    String? fullName,
+    String? email,
+    String? role,
+    bool? isActive,
+    bool? emailVerified,
+    bool? twoFactorEnabled,
+    bool? emailNotifications,
+    bool? communityUpdates,
+    bool? marketingUpdates,
+  }) {
+    return User(
+      id: id ?? this.id,
+      fullName: fullName ?? this.fullName,
+      email: email ?? this.email,
+      role: role ?? this.role,
+      isActive: isActive ?? this.isActive,
+      emailVerified: emailVerified ?? this.emailVerified,
+      twoFactorEnabled: twoFactorEnabled ?? this.twoFactorEnabled,
+      emailNotifications: emailNotifications ?? this.emailNotifications,
+      communityUpdates: communityUpdates ?? this.communityUpdates,
+      marketingUpdates: marketingUpdates ?? this.marketingUpdates,
+    );
+  }
 
   factory User.fromJson(Map<String, dynamic> json) {
     return User(
@@ -26,6 +58,9 @@ class User {
       isActive: _requiredBool(json, 'is_active'),
       emailVerified: _requiredBool(json, 'email_verified'),
       twoFactorEnabled: json['two_factor_enabled'] as bool? ?? false,
+      emailNotifications: json['email_notifications'] as bool? ?? true,
+      communityUpdates: json['community_updates'] as bool? ?? true,
+      marketingUpdates: json['marketing_updates'] as bool? ?? false,
     );
   }
 

@@ -210,9 +210,82 @@ class AuthService {
 
   Future<bool> isAuthenticated() async => (await getStoredToken()) != null;
 
-  Future<void> logout() => _storage.delete(key: _tokenKey);
+  Future<void> logout() async {
+    final token = await getStoredToken();
+    if (token != null) {
+      try {
+        await _api.postJson('/auth/logout', {}, token: token);
+      } catch (_) {
+        // Safe offline / best-effort server revocation
+      }
+    }
+    await _storage.delete(key: _tokenKey);
+  }
 
-  Future<void> logoutAdmin() => _storage.delete(key: _adminTokenKey);
+  Future<void> logoutAdmin() async {
+    final token = await getStoredAdminToken();
+    if (token != null) {
+      try {
+        await _api.postJson('/auth/logout', {}, token: token);
+      } catch (_) {
+        // Safe offline / best-effort server revocation
+      }
+    }
+    await _storage.delete(key: _adminTokenKey);
+  }
+
+  Future<User> updateProfile({
+    String? fullName,
+    bool? twoFactorEnabled,
+    bool? emailNotifications,
+    bool? communityUpdates,
+    bool? marketingUpdates,
+  }) async {
+    final token = await getStoredToken();
+    if (token == null) {
+      throw const ApiException('Authentication required to update profile.');
+    }
+    final body = <String, dynamic>{};
+    if (fullName != null) body['full_name'] = fullName.trim();
+    if (twoFactorEnabled != null) body['two_factor_enabled'] = twoFactorEnabled;
+    if (emailNotifications != null) body['email_notifications'] = emailNotifications;
+    if (communityUpdates != null) body['community_updates'] = communityUpdates;
+    if (marketingUpdates != null) body['marketing_updates'] = marketingUpdates;
+
+    final response = await _api.putJson('/auth/me', body, token: token);
+    return User.fromJson(_asJsonObject(response, 'Update profile'));
+  }
+
+  Future<void> changePassword({
+    required String currentPassword,
+    required String newPassword,
+  }) async {
+    final token = await getStoredToken();
+    if (token == null) {
+      throw const ApiException('Authentication required to change password.');
+    }
+    final response = await _api.postJson(
+      '/auth/change-password',
+      {
+        'current_password': currentPassword,
+        'new_password': newPassword,
+      },
+      token: token,
+    );
+    final json = _asJsonObject(response, 'Change password');
+    if (json['message'] is! String) {
+      throw const ApiException('Could not update password.');
+    }
+  }
+
+  Future<void> deleteAccount() async {
+    final token = await getStoredToken();
+    if (token == null) {
+      throw const ApiException('Authentication required to delete account.');
+    }
+    await _api.delete('/auth/me', token: token);
+    await logout();
+  }
 
   Future<LoginResult> _completeLogin(
     Map<String, dynamic> json, {

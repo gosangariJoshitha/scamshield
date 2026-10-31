@@ -31,10 +31,20 @@ class DashboardStats {
 }
 
 class DashboardData {
-  const DashboardData({required this.stats, required this.recentAnalyses});
+  const DashboardData({
+    required this.stats,
+    this.recentAnalyses = const [],
+    this.allAnalyses,
+  });
 
   final DashboardStats stats;
   final List<AnalysisRecord> recentAnalyses;
+  final List<AnalysisRecord>? allAnalyses;
+
+  List<AnalysisRecord> get effectiveAllAnalyses =>
+      (allAnalyses != null && allAnalyses!.isNotEmpty)
+          ? allAnalyses!
+          : recentAnalyses;
 }
 
 class AnalysisService {
@@ -65,6 +75,7 @@ class AnalysisService {
     return DashboardData(
       stats: DashboardStats.fromJson(statsJson),
       recentAnalyses: history.take(5).toList(growable: false),
+      allAnalyses: history,
     );
   }
 
@@ -82,6 +93,12 @@ class AnalysisService {
               AnalysisRecord.fromJson(_asObject(item, 'Analysis history')),
         )
         .toList(growable: false);
+  }
+
+  Future<AnalysisRecord> getAnalysis(int analysisId) async {
+    final token = await _requireToken();
+    final response = await api.get('/analysis/$analysisId', token: token);
+    return AnalysisRecord.fromJson(_asObject(response, 'Analysis detail'));
   }
 
   Future<AnalysisRecord> analyzeText(String content) async {

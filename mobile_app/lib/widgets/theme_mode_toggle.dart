@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 
+import '../theme/app_colors.dart';
+
+/// Accessible theme mode toggle switch supporting Light and Dark modes.
 class ThemeModeToggle extends StatelessWidget {
   const ThemeModeToggle({
     required this.isDarkMode,
@@ -12,13 +15,18 @@ class ThemeModeToggle extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colors = Theme.of(context).colorScheme;
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+
     return Container(
       padding: const EdgeInsets.all(4),
       decoration: BoxDecoration(
-        color: colors.surface.withValues(alpha: 0.85),
+        color: isDark ? AppColors.darkCard : AppColors.lightCard,
         borderRadius: BorderRadius.circular(30),
-        border: Border.all(color: colors.outlineVariant),
+        border: Border.all(
+          color: isDark ? AppColors.darkBorder : AppColors.lightBorder,
+          width: 1,
+        ),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
@@ -56,7 +64,13 @@ class _ThemeOption extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colors = Theme.of(context).colorScheme;
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+    final primaryColor = isDark ? AppColors.darkPrimary : AppColors.primary;
+    final containerColor = isDark
+        ? AppColors.darkPrimary.withValues(alpha: 0.22)
+        : AppColors.aqua.withValues(alpha: 0.45);
+
     return Semantics(
       button: true,
       label: label,
@@ -70,13 +84,15 @@ class _ThemeOption extends StatelessWidget {
             width: 38,
             height: 38,
             decoration: BoxDecoration(
-              color: selected ? colors.primaryContainer : Colors.transparent,
+              color: selected ? containerColor : Colors.transparent,
               shape: BoxShape.circle,
             ),
             child: Icon(
               icon,
               size: 20,
-              color: selected ? colors.primary : colors.onSurfaceVariant,
+              color: selected
+                  ? primaryColor
+                  : (isDark ? AppColors.textMutedDark : AppColors.textMutedLight),
             ),
           ),
         ),

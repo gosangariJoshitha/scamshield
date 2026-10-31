@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 
+import '../theme/app_spacing.dart';
+
+/// Reusable rectangular skeleton placeholder for loading states.
 class SkeletonBox extends StatelessWidget {
   const SkeletonBox({
     this.width,
@@ -22,14 +25,78 @@ class SkeletonBox extends StatelessWidget {
       height: height,
       decoration: BoxDecoration(
         color: isDark
-            ? colors.surfaceContainerHighest.withValues(alpha: 0.3)
-            : colors.outlineVariant.withValues(alpha: 0.25),
+            ? colors.surfaceContainerHighest.withValues(alpha: 0.35)
+            : colors.outlineVariant.withValues(alpha: 0.35),
         borderRadius: BorderRadius.circular(borderRadius),
       ),
     );
   }
 }
 
+/// Generic card skeleton placeholder conforming to card dimensions.
+class ScamShieldCardSkeleton extends StatelessWidget {
+  const ScamShieldCardSkeleton({
+    this.height = 110,
+    super.key,
+  });
+
+  final double height;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+
+    return Container(
+      height: height,
+      padding: AppSpacing.cardPadding,
+      decoration: BoxDecoration(
+        color: colors.surface,
+        borderRadius: AppSpacing.roundedCard,
+        border: Border.all(
+          color: colors.outlineVariant.withValues(alpha: 0.5),
+          width: 1,
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Row(
+            children: [
+              SkeletonBox(
+                width: 38,
+                height: 38,
+                borderRadius: 10,
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: const [
+                    SkeletonBox(width: 140, height: 16, borderRadius: 4),
+                    SizedBox(height: 6),
+                    SkeletonBox(width: 80, height: 12, borderRadius: 4),
+                  ],
+                ),
+              ),
+              const SkeletonBox(width: 60, height: 24, borderRadius: 12),
+            ],
+          ),
+          if (height > 90) ...[
+            const SizedBox(height: 12),
+            SkeletonBox(
+              width: double.infinity,
+              height: 14,
+              borderRadius: 4,
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+/// Dashboard loading state skeleton.
 class DashboardSkeleton extends StatelessWidget {
   const DashboardSkeleton({super.key});
 
@@ -50,14 +117,15 @@ class DashboardSkeleton extends StatelessWidget {
         const SizedBox(height: 20),
         const SkeletonBox(height: 18, width: 140, borderRadius: 6),
         const SizedBox(height: 12),
-        const SkeletonBox(height: 110, borderRadius: 18),
+        const ScamShieldCardSkeleton(),
         const SizedBox(height: 12),
-        const SkeletonBox(height: 110, borderRadius: 18),
+        const ScamShieldCardSkeleton(),
       ],
     );
   }
 }
 
+/// History list loading state skeleton.
 class HistoryListSkeleton extends StatelessWidget {
   const HistoryListSkeleton({
     this.count = 4,
@@ -73,9 +141,12 @@ class HistoryListSkeleton extends StatelessWidget {
         count,
         (index) => const Padding(
           padding: EdgeInsets.only(bottom: 14),
-          child: SkeletonBox(height: 100, borderRadius: 18),
+          child: ScamShieldCardSkeleton(),
         ),
       ),
     );
   }
 }
+
+/// Convenient alias for general skeleton loading views.
+typedef SkeletonLoader = ScamShieldCardSkeleton;

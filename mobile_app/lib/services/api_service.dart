@@ -65,6 +65,22 @@ class ApiService {
     );
   }
 
+  Future<dynamic> putJson(
+    String path,
+    Map<String, dynamic> body, {
+    String? token,
+    Duration? requestTimeout,
+  }) async {
+    return _send(
+      'PUT',
+      path,
+      token: token,
+      body: jsonEncode(body),
+      contentType: 'application/json',
+      requestTimeout: requestTimeout,
+    );
+  }
+
   Future<dynamic> delete(String path, {String? token}) async {
     return _send('DELETE', path, token: token);
   }

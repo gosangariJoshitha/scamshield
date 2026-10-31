@@ -17,6 +17,8 @@ class AnalysisRecord {
     this.retrievedEvidence = const [],
     this.processingStatus,
     this.safeActions = const [],
+    this.actionTranslations = const {},
+    this.defaultLanguage,
   });
 
   final int id;
@@ -36,6 +38,8 @@ class AnalysisRecord {
   final List<AnalysisEvidence> retrievedEvidence;
   final String? processingStatus;
   final List<String> safeActions;
+  final Map<String, List<String>> actionTranslations;
+  final String? defaultLanguage;
 
   factory AnalysisRecord.fromJson(Map<String, dynamic> json) {
     final createdAtValue = json['created_at'];
@@ -69,6 +73,8 @@ class AnalysisRecord {
       retrievedEvidence: _evidenceList(json['retrieved_evidence_data']),
       processingStatus: json['processing_status'] as String?,
       safeActions: _safeActions(json['safe_actions']),
+      actionTranslations: _actionTranslations(json['safe_actions']),
+      defaultLanguage: _defaultLanguage(json['safe_actions']),
     );
   }
 
@@ -86,6 +92,30 @@ class AnalysisRecord {
   static List<String> _safeActions(Object? value) {
     if (value is! Map) return const [];
     return _stringList(value['canonical']);
+  }
+
+  static Map<String, List<String>> _actionTranslations(Object? value) {
+    if (value is! Map) return const {};
+    final raw = value['translations'];
+    if (raw is! Map) return const {};
+    final result = <String, List<String>>{};
+    for (final entry in raw.entries) {
+      final key = entry.key;
+      final val = entry.value;
+      if (key is String && val is List) {
+        result[key] = val
+            .whereType<String>()
+            .where((item) => item.trim().isNotEmpty)
+            .toList(growable: false);
+      }
+    }
+    return result;
+  }
+
+  static String? _defaultLanguage(Object? value) {
+    if (value is! Map) return null;
+    final lang = value['default_language'];
+    return lang is String ? lang : null;
   }
 
   static List<AnalysisEvidence> _evidenceList(Object? value) {
