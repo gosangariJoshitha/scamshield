@@ -38,6 +38,7 @@ class _MultilingualRecommendationCardState
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final riskLevel = widget.analysis.riskLevel.trim().toUpperCase();
     final isSafe = riskLevel == 'LOW' ||
+        widget.analysis.classification.toUpperCase() == 'SAFE' ||
         widget.analysis.classification.toUpperCase() == 'GENUINE';
 
     // Header styling
@@ -50,7 +51,7 @@ class _MultilingualRecommendationCardState
 
     if (isSafe) {
       headerColor = isDark ? const Color(0xFF34D399) : const Color(0xFF059669);
-      iconColor = const Color(0xFFEAB308); // Yellow Bulb
+      iconColor = const Color(0xFFEAB308); // Gold Bulb
       headerIcon = Icons.lightbulb_rounded;
       cardBg = isDark ? const Color(0xFF092017) : const Color(0xFFF0FDF4);
       cardBorder = isDark
@@ -198,37 +199,42 @@ class _MultilingualRecommendationCardState
             const SizedBox(height: 12),
           ],
 
-          // Recommendation Bullets
-          ...displayActions.map(
-            (action) => Padding(
-              padding: const EdgeInsets.only(bottom: 10),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    '• ',
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w900,
-                      color: bulletColor,
-                      height: 1.3,
-                    ),
-                  ),
-                  Expanded(
-                    child: Text(
-                      action,
-                      style: TextStyle(
-                        fontFamily: 'Inter',
-                        fontSize: 13.5,
-                        fontWeight: FontWeight.w500,
-                        color: textColor,
-                        height: 1.4,
+          // Recommendation Bullets with aligned dot indicator
+          ...displayActions.asMap().entries.map(
+            (entry) {
+              final idx = entry.key;
+              final action = entry.value;
+              final isLast = idx == displayActions.length - 1;
+              return Padding(
+                padding: EdgeInsets.only(bottom: isLast ? 0 : 10),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Container(
+                      margin: const EdgeInsets.only(top: 6, right: 10),
+                      width: 6,
+                      height: 6,
+                      decoration: BoxDecoration(
+                        color: bulletColor,
+                        shape: BoxShape.circle,
                       ),
                     ),
-                  ),
-                ],
-              ),
-            ),
+                    Expanded(
+                      child: Text(
+                        action,
+                        style: TextStyle(
+                          fontFamily: 'Inter',
+                          fontSize: 13.5,
+                          fontWeight: FontWeight.w500,
+                          color: textColor,
+                          height: 1.42,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            },
           ),
         ],
       ),
@@ -246,17 +252,16 @@ class _MultilingualRecommendationCardState
   static List<String> _fallbackActionsFromRisk(String riskLevel, bool isSafe) {
     if (isSafe) {
       return const [
-        'This message is safe to interact with.',
-        'You can proceed if you trust the sender.',
-        'Always stay cautious with unknown messages.',
-        'Do not share sensitive information unless verified.',
+        'No specific security action is required based on available findings.',
+        'Continue to use official communication channels.',
+        'Never share OTPs, passwords, or banking credentials.',
       ];
     }
     return const [
-      'Do not click on any links in this message.',
-      'Do not share personal, banking, or OTP credentials.',
-      'Block and report the sender immediately.',
-      'Verify the request through official customer service channels.',
+      'Do not click suspicious links or download attachments.',
+      'Never share OTPs, PINs, or banking credentials.',
+      'Verify the sender through official channels.',
+      'Report suspicious communication through cybercrime channels.',
     ];
   }
 }

@@ -23,63 +23,70 @@ class ResultBottomActions extends StatelessWidget {
       builder: (context, constraints) {
         final isNarrow = constraints.maxWidth < 360;
 
-        final analyzeButton = OutlinedButton.icon(
-          onPressed: onAnalyzeAnother ?? () => Navigator.of(context).maybePop(),
-          icon: Icon(Icons.sync_rounded, size: 18, color: primaryColor),
-          label: Text(
-            'Analyze Another',
-            style: TextStyle(
-              fontFamily: 'Inter',
-              fontSize: 14,
-              fontWeight: FontWeight.w700,
-              color: primaryColor,
+        final analyzeButton = SizedBox(
+          height: 48,
+          child: OutlinedButton.icon(
+            onPressed: onAnalyzeAnother ?? () => Navigator.of(context).maybePop(),
+            icon: Icon(Icons.sync_rounded, size: 18, color: primaryColor),
+            label: Text(
+              'Analyze Another',
+              style: TextStyle(
+                fontFamily: 'Inter',
+                fontSize: 14,
+                fontWeight: FontWeight.w700,
+                color: primaryColor,
+              ),
             ),
-          ),
-          style: OutlinedButton.styleFrom(
-            padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 12),
-            side: BorderSide(color: primaryColor.withValues(alpha: 0.8), width: 1.2),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12),
+            style: OutlinedButton.styleFrom(
+              padding: const EdgeInsets.symmetric(horizontal: 14),
+              side: BorderSide(color: primaryColor.withValues(alpha: 0.8), width: 1.2),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
             ),
           ),
         );
 
-        final saveToHistoryButton = OutlinedButton.icon(
-          onPressed: () {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text(
-                  analysis.id > 0
-                      ? 'Analysis #${analysis.id} is securely stored in your History.'
-                      : 'Analysis record is preserved.',
-                  style: const TextStyle(fontFamily: 'Inter'),
+        final saveToHistoryButton = SizedBox(
+          height: 48,
+          child: OutlinedButton.icon(
+            onPressed: () {
+              final isPersisted = analysis.id > 0;
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text(
+                    isPersisted
+                        ? 'Analysis #${analysis.id} is securely stored in your History.'
+                        : 'This session was not persisted to History.',
+                    style: const TextStyle(fontFamily: 'Inter'),
+                  ),
+                  behavior: SnackBarBehavior.floating,
+                  action: (isPersisted && onOpenHistory != null)
+                      ? SnackBarAction(
+                          label: 'View',
+                          textColor: primaryColor,
+                          onPressed: onOpenHistory!,
+                        )
+                      : null,
                 ),
-                behavior: SnackBarBehavior.floating,
-                action: onOpenHistory != null
-                    ? SnackBarAction(
-                        label: 'View',
-                        textColor: primaryColor,
-                        onPressed: onOpenHistory!,
-                      )
-                    : null,
+              );
+            },
+            icon: Icon(Icons.bookmark_border_rounded, size: 18, color: primaryColor),
+            label: Text(
+              'Save to History',
+              style: TextStyle(
+                fontFamily: 'Inter',
+                fontSize: 14,
+                fontWeight: FontWeight.w700,
+                color: primaryColor,
               ),
-            );
-          },
-          icon: Icon(Icons.bookmark_border_rounded, size: 18, color: primaryColor),
-          label: Text(
-            'Save to History',
-            style: TextStyle(
-              fontFamily: 'Inter',
-              fontSize: 14,
-              fontWeight: FontWeight.w700,
-              color: primaryColor,
             ),
-          ),
-          style: OutlinedButton.styleFrom(
-            padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 12),
-            side: BorderSide(color: primaryColor.withValues(alpha: 0.8), width: 1.2),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12),
+            style: OutlinedButton.styleFrom(
+              padding: const EdgeInsets.symmetric(horizontal: 14),
+              side: BorderSide(color: primaryColor.withValues(alpha: 0.8), width: 1.2),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
             ),
           ),
         );

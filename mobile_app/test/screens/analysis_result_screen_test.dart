@@ -108,7 +108,9 @@ void main() {
     expect(find.text('High'), findsOneWidget);
     expect(find.text('94%'), findsOneWidget);
     expect(find.text('1 Suspicious Link'), findsOneWidget);
-    expect(find.text('Prize Claim, Urgent Action, Shortened Link'), findsOneWidget);
+    expect(find.text('Prize Claim'), findsAtLeastNWidgets(1));
+    expect(find.text('Urgent Action'), findsOneWidget);
+    expect(find.text('Shortened Link'), findsOneWidget);
 
     await tester.ensureVisible(find.text('Recommendation'));
     expect(find.text('Recommendation'), findsOneWidget);

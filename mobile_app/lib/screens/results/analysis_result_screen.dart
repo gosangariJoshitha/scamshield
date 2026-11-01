@@ -61,23 +61,23 @@ class AnalysisResultScreen extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  // 1. Result Banner (Safe / Scam Detected / Suspicious)
+                  // 1. Result Banner (Safe / Scam Detected / Caution Advised)
                   ResultBannerCard(analysis: analysis),
 
-                  // 2. Partial / Degraded pipeline limitations notice
+                  // 2. Compact Auxiliary Service Warning (Only when services fail/unavailable)
                   if (analysis.processingStatus == 'COMPLETED_WITH_LIMITATIONS') ...[
-                    const SizedBox(height: 12),
+                    const SizedBox(height: 10),
                     const _LimitationsNotice(),
                   ],
 
                   const SizedBox(height: 14),
 
-                  // 3. Genuine Backend Summary
+                  // 3. Genuine Backend Summary (Short, readable paragraphs)
                   ResultSummaryCard(analysis: analysis),
 
                   const SizedBox(height: 14),
 
-                  // 4. Detailed Breakdown
+                  // 4. Detailed Breakdown (Neat label/value alignment & indicator chips)
                   ResultDetailsCard(analysis: analysis),
 
                   const SizedBox(height: 14),
@@ -96,7 +96,7 @@ class AnalysisResultScreen extends StatelessWidget {
 
                   const SizedBox(height: 14),
 
-                  // 7. Security Guidance Disclaimer
+                  // 7. Security Guidance Disclaimer (Subtle and compact)
                   const _DisclaimerCard(),
                 ],
               ),
@@ -114,27 +114,30 @@ class _LimitationsNotice extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final amberColor = isDark ? const Color(0xFFFBBF24) : const Color(0xFFD97706);
+
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: BoxDecoration(
-        color: (isDark ? const Color(0xFFF59E0B) : const Color(0xFFD97706)).withValues(alpha: 0.1),
-        borderRadius: BorderRadius.circular(12),
+        color: amberColor.withValues(alpha: isDark ? 0.12 : 0.08),
+        borderRadius: BorderRadius.circular(10),
         border: Border.all(
-          color: (isDark ? const Color(0xFFF59E0B) : const Color(0xFFD97706)).withValues(alpha: 0.3),
+          color: amberColor.withValues(alpha: isDark ? 0.35 : 0.25),
+          width: 0.8,
         ),
       ),
       child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.center,
         children: [
           Icon(
             Icons.info_outline_rounded,
-            size: 16,
-            color: isDark ? const Color(0xFFFBBF24) : const Color(0xFFD97706),
+            size: 15,
+            color: amberColor,
           ),
           const SizedBox(width: 8),
           Expanded(
             child: Text(
-              'Some auxiliary analysis services were temporarily unavailable. The findings above reflect verified outputs from the active pipeline.',
+              'Some auxiliary analysis services were temporarily unavailable. Findings reflect verified outputs from the active pipeline.',
               style: TextStyle(
                 fontFamily: 'Inter',
                 fontSize: 12,
@@ -157,13 +160,13 @@ class _DisclaimerCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: BoxDecoration(
         color: isDark ? Colors.white.withValues(alpha: 0.03) : Colors.black.withValues(alpha: 0.02),
-        borderRadius: BorderRadius.circular(10),
+        borderRadius: BorderRadius.circular(8),
       ),
       child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.center,
         children: [
           Icon(
             Icons.shield_outlined,
@@ -173,7 +176,7 @@ class _DisclaimerCard extends StatelessWidget {
           const SizedBox(width: 8),
           Expanded(
             child: Text(
-              'ScamShield analysis is automated safety guidance. Always verify independently through official channels before acting.',
+              'ScamShield analysis is automated safety guidance. Always independently verify suspicious financial requests through official channels.',
               style: TextStyle(
                 fontFamily: 'Inter',
                 fontSize: 11,

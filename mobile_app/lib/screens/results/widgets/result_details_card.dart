@@ -19,7 +19,9 @@ class ResultDetailsCard extends StatelessWidget {
     final dividerColor = isDark ? const Color(0xFF243447) : const Color(0xFFF1F5F9);
 
     final riskLevel = analysis.riskLevel.trim().toUpperCase();
-    final isSafe = riskLevel == 'LOW' || analysis.classification.toUpperCase() == 'GENUINE';
+    final isSafe = riskLevel == 'LOW' ||
+        analysis.classification.toUpperCase() == 'SAFE' ||
+        analysis.classification.toUpperCase() == 'GENUINE';
 
     // Risk Color mapping
     final Color riskDotColor = switch (riskLevel) {
@@ -41,11 +43,11 @@ class ResultDetailsCard extends StatelessWidget {
     // Content Type mapping
     final (IconData typeIcon, String typeLabel) = _contentTypeDetails(analysis.inputType);
 
-    // Confidence percentage (truthful only)
-    final double? confidenceValue = analysis.llmConfidence ?? analysis.mlProbability;
+    // Confidence: Only display reasoning confidence if legitimately provided by backend
+    final double? confidenceValue = analysis.llmConfidence;
     final String? confidenceText = confidenceValue != null
         ? '${(confidenceValue * 100).round()}%'
-        : (analysis.riskScore > 0 ? '${analysis.riskScore}%' : null);
+        : null;
 
     // Links assessment
     final hasSuspiciousLink = analysis.indicators.any(
@@ -56,12 +58,7 @@ class ResultDetailsCard extends StatelessWidget {
         );
     final String linksDisplay = hasSuspiciousLink
         ? '1 Suspicious Link'
-        : (isSafe ? '0' : 'No suspicious links');
-
-    // Indicators display
-    final String indicatorsDisplay = analysis.indicators.isNotEmpty
-        ? analysis.indicators.join(', ')
-        : 'None detected';
+        : (isSafe ? '0' : 'None detected');
 
     // Pattern display
     final String patternDisplay = isSafe
@@ -72,10 +69,8 @@ class ResultDetailsCard extends StatelessWidget {
     final bool isFlagged = !isSafe && (analysis.classification.toUpperCase() == 'SCAM' || riskLevel != 'LOW');
     final String flagLabel = isFlagged ? 'Why Flagged' : 'Why Not Flagged';
     final String flagExplanation = isFlagged
-        ? (analysis.explanation?.trim().isNotEmpty == true
-            ? analysis.explanation!
-            : 'Contains suspicious request patterns or elements common in scams.')
-        : 'No known scam patterns or suspicious elements were detected.';
+        ? _conciseFlagReason(analysis)
+        : 'No known scam patterns or suspicious elements detected.';
 
     // Formatted timestamp
     final String timestampText = _formatTimestamp(analysis.createdAt);
@@ -138,40 +133,58 @@ class ResultDetailsCard extends StatelessWidget {
               ],
             ),
           ),
-          Divider(color: dividerColor, height: 20, thickness: 1),
+          Divider(color: dividerColor, height: 18, thickness: 0.8),
 
-          // Row 2: Risk Level
+          // Row 2: Risk Level & Assessed Score
           _DetailRow(
             label: 'Risk Level',
             labelColor: labelColor,
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
+            child: Wrap(
+              alignment: WrapAlignment.end,
+              crossAxisAlignment: WrapCrossAlignment.center,
               children: [
-                Container(
-                  width: 8,
-                  height: 8,
-                  decoration: BoxDecoration(
-                    color: riskDotColor,
-                    shape: BoxShape.circle,
-                  ),
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Container(
+                      width: 8,
+                      height: 8,
+                      decoration: BoxDecoration(
+                        color: riskDotColor,
+                        shape: BoxShape.circle,
+                      ),
+                    ),
+                    const SizedBox(width: 6),
+                    Text(
+                      riskDisplay,
+                      style: TextStyle(
+                        fontFamily: 'Inter',
+                        fontSize: 13.5,
+                        fontWeight: FontWeight.w700,
+                        color: riskDotColor,
+                      ),
+                    ),
+                  ],
                 ),
-                const SizedBox(width: 6),
-                Text(
-                  riskDisplay,
-                  style: TextStyle(
-                    fontFamily: 'Inter',
-                    fontSize: 13.5,
-                    fontWeight: FontWeight.w700,
-                    color: riskDotColor,
+                if (analysis.riskScore > 0) ...[
+                  const SizedBox(width: 4),
+                  Text(
+                    ' (Score: ${analysis.riskScore}/100)',
+                    style: TextStyle(
+                      fontFamily: 'Inter',
+                      fontSize: 12,
+                      fontWeight: FontWeight.w500,
+                      color: labelColor,
+                    ),
                   ),
-                ),
+                ],
               ],
             ),
           ),
 
-          // Row 3: Confidence (only if available)
+          // Row 3: Confidence (only displayed when model provides genuine confidence)
           if (confidenceText != null) ...[
-            Divider(color: dividerColor, height: 20, thickness: 1),
+            Divider(color: dividerColor, height: 18, thickness: 0.8),
             _DetailRow(
               label: 'Confidence',
               labelColor: labelColor,
@@ -188,7 +201,7 @@ class ResultDetailsCard extends StatelessWidget {
           ],
 
           // Row 4: Links Detected
-          Divider(color: dividerColor, height: 20, thickness: 1),
+          Divider(color: dividerColor, height: 18, thickness: 0.8),
           _DetailRow(
             label: 'Links Detected',
             labelColor: labelColor,
@@ -203,27 +216,56 @@ class ResultDetailsCard extends StatelessWidget {
             ),
           ),
 
-          // Row 5: Scam Indicators
-          Divider(color: dividerColor, height: 20, thickness: 1),
+          // Row 5: Scam Indicators (Clean individual chips)
+          Divider(color: dividerColor, height: 18, thickness: 0.8),
           _DetailRow(
             label: 'Scam Indicators',
             labelColor: labelColor,
-            child: Text(
-              indicatorsDisplay,
-              textAlign: TextAlign.end,
-              style: TextStyle(
-                fontFamily: 'Inter',
-                fontSize: 13.5,
-                fontWeight: FontWeight.w500,
-                color: analysis.indicators.isNotEmpty
-                    ? (isDark ? const Color(0xFFFCA5A5) : const Color(0xFFDC2626))
-                    : labelColor,
-              ),
-            ),
+            child: analysis.indicators.isEmpty
+                ? Text(
+                    'None detected',
+                    style: TextStyle(
+                      fontFamily: 'Inter',
+                      fontSize: 13,
+                      fontWeight: FontWeight.w500,
+                      color: labelColor,
+                    ),
+                  )
+                : Wrap(
+                    spacing: 6,
+                    runSpacing: 6,
+                    alignment: WrapAlignment.end,
+                    children: analysis.indicators
+                        .map(
+                          (indicator) => Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                            decoration: BoxDecoration(
+                              color: isDark ? const Color(0xFF3B1519) : const Color(0xFFFEE2E2),
+                              borderRadius: BorderRadius.circular(6),
+                              border: Border.all(
+                                color: isDark
+                                    ? const Color(0xFFEF4444).withValues(alpha: 0.4)
+                                    : const Color(0xFFFCA5A5),
+                                width: 0.8,
+                              ),
+                            ),
+                            child: Text(
+                              indicator,
+                              style: TextStyle(
+                                fontFamily: 'Inter',
+                                fontSize: 12,
+                                fontWeight: FontWeight.w600,
+                                color: isDark ? const Color(0xFFFCA5A5) : const Color(0xFFDC2626),
+                              ),
+                            ),
+                          ),
+                        )
+                        .toList(),
+                  ),
           ),
 
           // Row 6: Message Pattern
-          Divider(color: dividerColor, height: 20, thickness: 1),
+          Divider(color: dividerColor, height: 18, thickness: 0.8),
           _DetailRow(
             label: 'Message Pattern',
             labelColor: labelColor,
@@ -239,8 +281,8 @@ class ResultDetailsCard extends StatelessWidget {
             ),
           ),
 
-          // Row 7: Why Flagged / Why Not Flagged
-          Divider(color: dividerColor, height: 20, thickness: 1),
+          // Row 7: Why Flagged / Why Not Flagged (concise, avoids repeating summary)
+          Divider(color: dividerColor, height: 18, thickness: 0.8),
           _DetailRow(
             label: flagLabel,
             labelColor: labelColor,
@@ -249,7 +291,7 @@ class ResultDetailsCard extends StatelessWidget {
               textAlign: TextAlign.end,
               style: TextStyle(
                 fontFamily: 'Inter',
-                fontSize: 13.5,
+                fontSize: 13,
                 fontWeight: FontWeight.w400,
                 color: valueColor,
                 height: 1.35,
@@ -258,7 +300,7 @@ class ResultDetailsCard extends StatelessWidget {
           ),
 
           // Row 8: Timestamp
-          Divider(color: dividerColor, height: 20, thickness: 1),
+          Divider(color: dividerColor, height: 18, thickness: 0.8),
           _DetailRow(
             label: 'Analysis Time',
             labelColor: labelColor,
@@ -297,6 +339,27 @@ class ResultDetailsCard extends StatelessWidget {
         .join(' ');
   }
 
+  static String _conciseFlagReason(AnalysisRecord analysis) {
+    if (analysis.indicators.isNotEmpty) {
+      return 'Flagged for: ${analysis.indicators.join(', ')}';
+    }
+    if (analysis.category.isNotEmpty && analysis.category.toLowerCase() != 'general') {
+      return 'Pattern matches ${_formatCategory(analysis.category)}';
+    }
+    final exp = analysis.explanation?.trim();
+    if (exp != null && exp.isNotEmpty) {
+      final periodIdx = exp.indexOf('.');
+      if (periodIdx > 0 && periodIdx < 95) {
+        return exp.substring(0, periodIdx + 1);
+      }
+      if (exp.length > 90) {
+        return '${exp.substring(0, 87)}...';
+      }
+      return exp;
+    }
+    return 'Suspicious request patterns identified.';
+  }
+
   static String _formatTimestamp(DateTime time) {
     final local = time.toLocal();
     final months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
@@ -321,29 +384,40 @@ class _DetailRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 105),
-          child: Text(
-            label,
-            style: TextStyle(
-              fontFamily: 'Inter',
-              fontSize: 13,
-              fontWeight: FontWeight.w500,
-              color: labelColor,
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 2),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 105),
+            child: Text(
+              label,
+              style: TextStyle(
+                fontFamily: 'Inter',
+                fontSize: 13,
+                fontWeight: FontWeight.w500,
+                color: labelColor,
+                height: 1.35,
+              ),
             ),
           ),
-        ),
-        const SizedBox(width: 8),
-        Expanded(
-          child: Align(
-            alignment: Alignment.centerRight,
-            child: child,
+          const SizedBox(width: 8),
+          Expanded(
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                return SizedBox(
+                  width: constraints.maxWidth,
+                  child: Align(
+                    alignment: Alignment.centerRight,
+                    child: child,
+                  ),
+                );
+              },
+            ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 }
