@@ -257,6 +257,9 @@ def get_system_health(
         "chromadb_expected_minimum": rag_service.get_index_health()["expected_minimum"],
         "embedding": "Configured",
         "llm": "Configured" if os.getenv("GROQ_API_KEY") else "Not Configured",
+        "ocr": "Configured",
+        "speech_to_text": "Configured",
+        "jira": "Configured" if (os.getenv("JIRA_ENABLED", "false").lower() == "true" and bool(os.getenv("JIRA_API_TOKEN") or os.getenv("JIRA_EMAIL"))) else "Not Configured",
     }
 
     try:

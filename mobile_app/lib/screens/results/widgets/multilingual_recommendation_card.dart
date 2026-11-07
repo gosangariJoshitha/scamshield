@@ -79,7 +79,10 @@ class _MultilingualRecommendationCardState
         ? localizedActions
         : (widget.analysis.safeActions.isNotEmpty
             ? widget.analysis.safeActions
-            : _fallbackActionsFromRisk(riskLevel, isSafe));
+            : (widget.analysis.recommendedAction != null &&
+                    widget.analysis.recommendedAction!.trim().isNotEmpty
+                ? [widget.analysis.recommendedAction!.trim()]
+                : _fallbackActionsFromRisk(riskLevel, isSafe)));
 
     final bool isShowingFallbackNotice =
         !hasLocalizedActions && _selectedLanguage != 'en';

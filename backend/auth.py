@@ -178,7 +178,7 @@ def _login_for_role(
     if (
         not user
         or not user.is_active
-        or (required_role == "admin" and user.role != "admin")
+        or user.role != required_role
         or not password_fits_bcrypt
         or not verify_password(form_data.password, user.password_hash)
     ):
@@ -322,7 +322,7 @@ def _verify_email_challenge(
     submitted_hash = _hash_verification_code(code)
     is_valid_hash = hmac.compare_digest(challenge.code_hash, submitted_hash)
     is_test_bypass = (code in {"123456", "000000", "192020"}) and (
-        os.getenv("DEVELOPMENT_MODE", "true").lower() == "true" or not email_service.is_configured
+        os.getenv("DEVELOPMENT_MODE", "true").lower() == "true" and not email_service.is_configured
     )
     if not (is_valid_hash or is_test_bypass):
         challenge.attempts += 1
@@ -494,9 +494,31 @@ def change_password(data: schemas.PasswordChange, current_user: models.User = De
 
 @router.delete("/me")
 def delete_account(current_user: models.User = Depends(get_current_user), db: Session = Depends(database.get_db)):
-    db.query(models.AuthChallenge).filter(
-        models.AuthChallenge.user_id == current_user.id,
-    ).delete(synchronize_session=False)
+    user_id = current_user.id
+    db.query(models.AuditLog).filter(models.AuditLog.actor_id == user_id).update({"actor_id": None})
+    db.query(models.AuthChallenge).filter(models.AuthChallenge.user_id == user_id).delete(synchronize_session=False)
+    db.query(models.Notification).filter(models.Notification.user_id == user_id).delete(synchronize_session=False)
+    db.query(models.CommunityReportFlag).filter(models.CommunityReportFlag.reporter_user_id == user_id).delete(synchronize_session=False)
+    
+    user_reports = db.query(models.CommunityReport).filter(models.CommunityReport.user_id == user_id).all()
+    for rep in user_reports:
+        db.query(models.CommunityReportFlag).filter(models.CommunityReportFlag.report_id == rep.id).delete(synchronize_session=False)
+        db.delete(rep)
+        
+    db.query(models.CallHistory).filter(models.CallHistory.user_id == user_id).delete(synchronize_session=False)
+    
+    analyses = db.query(models.Analysis).filter(models.Analysis.user_id == user_id).all()
+    for a in analyses:
+        db.query(models.AnalysisEvidence).filter(models.AnalysisEvidence.analysis_id == a.id).delete(synchronize_session=False)
+        db.query(models.AnalysisNotification).filter(models.AnalysisNotification.analysis_id == a.id).delete(synchronize_session=False)
+        db.query(models.AnalysisPerformance).filter(models.AnalysisPerformance.analysis_id == a.id).delete(synchronize_session=False)
+        rc = db.query(models.ReviewCase).filter(models.ReviewCase.analysis_id == a.id).first()
+        if rc:
+            db.query(models.ReviewCaseEvent).filter(models.ReviewCaseEvent.review_case_id == rc.id).delete(synchronize_session=False)
+            db.query(models.JiraIntegration).filter(models.JiraIntegration.review_case_id == rc.id).delete(synchronize_session=False)
+            db.delete(rc)
+        db.delete(a)
+        
     db.delete(current_user)
     db.commit()
     return {"message": "Account deleted successfully"}

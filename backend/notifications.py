@@ -97,6 +97,27 @@ def mark_all_notifications_read(
     return {"marked_read": updated}
 
 
+@router.delete("/{notification_id}")
+def delete_single_notification(
+    notification_id: int,
+    current_user: models.User = Depends(get_current_user),
+    db: Session = Depends(database.get_db),
+):
+    notification = (
+        db.query(models.Notification)
+        .filter(models.Notification.id == notification_id, models.Notification.user_id == current_user.id)
+        .first()
+    )
+    if not notification:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Notification not found",
+        )
+    db.delete(notification)
+    db.commit()
+    return {"deleted": True, "id": notification_id}
+
+
 @router.delete("")
 @router.delete("/")
 def clear_all_notifications(

@@ -197,8 +197,65 @@ class AdminPortalService {
     await _patch('/admin/users/$userId/status', {'is_active': isActive}),
   );
 
+  Future<Map<String, dynamic>> updateUserRole(
+    int userId, {
+    required String role,
+  }) async => _asMap(
+    await _patch('/admin/users/$userId/role', {'role': role}),
+  );
+
+  Future<AdminPage> loadAnalysesPage({
+    int page = 1,
+    int pageSize = 20,
+    String search = '',
+    String inputType = '',
+    String classification = '',
+    String riskLevel = '',
+    String category = '',
+  }) async => AdminPage.fromResponse(
+    await _get(
+      '/admin/analyses',
+      query: _query(
+        page: page,
+        pageSize: pageSize,
+        search: search,
+        values: {
+          'input_type': inputType,
+          'classification': classification,
+          'risk_level': riskLevel,
+          'category': category,
+        },
+      ),
+    ),
+  );
+
+  Future<Map<String, dynamic>> loadAnalysisDetail(int analysisId) async =>
+      _asMap(await _get('/admin/analyses/$analysisId'));
+
+  Future<Map<String, dynamic>> assignReview(int caseId) async =>
+      _asMap(await _post('/reviews/admin/$caseId/assign', const {}));
+
+  Future<Map<String, dynamic>> createJiraTicket(int caseId) async =>
+      _asMap(await _post('/reviews/admin/$caseId/jira', const {}));
+
+  Future<Map<String, dynamic>> createKnowledgeFromReview(
+    int caseId,
+    Map<String, dynamic> payload,
+  ) async => _asMap(
+    await _post('/reviews/admin/$caseId/create-knowledge', payload),
+  );
+
   Future<Map<String, dynamic>> loadMonitoring() async =>
       _asMap(await _get('/admin/health'));
+
+  Future<Map<String, dynamic>> loadMonitoringHealth() async =>
+      _asMap(await _get('/admin/monitoring/health'));
+
+  Future<Map<String, dynamic>> loadMonitoringPerformance() async =>
+      _asMap(await _get('/admin/monitoring/performance'));
+
+  Future<Map<String, dynamic>> loadMonitoringOverview() async =>
+      _asMap(await _get('/admin/monitoring/overview'));
 
   Future<AdminPage> loadAuditPage({int page = 1, int pageSize = 20}) async =>
       AdminPage.fromResponse(

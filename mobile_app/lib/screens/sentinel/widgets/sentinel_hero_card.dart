@@ -17,7 +17,7 @@ class SentinelHeroCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final isRunning = status?.enabled == true && status?.serviceRunning == true;
+    final isRunning = status?.isProtected == true;
     final isEnabled = status?.enabled == true;
 
     final Color cardBg = isDark ? AppColors.darkCard : Colors.white;
@@ -28,7 +28,7 @@ class SentinelHeroCard extends StatelessWidget {
     final String statusText;
     final Color statusColor;
     if (isRunning) {
-      statusText = 'Guardian is on · Ready';
+      statusText = 'Sentinel is on · Ready';
       statusColor = isDark ? const Color(0xFF34D399) : const Color(0xFF10B981);
     } else if (isEnabled) {
       statusText = 'Starting · Connecting monitoring service';
@@ -37,7 +37,7 @@ class SentinelHeroCard extends StatelessWidget {
       statusText = 'Attention Needed · Tap to review permissions';
       statusColor = isDark ? const Color(0xFFF87171) : const Color(0xFFEF4444);
     } else {
-      statusText = 'Guardian is off. Call activity is not monitored.';
+      statusText = 'Sentinel is off. Call activity is not monitored.';
       statusColor = isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B);
     }
 
@@ -98,7 +98,7 @@ class SentinelHeroCard extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        'Live Call Guardian',
+                        'Live Call Sentinel',
                         style: TextStyle(
                           fontFamily: 'Inter',
                           fontSize: 16.5,

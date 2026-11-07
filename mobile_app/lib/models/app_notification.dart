@@ -40,12 +40,14 @@ class AppNotification {
   }
 
   factory AppNotification.fromJson(Map<String, dynamic> json) {
+    final title = json['title'] as String?;
+    final message = json['message'] as String? ?? json['content'] as String? ?? '';
     return AppNotification(
       id: json['id'] as int? ?? 0,
       userId: json['user_id'] as int? ?? 0,
       type: json['type'] as String? ?? 'SYSTEM',
-      title: json['title'] as String? ?? '',
-      message: json['message'] as String? ?? '',
+      title: title != null && title.isNotEmpty ? title : 'Security Alert',
+      message: message,
       isRead: json['is_read'] as bool? ?? false,
       createdAt: json['created_at'] != null
           ? DateTime.tryParse(json['created_at'].toString())?.toLocal() ?? DateTime.now()

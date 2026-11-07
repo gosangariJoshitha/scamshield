@@ -12,7 +12,7 @@ class CategoryPillsRow extends StatelessWidget {
   final ValueChanged<String> onSelectCategory;
 
   static const List<(String id, String label)> _categories = [
-    ('call', 'Call Guardian'),
+    ('call', 'Call Sentinel'),
     ('message', 'Message Protection'),
     ('link', 'Link Protection'),
     ('web', 'Web Protection'),

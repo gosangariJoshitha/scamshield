@@ -207,6 +207,23 @@ class CallStateGuardianService : Service() {
         ) {
             GuardianAudioPipeline.stop()
         }
+
+        // Synchronize native floating guardian overlay
+        try {
+            if (Build.VERSION.SDK_INT < Build.VERSION_CODES.M || android.provider.Settings.canDrawOverlays(this)) {
+                when (state) {
+                    "RINGING" -> FloatingGuardianService.show(this, FloatingGuardianService.STATE_CALL_DETECTED, "Protect Call", null)
+                    "IN_CALL" -> {
+                        if (audioProtectionEnabled()) {
+                            FloatingGuardianService.show(this, FloatingGuardianService.STATE_MONITORING, "LIVE", null)
+                        } else {
+                            FloatingGuardianService.show(this, FloatingGuardianService.STATE_CALL_DETECTED, "Protect Call", null)
+                        }
+                    }
+                    "IDLE" -> FloatingGuardianService.hide(this)
+                }
+            }
+        } catch (_: Exception) {}
         val callScreeningAvailable: Boolean
         val callScreeningEnabled: Boolean
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {

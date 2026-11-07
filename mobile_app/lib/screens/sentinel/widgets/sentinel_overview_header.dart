@@ -31,7 +31,7 @@ class SentinelOverviewHeader extends StatelessWidget {
                     ),
                   ),
                   const Offstage(
-                    child: Text('Live Call Guardian'),
+                    child: Text('Live Call Sentinel'),
                   ),
                 ],
               ),

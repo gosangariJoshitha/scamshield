@@ -298,7 +298,7 @@ void main() {
       expect(find.text('Notifications'), findsOneWidget);
       expect(find.text('Language'), findsOneWidget);
       expect(find.text('Theme'), findsOneWidget);
-      expect(find.text('Floating Guardian Button'), findsOneWidget);
+      expect(find.text('Floating Sentinel Button'), findsOneWidget);
 
       expect(find.text('Call Protection'), findsOneWidget);
       expect(find.text('Call Analysis Settings'), findsOneWidget);

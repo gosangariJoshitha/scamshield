@@ -48,6 +48,7 @@ class QuickActionsCard extends StatelessWidget {
         children: [
           // Section Title with Icon Badge
           Row(
+            mainAxisSize: MainAxisSize.min,
             children: [
               Container(
                 width: 28,
@@ -64,14 +65,18 @@ class QuickActionsCard extends StatelessWidget {
                 ),
               ),
               const SizedBox(width: 8),
-              Text(
-                'Quick Actions',
-                style: TextStyle(
-                  fontFamily: 'Inter',
-                  fontSize: 16,
-                  fontWeight: FontWeight.w700,
-                  color: headlineColor,
-                  letterSpacing: -0.2,
+              Flexible(
+                child: Text(
+                  'Quick Actions',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontFamily: 'Inter',
+                    fontSize: 16,
+                    fontWeight: FontWeight.w700,
+                    color: headlineColor,
+                    letterSpacing: -0.2,
+                  ),
                 ),
               ),
             ],

@@ -487,7 +487,7 @@ void main() {
         ),
       );
 
-      expect(find.text('GUARDIAN PROTECTION'), findsOneWidget);
+      expect(find.text('SENTINEL PROTECTION'), findsOneWidget);
       expect(find.text('Risk alerts'), findsOneWidget);
       expect(find.text('High-risk vibration'), findsOneWidget);
       expect(find.text('Critical-risk alerts'), findsOneWidget);

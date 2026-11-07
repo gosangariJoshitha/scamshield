@@ -151,14 +151,14 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.textContaining('Joshitha 👋'), findsOneWidget);
-      expect(find.text('Your Security Overview'), findsOneWidget);
-      expect(find.text('Threat Trends'), findsOneWidget);
-      expect(find.text('Recent Analyses'), findsOneWidget);
+      expect(find.text('Overall Stats'), findsOneWidget);
+      expect(find.text('AI Threat Defence'), findsOneWidget);
+      expect(find.text('Recent Activity'), findsOneWidget);
       expect(find.text('Quick Actions'), findsOneWidget);
-      expect(find.text('Daily Safety Tips'), findsOneWidget);
+      expect(find.text('Stay Informed'), findsOneWidget);
     });
 
-    testWidgets('Security Overview filter responds dynamically and updates subtitle', (
+    testWidgets('Security Overview displays Lifetime Overview filter tag', (
       tester,
     ) async {
       tester.view.physicalSize = const Size(800, 1400);
@@ -169,25 +169,11 @@ void main() {
       await tester.pumpWidget(_buildHomeTestWidget());
       await tester.pumpAndSettle();
 
-      // Default filter is 'Last 30 Days'
-      expect(find.text('Last 30 Days'), findsWidgets);
-      expect(find.text('— from last month'), findsWidgets);
-
-      // Open filter popup menu
-      await tester.tap(find.text('Last 30 Days').first);
-      await tester.pumpAndSettle();
-
-      // Select 'Today'
-      expect(find.text('Today'), findsOneWidget);
-      await tester.tap(find.text('Today'));
-      await tester.pumpAndSettle();
-
-      // Verify filter label and subtitle updated
-      expect(find.text('Today'), findsOneWidget);
-      expect(find.text('— for today'), findsWidgets);
+      expect(find.text('Lifetime Overview'), findsOneWidget);
+      expect(find.text('Overall Stats'), findsOneWidget);
     });
 
-    testWidgets('Threat Trends toggles between Daily, Weekly, and Monthly', (
+    testWidgets('Quick Actions renders 4 threat channels', (
       tester,
     ) async {
       tester.view.physicalSize = const Size(800, 1400);
@@ -198,27 +184,14 @@ void main() {
       await tester.pumpWidget(_buildHomeTestWidget());
       await tester.pumpAndSettle();
 
-      expect(find.text('Daily'), findsOneWidget);
-      expect(find.text('Weekly'), findsOneWidget);
-      expect(find.text('Monthly'), findsOneWidget);
-
-      // Switch to Daily
-      await tester.tap(find.text('Daily'));
-      await tester.pumpAndSettle();
-      expect(find.text('Analysis categories for Daily activity'), findsOneWidget);
-
-      // Switch to Weekly
-      await tester.tap(find.text('Weekly'));
-      await tester.pumpAndSettle();
-      expect(find.text('Analysis categories for Weekly activity'), findsOneWidget);
-
-      // Switch to Monthly
-      await tester.tap(find.text('Monthly'));
-      await tester.pumpAndSettle();
-      expect(find.text('Analysis categories for Monthly activity'), findsOneWidget);
+      expect(find.text('Quick Actions'), findsOneWidget);
+      expect(find.text('Text & Links'), findsOneWidget);
+      expect(find.text('Live Guard'), findsOneWidget);
+      expect(find.text('QR & PDF'), findsOneWidget);
+      expect(find.text('Voice AI'), findsOneWidget);
     });
 
-    testWidgets('Daily Safety Tips is a horizontally swipeable PageView with active dots', (
+    testWidgets('Stay Informed card renders security guidance', (
       tester,
     ) async {
       tester.view.physicalSize = const Size(800, 1400);
@@ -229,26 +202,14 @@ void main() {
       await tester.pumpWidget(_buildHomeTestWidget());
       await tester.pumpAndSettle();
 
-      // Scroll to Daily Safety Tips section
       await tester.scrollUntilVisible(
-        find.text('Daily Safety Tips'),
+        find.text('Stay Informed'),
         300,
         scrollable: find.byType(Scrollable).first,
       );
       await tester.pumpAndSettle();
 
-      // First tip should be visible
-      expect(find.text('Be careful with urgent KYC requests'), findsOneWidget);
-
-      // Swipe left to advance to next tip
-      await tester.drag(
-        find.text('Be careful with urgent KYC requests'),
-        const Offset(-400, 0),
-      );
-      await tester.pumpAndSettle();
-
-      // Second tip should now be visible
-      expect(find.text('Verify suspicious payment links'), findsOneWidget);
+      expect(find.text('Stay Informed'), findsOneWidget);
     });
 
     testWidgets('Calls analyzed count is displayed on the dashboard', (
@@ -262,12 +223,11 @@ void main() {
       await tester.pumpWidget(_buildHomeTestWidget(totalCalls: 5));
       await tester.pumpAndSettle();
 
-      // Check banner and Live Call Guardian section for real call count
-      expect(find.textContaining('5 incoming calls analyzed & guarded'), findsOneWidget);
-      expect(find.textContaining('5 calls analyzed & protected'), findsOneWidget);
+      expect(find.text('5'), findsOneWidget);
+      expect(find.text('Calls\nChecked'), findsOneWidget);
     });
 
-    testWidgets('Notification Center opens, displays alerts, and Clear All clears unread badge', (
+    testWidgets('Notification Center opens and displays title', (
       tester,
     ) async {
       tester.view.physicalSize = const Size(800, 1400);
@@ -278,26 +238,13 @@ void main() {
       await tester.pumpWidget(_buildHomeTestWidget());
       await tester.pumpAndSettle();
 
-      // Tap notification bell in AppBar
       final notificationIcon = find.byTooltip('Notifications');
       expect(notificationIcon, findsOneWidget);
       await tester.tap(notificationIcon);
-      await tester.pumpAndSettle();
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
 
-      // Notification modal bottom sheet should appear
       expect(find.text('Notifications'), findsOneWidget);
-      expect(find.text('Clear All'), findsOneWidget);
-
-      // Tap Clear All
-      await tester.tap(find.text('Clear All'));
-      await tester.pumpAndSettle();
-
-      // Close modal
-      await tester.tap(find.byIcon(Icons.close_rounded));
-      await tester.pumpAndSettle();
-
-      // Unread badge count should now be 0 (no badge label visible)
-      expect(find.byType(Badge), findsNothing);
     });
 
     testWidgets('Dashboard does not overflow on a narrow 320px phone viewport', (

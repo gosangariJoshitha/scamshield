@@ -23,48 +23,68 @@ class NotificationListResult {
 class NotificationService {
   NotificationService({
     required this.api,
-    required this.authService,
+    this.authService,
+    this.tokenProvider,
   });
 
   final ApiService api;
-  final AuthService authService;
+  final AuthService? authService;
+  final Future<String?> Function()? tokenProvider;
+
+  Future<String?> _resolveToken() async {
+    if (tokenProvider != null) {
+      return await tokenProvider!();
+    }
+    if (authService != null) {
+      return await authService!.getStoredToken();
+    }
+    return null;
+  }
 
   Future<NotificationListResult> getNotifications({
     int page = 1,
     int limit = 20,
     bool unreadOnly = false,
   }) async {
-    final token = await authService.getStoredToken();
-    if (token == null) {
-      throw const ApiException('Authentication required to load notifications.');
-    }
-
+    final token = await _resolveToken();
     final query = 'page=$page&limit=$limit&unread_only=$unreadOnly';
     final response = await api.get('/notifications?$query', token: token);
-    if (response is! Map<String, dynamic>) {
-      throw const ApiException('Unexpected response while fetching notifications.');
+    if (response is Map<String, dynamic>) {
+      final rawItems = response['items'] as List<dynamic>? ?? [];
+      final items = rawItems
+          .whereType<Map<String, dynamic>>()
+          .map(AppNotification.fromJson)
+          .toList();
+
+      return NotificationListResult(
+        items: items,
+        total: response['total'] as int? ?? items.length,
+        unreadCount: response['unread_count'] as int? ?? 0,
+        page: response['page'] as int? ?? page,
+        limit: response['limit'] as int? ?? limit,
+        hasNext: response['has_next'] as bool? ?? false,
+      );
+    }
+    if (response is List) {
+      final items = response
+          .whereType<Map<String, dynamic>>()
+          .map(AppNotification.fromJson)
+          .toList();
+      return NotificationListResult(
+        items: items,
+        total: items.length,
+        unreadCount: items.where((n) => !n.isRead).length,
+        page: page,
+        limit: limit,
+        hasNext: false,
+      );
     }
 
-    final rawItems = response['items'] as List<dynamic>? ?? [];
-    final items = rawItems
-        .whereType<Map<String, dynamic>>()
-        .map(AppNotification.fromJson)
-        .toList();
-
-    return NotificationListResult(
-      items: items,
-      total: response['total'] as int? ?? items.length,
-      unreadCount: response['unread_count'] as int? ?? 0,
-      page: response['page'] as int? ?? page,
-      limit: response['limit'] as int? ?? limit,
-      hasNext: response['has_next'] as bool? ?? false,
-    );
+    throw const ApiException('Unexpected response while fetching notifications.');
   }
 
   Future<int> getUnreadCount() async {
-    final token = await authService.getStoredToken();
-    if (token == null) return 0;
-
+    final token = await _resolveToken();
     try {
       final response = await api.get('/notifications/unread-count', token: token);
       if (response is Map<String, dynamic>) {
@@ -77,11 +97,7 @@ class NotificationService {
   }
 
   Future<AppNotification> markAsRead(int notificationId) async {
-    final token = await authService.getStoredToken();
-    if (token == null) {
-      throw const ApiException('Authentication required.');
-    }
-
+    final token = await _resolveToken();
     final response = await api.postJson(
       '/notifications/$notificationId/read',
       {},
@@ -94,11 +110,7 @@ class NotificationService {
   }
 
   Future<int> markAllAsRead() async {
-    final token = await authService.getStoredToken();
-    if (token == null) {
-      throw const ApiException('Authentication required.');
-    }
-
+    final token = await _resolveToken();
     final response = await api.postJson(
       '/notifications/read-all',
       {},
@@ -110,12 +122,20 @@ class NotificationService {
     return 0;
   }
 
-  Future<int> clearAll() async {
-    final token = await authService.getStoredToken();
-    if (token == null) {
-      throw const ApiException('Authentication required.');
+  Future<bool> deleteNotification(int notificationId) async {
+    final token = await _resolveToken();
+    final response = await api.delete(
+      '/notifications/$notificationId',
+      token: token,
+    );
+    if (response is Map<String, dynamic>) {
+      return response['deleted'] as bool? ?? true;
     }
+    return true;
+  }
 
+  Future<int> clearAll() async {
+    final token = await _resolveToken();
     final response = await api.delete('/notifications', token: token);
     if (response is Map<String, dynamic>) {
       return response['deleted'] as int? ?? 0;

@@ -38,6 +38,7 @@ class User(Base):
     reports = relationship("CommunityReport", back_populates="user")
     notifications = relationship("Notification", back_populates="user")
     call_histories = relationship("CallHistory", back_populates="user", cascade="all, delete-orphan")
+    emergency_contacts = relationship("EmergencyContact", back_populates="user", cascade="all, delete-orphan")
 
 class Analysis(Base):
     __tablename__ = "analyses"
@@ -156,6 +157,24 @@ class CommunityReport(Base):
 
     user = relationship("User", back_populates="reports")
     analysis = relationship("Analysis", back_populates="community_reports")
+    flags = relationship("CommunityReportFlag", back_populates="report", cascade="all, delete-orphan")
+
+
+class CommunityReportFlag(Base):
+    __tablename__ = "community_report_flags"
+
+    id = Column(Integer, primary_key=True, index=True)
+    report_id = Column(Integer, ForeignKey("community_reports.id", ondelete="CASCADE"), nullable=False, index=True)
+    reporter_user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    reason = Column(String, nullable=False)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+    __table_args__ = (
+        UniqueConstraint("report_id", "reporter_user_id", name="uq_report_reporter_flag"),
+    )
+
+    report = relationship("CommunityReport", back_populates="flags")
+    reporter = relationship("User", foreign_keys=[reporter_user_id])
 
 class KnowledgeEntry(Base):
     __tablename__ = "knowledge_entries"
@@ -222,7 +241,7 @@ class ReviewCase(Base):
     id = Column(Integer, primary_key=True, index=True)
     analysis_id = Column(Integer, ForeignKey("analyses.id"), unique=True)
     user_id = Column(Integer, ForeignKey("users.id"))
-    assigned_reviewer_id = Column(Integer, ForeignKey("users.id"), nullable=True)
+    assigned_reviewer_id = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
     status = Column(String, default="PENDING", index=True) # PENDING, ASSIGNED, IN_REVIEW, NEEDS_INFORMATION, VERIFIED, REJECTED, CLOSED
     priority = Column(String, default="LOW", index=True) # LOW, MEDIUM, HIGH, URGENT
     escalation_reason = Column(String)
@@ -346,4 +365,21 @@ class CallHistory(Base):
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
 
     user = relationship("User", back_populates="call_histories")
+
+
+class EmergencyContact(Base):
+    __tablename__ = "emergency_contacts"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), index=True, nullable=False)
+    name = Column(String(100), nullable=False)
+    phone_number = Column(String(20), nullable=False)
+    relationship_type = Column(String(50), nullable=True, default="Family")
+    is_active = Column(Boolean, default=True, nullable=False)
+    notify_sms = Column(Boolean, default=True, nullable=False)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+
+    user = relationship("User", back_populates="emergency_contacts")
+
 

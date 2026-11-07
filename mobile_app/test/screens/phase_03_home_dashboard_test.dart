@@ -238,7 +238,7 @@ void main() {
       expect(find.text('Message Analyzed'), findsOneWidget);
       expect(find.textContaining('Scam detected'), findsOneWidget);
       expect(find.text('Document Analyzed'), findsOneWidget);
-      expect(find.textContaining('Safe'), findsOneWidget);
+      expect(find.textContaining('Safe •'), findsOneWidget);
     });
 
     testWidgets('7. Empty history displays informative empty state with action', (

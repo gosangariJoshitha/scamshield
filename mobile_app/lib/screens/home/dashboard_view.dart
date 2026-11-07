@@ -10,7 +10,6 @@ import 'widgets/overall_stats_card.dart';
 import 'widgets/quick_actions_card.dart';
 import 'widgets/recent_activity_section.dart';
 import 'widgets/security_radar_hero.dart';
-import 'widgets/sentinel_status_card.dart';
 import 'widgets/stay_informed_card.dart';
 
 /// Phase 03: ScamShield 2.0 Home Dashboard View
@@ -44,6 +43,10 @@ class HomeDashboardView extends StatefulWidget {
     required this.onOpenSettings,
     required this.onLogout,
     this.totalCallsAnalyzed = 0,
+    this.showCyberHelpline = true,
+    this.onDismissCyberHelpline,
+    this.onDialCyberHelpline,
+    this.onToggleProtection,
     super.key,
   });
 
@@ -53,6 +56,10 @@ class HomeDashboardView extends StatefulWidget {
   final String? dashboardError;
   final CallGuardianStatus? guardianStatus;
   final int totalCallsAnalyzed;
+  final bool showCyberHelpline;
+  final VoidCallback? onDismissCyberHelpline;
+  final Future<void> Function()? onDialCyberHelpline;
+  final ValueChanged<bool>? onToggleProtection;
   final Future<void> Function() onRefresh;
   final void Function(String type) onOpenAnalyze;
   final VoidCallback onOpenGuardian;
@@ -239,19 +246,13 @@ class _HomeDashboardViewState extends State<HomeDashboardView> {
                   ),
                   const SizedBox(height: 14),
 
-                  // SECTION A.2: Security Radar & AI Defense Engine Hero Card
+                  // SECTION A.2: AI Threat Defence Hero Card
                   SecurityRadarHeroCard(
                     guardianStatus: widget.guardianStatus,
                     totalScans: stats?.totalAnalyses ?? allAnalyses.length,
                     scamsDetected: scamsDetected,
                     onOpenSentinel: widget.onOpenGuardian,
-                  ),
-                  const SizedBox(height: 16),
-
-                  // SECTION B: Sentinel Protection Status Card
-                  SentinelStatusCard(
-                    status: widget.guardianStatus,
-                    onOpenSentinel: widget.onOpenGuardian,
+                    onToggleProtection: widget.onToggleProtection,
                   ),
                   const SizedBox(height: 16),
 
@@ -278,8 +279,13 @@ class _HomeDashboardViewState extends State<HomeDashboardView> {
                   const SizedBox(height: 16),
 
                   // SECTION D.2: National Cybercrime Helpline (1930) Emergency Card
-                  const CyberHelplineCard(),
-                  const SizedBox(height: 16),
+                  if (widget.showCyberHelpline) ...[
+                    CyberHelplineCard(
+                      onDismiss: widget.onDismissCyberHelpline,
+                      onDial: widget.onDialCyberHelpline,
+                    ),
+                    const SizedBox(height: 16),
+                  ],
 
                   // SECTION E: Recent Activity
                   RecentActivitySection(

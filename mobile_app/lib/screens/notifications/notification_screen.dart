@@ -89,6 +89,67 @@ class _NotificationScreenState extends State<NotificationScreen> {
     }
   }
 
+  Future<void> _deleteNotification(AppNotification notification) async {
+    final index = _notifications.indexWhere((n) => n.id == notification.id);
+    if (index == -1) return;
+    final wasRead = notification.isRead;
+    final removed = notification;
+    setState(() {
+      _notifications.removeAt(index);
+      if (!wasRead) {
+        _unreadCount = (_unreadCount - 1).clamp(0, 9999);
+      }
+    });
+
+    try {
+      await widget.notificationService.deleteNotification(notification.id);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Notification cleared')),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _notifications.insert(index.clamp(0, _notifications.length), removed);
+        if (!wasRead) {
+          _unreadCount += 1;
+        }
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Could not clear notification: $e')),
+      );
+    }
+  }
+
+  Future<void> _handleNotificationTap(AppNotification notification, int index) async {
+    await _markRead(notification, index);
+
+    final msg = notification.message;
+    // Route if analysis ID is embedded (e.g. "Analysis #101 flagged...")
+    if (widget.onOpenAnalysis != null && (notification.type == 'SECURITY_ALERT' || notification.type == 'ANALYSIS_COMPLETE')) {
+      final match = RegExp(r'#(\d+)').firstMatch(msg);
+      if (match != null) {
+        final analysisId = int.tryParse(match.group(1) ?? '');
+        if (analysisId != null) {
+          widget.onOpenAnalysis!(analysisId);
+          return;
+        }
+      }
+    }
+
+    // Route if session ID is embedded (e.g. "Protected call session test-sess-999...")
+    if (widget.onOpenCallSummary != null && (notification.type == 'CALL_ALERT' || notification.type == 'CALL_COMPLETE')) {
+      final match = RegExp(r'session\s+([A-Za-z0-9_\-]+)').firstMatch(msg);
+      if (match != null) {
+        final sessionId = match.group(1);
+        if (sessionId != null && sessionId.isNotEmpty) {
+          widget.onOpenCallSummary!(sessionId);
+          return;
+        }
+      }
+    }
+  }
+
   Future<void> _confirmClearAll() async {
     final confirmed = await showDialog<bool>(
       context: context,
@@ -282,11 +343,28 @@ class _NotificationScreenState extends State<NotificationScreen> {
       separatorBuilder: (context, index) => const SizedBox(height: 10),
       itemBuilder: (context, index) {
         final item = _notifications[index];
-        return _NotificationTile(
-          notification: item,
-          isDark: isDark,
-          timestamp: _formatTimestamp(item.createdAt),
-          onTap: () => _markRead(item, index),
+        return Dismissible(
+          key: ValueKey('notification_${item.id}'),
+          direction: DismissDirection.endToStart,
+          background: Container(
+            alignment: Alignment.centerRight,
+            padding: const EdgeInsets.only(right: 20),
+            decoration: BoxDecoration(
+              color: Colors.redAccent.withValues(alpha: 0.85),
+              borderRadius: BorderRadius.circular(16),
+            ),
+            child: const Icon(Icons.delete_outline_rounded, color: Colors.white),
+          ),
+          onDismissed: (_) {
+            _deleteNotification(item);
+          },
+          child: _NotificationTile(
+            notification: item,
+            isDark: isDark,
+            timestamp: _formatTimestamp(item.createdAt),
+            onTap: () => _handleNotificationTap(item, index),
+            onDelete: () => _deleteNotification(item),
+          ),
         );
       },
     );
@@ -299,12 +377,14 @@ class _NotificationTile extends StatelessWidget {
     required this.isDark,
     required this.timestamp,
     required this.onTap,
+    this.onDelete,
   });
 
   final AppNotification notification;
   final bool isDark;
   final String timestamp;
   final VoidCallback onTap;
+  final VoidCallback? onDelete;
 
   @override
   Widget build(BuildContext context) {
@@ -394,6 +474,17 @@ class _NotificationTile extends StatelessWidget {
                 ],
               ),
             ),
+            if (onDelete != null) ...[
+              const SizedBox(width: 4),
+              IconButton(
+                icon: const Icon(Icons.close_rounded, size: 16),
+                tooltip: 'Clear notification',
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(),
+                color: isDark ? AppColors.textMutedDark : AppColors.textMutedLight,
+                onPressed: onDelete,
+              ),
+            ],
           ],
         ),
       ),

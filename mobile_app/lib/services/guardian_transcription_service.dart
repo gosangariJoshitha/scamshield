@@ -262,7 +262,7 @@ class GuardianTranscriptionService {
     if (chunk.sampleRateHz != 16000 ||
         chunk.channels != 1 ||
         chunk.encoding != 'PCM_16BIT' ||
-        chunk.durationMs != 5000) {
+        (chunk.durationMs != 5000 && chunk.durationMs != 3000)) {
       _setState(
         'TRANSCRIPTION_UNAVAILABLE',
         'This audio format is not supported for live transcription.',

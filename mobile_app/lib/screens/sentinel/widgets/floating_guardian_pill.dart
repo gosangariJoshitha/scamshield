@@ -55,7 +55,7 @@ class FloatingGuardianPill extends StatelessWidget {
               mainAxisSize: MainAxisSize.min,
               children: const [
                 Text(
-                  'Guardian Active',
+                  'Sentinel Active',
                   style: TextStyle(
                     fontFamily: 'Inter',
                     fontSize: 12,

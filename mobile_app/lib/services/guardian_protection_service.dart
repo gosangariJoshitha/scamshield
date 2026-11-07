@@ -316,14 +316,25 @@ class GuardianProtectionService {
   Future<void> onRiskEscalated(String riskLevel) async {
     if (!_settings.riskAlertsEnabled) return;
 
-    if (riskLevel.toUpperCase() == 'CRITICAL' && _settings.criticalRiskAlertsEnabled) {
-      if (_settings.highRiskVibrationEnabled) {
-        await callBridge.triggerHapticAlert('CRITICAL');
+    final upper = riskLevel.toUpperCase();
+    try {
+      if (upper == 'CRITICAL' && _settings.criticalRiskAlertsEnabled) {
+        if (_settings.highRiskVibrationEnabled) {
+          await callBridge.triggerHapticAlert('CRITICAL');
+        }
+        await callBridge.speakVoiceAlert(
+          'Warning. Critical scam call detected. Do not share OTP, passwords, or personal banking details.',
+        );
+      } else if (upper == 'HIGH') {
+        if (_settings.highRiskVibrationEnabled) {
+          await callBridge.triggerHapticAlert('HIGH');
+        }
+        await callBridge.speakVoiceAlert(
+          'Warning. Potential scam call detected. Do not share OTP, passwords, or personal banking details.',
+        );
       }
-    } else if (riskLevel.toUpperCase() == 'HIGH') {
-      if (_settings.highRiskVibrationEnabled) {
-        await callBridge.triggerHapticAlert('HIGH');
-      }
+    } catch (_) {
+      // Platform bridge alerts fail silently if bindings are uninitialized or unavailable
     }
   }
 

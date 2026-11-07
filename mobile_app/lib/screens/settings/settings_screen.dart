@@ -3,11 +3,14 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 
 import '../../models/guardian_protection_models.dart';
+import '../../models/user.dart';
 import '../../native/call_bridge.dart';
+import '../../services/auth_service.dart';
 import '../../services/guardian_protection_service.dart';
 import '../../services/notification_service.dart';
 import '../../theme/app_colors.dart';
 import '../notifications/notification_screen.dart';
+import 'emergency_contacts_screen.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({
@@ -17,6 +20,9 @@ class SettingsScreen extends StatefulWidget {
     this.isDarkMode = false,
     this.onToggleTheme,
     this.callBridge,
+    this.authService,
+    this.user,
+    this.onUserUpdated,
     super.key,
   });
 
@@ -26,6 +32,9 @@ class SettingsScreen extends StatefulWidget {
   final bool isDarkMode;
   final VoidCallback? onToggleTheme;
   final CallBridge? callBridge;
+  final AuthService? authService;
+  final User? user;
+  final ValueChanged<User>? onUserUpdated;
 
   @override
   State<SettingsScreen> createState() => _SettingsScreenState();
@@ -33,6 +42,8 @@ class SettingsScreen extends StatefulWidget {
 
 class _SettingsScreenState extends State<SettingsScreen> {
   late bool _isDarkMode = widget.isDarkMode;
+  late bool _emailNotifications = widget.user?.emailNotifications ?? true;
+  late bool _communityUpdates = widget.user?.communityUpdates ?? true;
   bool _floatingButtonEnabled = false;
   String _selectedLanguage = 'English';
 
@@ -117,6 +128,121 @@ class _SettingsScreenState extends State<SettingsScreen> {
         const SnackBar(content: Text('Notifications service is initializing.')),
       );
     }
+  }
+
+  void _showNotificationPreferences() {
+    showModalBottomSheet<void>(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (context) {
+        final colors = Theme.of(context).colorScheme;
+        return StatefulBuilder(
+          builder: (context, setSheetState) {
+            return Padding(
+              padding: const EdgeInsets.fromLTRB(20, 16, 20, 32),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Center(
+                    child: Container(
+                      width: 40,
+                      height: 4,
+                      decoration: BoxDecoration(
+                        color: colors.outlineVariant,
+                        borderRadius: BorderRadius.circular(2),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 18),
+                  Text(
+                    'Notification Preferences',
+                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                          fontWeight: FontWeight.w800,
+                        ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    'Configure security alerts and community updates from ScamShield.',
+                    style: TextStyle(
+                        fontSize: 12.5, color: colors.onSurfaceVariant),
+                  ),
+                  const SizedBox(height: 16),
+                  SwitchListTile(
+                    title: const Text('Email Security Alerts',
+                        style: TextStyle(
+                            fontWeight: FontWeight.w700, fontSize: 14)),
+                    subtitle: const Text(
+                        'Critical fraud warnings sent to your registered email',
+                        style: TextStyle(fontSize: 12)),
+                    value: _emailNotifications,
+                    onChanged: (val) async {
+                      final previous = _emailNotifications;
+                      setSheetState(() => _emailNotifications = val);
+                      setState(() => _emailNotifications = val);
+                      if (widget.authService != null) {
+                        try {
+                          final updated =
+                              await widget.authService!.updateProfile(
+                            emailNotifications: val,
+                          );
+                          widget.onUserUpdated?.call(updated);
+                        } catch (e) {
+                          setSheetState(() => _emailNotifications = previous);
+                          setState(() => _emailNotifications = previous);
+                          if (context.mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text('Failed to update email preferences: $e'),
+                              ),
+                            );
+                          }
+                        }
+                      }
+                    },
+                  ),
+                  const Divider(height: 1),
+                  SwitchListTile(
+                    title: const Text('Community Threat Updates',
+                        style: TextStyle(
+                            fontWeight: FontWeight.w700, fontSize: 14)),
+                    subtitle: const Text(
+                        'Trending scam patterns reported by the community',
+                        style: TextStyle(fontSize: 12)),
+                    value: _communityUpdates,
+                    onChanged: (val) async {
+                      final previous = _communityUpdates;
+                      setSheetState(() => _communityUpdates = val);
+                      setState(() => _communityUpdates = val);
+                      if (widget.authService != null) {
+                        try {
+                          final updated =
+                              await widget.authService!.updateProfile(
+                            communityUpdates: val,
+                          );
+                          widget.onUserUpdated?.call(updated);
+                        } catch (e) {
+                          setSheetState(() => _communityUpdates = previous);
+                          setState(() => _communityUpdates = previous);
+                          if (context.mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text('Failed to update community preferences: $e'),
+                              ),
+                            );
+                          }
+                        }
+                      }
+                    },
+                  ),
+                ],
+              ),
+            );
+          },
+        );
+      },
+    );
   }
 
   Future<void> _clearCache() async {
@@ -229,6 +355,15 @@ class _SettingsScreenState extends State<SettingsScreen> {
             ),
             const SizedBox(height: 8),
             _SettingNavTile(
+              icon: Icons.tune_rounded,
+              title: 'Notification Preferences',
+              subtitle: 'Email alerts & community updates',
+              trailingText: null,
+              isDark: isDark,
+              onTap: _showNotificationPreferences,
+            ),
+            const SizedBox(height: 8),
+            _SettingNavTile(
               icon: Icons.language_rounded,
               title: 'Language',
               subtitle: _selectedLanguage,
@@ -248,7 +383,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
             const SizedBox(height: 8),
             _SettingSwitchTile(
               icon: Icons.screen_search_desktop_outlined,
-              title: 'Floating Guardian Button',
+              title: 'Floating Sentinel Button',
               subtitle: 'Show on screen when active',
               value: _floatingButtonEnabled,
               isDark: isDark,
@@ -282,6 +417,22 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   builder: (_) => CallProtectionSettingsScreen(
                     onOpenGuardian: widget.onOpenGuardian,
                     protectionService: widget.protectionService,
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(height: 8),
+            _SettingNavTile(
+              icon: Icons.contact_emergency_rounded,
+              title: 'Emergency Contacts & Family Alerts',
+              subtitle: 'SMS alerts to loved ones during high-risk calls',
+              trailingText: null,
+              isDark: isDark,
+              onTap: () => Navigator.of(context).push<void>(
+                MaterialPageRoute<void>(
+                  builder: (_) => EmergencyContactsScreen(
+                    authService: widget.authService,
+                    isDarkMode: isDark,
                   ),
                 ),
               ),
@@ -564,7 +715,7 @@ class _CallProtectionSettingsScreenState
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
     return Scaffold(
-      appBar: AppBar(title: const Text('Live Call Guardian')),
+      appBar: AppBar(title: const Text('Live Call Sentinel')),
       body: SafeArea(
         child: ListView(
           padding: const EdgeInsets.all(20),
@@ -588,7 +739,7 @@ class _CallProtectionSettingsScreenState
                   ),
                   const SizedBox(height: 8),
                   const Text(
-                    'When enabled, Guardian monitors supported call states. It does not record calls or take automatic actions without your explicit confirmation.',
+                    'When enabled, Sentinel monitors supported call states. It does not record calls or take automatic actions without your explicit confirmation.',
                   ),
                 ],
               ),
@@ -597,14 +748,14 @@ class _CallProtectionSettingsScreenState
             FilledButton.icon(
               onPressed: widget.onOpenGuardian,
               icon: const Icon(Icons.tune_rounded),
-              label: const Text('Open Guardian'),
+              label: const Text('Open Sentinel'),
               style: FilledButton.styleFrom(
                 minimumSize: const Size.fromHeight(52),
               ),
             ),
             const SizedBox(height: 20),
             Text(
-              'GUARDIAN PROTECTION',
+              'SENTINEL PROTECTION',
               style: Theme.of(context).textTheme.labelSmall?.copyWith(
                 color: colors.primary,
                 fontWeight: FontWeight.w800,

@@ -104,8 +104,8 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('Sentinel'), findsOneWidget);
-      expect(find.text('Live Call Guardian'), findsAtLeastNWidgets(1));
-      expect(find.text('Guardian is on · Ready'), findsAtLeastNWidgets(1));
+      expect(find.text('Live Call Sentinel'), findsAtLeastNWidgets(1));
+      expect(find.text('Sentinel is on · Ready'), findsAtLeastNWidgets(1));
       expect(find.text('Call Protection'), findsOneWidget);
       expect(find.text('Message Protection'), findsOneWidget);
       expect(find.text('Link Protection'), findsOneWidget);
@@ -143,7 +143,7 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      expect(find.text('Guardian is off. Call activity is not monitored.'), findsOneWidget);
+      expect(find.text('Sentinel is off. Call activity is not monitored.'), findsOneWidget);
     });
 
     testWidgets('displays active call alert banner when a call is ongoing', (tester) async {
@@ -214,14 +214,14 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('Sentinel'), findsOneWidget);
-      expect(find.text('Call Guardian'), findsOneWidget);
+      expect(find.text('Call Sentinel'), findsOneWidget);
       expect(find.text('Message Protection'), findsOneWidget);
       await tester.ensureVisible(find.text('Permissions & Access'));
       expect(find.text('Permissions & Access'), findsOneWidget);
       expect(find.text('Microphone'), findsOneWidget);
       expect(find.text('Phone Access'), findsOneWidget);
       expect(find.textContaining('Draw over other apps'), findsOneWidget);
-      expect(find.text('Guardian Service'), findsOneWidget);
+      expect(find.text('Sentinel Service'), findsOneWidget);
       expect(find.text('Running'), findsOneWidget);
     });
   });

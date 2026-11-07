@@ -10,6 +10,7 @@ class User {
     this.emailNotifications = true,
     this.communityUpdates = true,
     this.marketingUpdates = false,
+    this.createdAt,
   });
 
   final int id;
@@ -22,6 +23,7 @@ class User {
   final bool emailNotifications;
   final bool communityUpdates;
   final bool marketingUpdates;
+  final DateTime? createdAt;
 
   User copyWith({
     int? id,
@@ -34,6 +36,7 @@ class User {
     bool? emailNotifications,
     bool? communityUpdates,
     bool? marketingUpdates,
+    DateTime? createdAt,
   }) {
     return User(
       id: id ?? this.id,
@@ -46,6 +49,7 @@ class User {
       emailNotifications: emailNotifications ?? this.emailNotifications,
       communityUpdates: communityUpdates ?? this.communityUpdates,
       marketingUpdates: marketingUpdates ?? this.marketingUpdates,
+      createdAt: createdAt ?? this.createdAt,
     );
   }
 
@@ -61,6 +65,9 @@ class User {
       emailNotifications: json['email_notifications'] as bool? ?? true,
       communityUpdates: json['community_updates'] as bool? ?? true,
       marketingUpdates: json['marketing_updates'] as bool? ?? false,
+      createdAt: json['created_at'] != null
+          ? DateTime.tryParse(json['created_at'].toString())?.toLocal()
+          : null,
     );
   }
 

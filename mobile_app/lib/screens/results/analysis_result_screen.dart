@@ -6,6 +6,7 @@ import 'widgets/result_banner_card.dart';
 import 'widgets/result_bottom_actions.dart';
 import 'widgets/result_details_card.dart';
 import 'widgets/result_summary_card.dart';
+import 'widgets/scam_twin_matcher_card.dart';
 
 class AnalysisResultScreen extends StatelessWidget {
   const AnalysisResultScreen({
@@ -79,6 +80,11 @@ class AnalysisResultScreen extends StatelessWidget {
 
                   // 4. Detailed Breakdown (Neat label/value alignment & indicator chips)
                   ResultDetailsCard(analysis: analysis),
+
+                  const SizedBox(height: 14),
+
+                  // 4.2 Scam-Twin Matcher (Nearest Known Modus Operandi in Vector DB)
+                  ScamTwinMatcherCard(analysis: analysis),
 
                   const SizedBox(height: 14),
 

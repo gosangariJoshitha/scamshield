@@ -280,8 +280,9 @@ class AnalysisHistoryItemCard extends StatelessWidget {
     final type = analysis.inputType.toLowerCase();
     return switch (type) {
       'image' => 'Screenshot analysis',
-      'pdf' => 'Document analysis',
+      'pdf' || 'document' => 'Document analysis',
       'audio' => 'Voice message',
+      'url' || 'link' => 'Link analysis',
       _ => 'Text analysis',
     };
   }
@@ -298,12 +299,13 @@ class AnalysisHistoryItemCard extends StatelessWidget {
   }
 
   static String _resolveTypeLabel(AnalysisRecord analysis) {
-    final isUrl = analysis.content.trim().startsWith('http://') ||
+    final isUrl = analysis.inputType.toLowerCase() == 'url' ||
+        analysis.content.trim().startsWith('http://') ||
         analysis.content.trim().startsWith('https://');
     if (isUrl) return 'Link';
     return switch (analysis.inputType.toLowerCase()) {
       'image' => 'Image',
-      'pdf' => 'Document',
+      'pdf' || 'document' => 'Document',
       'audio' => 'Audio',
       _ => 'Text',
     };

@@ -75,6 +75,23 @@ async def analyze_text(
     except Exception as error:
         _raise_analysis_error(error)
 
+@router.post("/url", response_model=schemas.AnalysisResponse)
+async def analyze_url(
+    background_tasks: BackgroundTasks,
+    payload: schemas.AnalysisCreate,
+    request: Request,
+    current_user: models.User = Depends(get_current_verified_user),
+    db: Session = Depends(get_db),
+):
+    rate_limit_analysis(request, current_user=current_user)
+    try:
+        t0 = time.perf_counter()
+        input_data = await input_router.route_and_extract(input_type="url", content=payload.content)
+        extraction_ms = (time.perf_counter() - t0) * 1000
+        return await run_analysis_pipeline(db=db, input_data=input_data, user_id=current_user.id, extraction_ms=extraction_ms, background_tasks=background_tasks)
+    except Exception as error:
+        _raise_analysis_error(error)
+
 @router.post("/email", response_model=schemas.AnalysisResponse)
 async def analyze_email(
     background_tasks: BackgroundTasks,

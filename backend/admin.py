@@ -39,8 +39,8 @@ def get_admin_overview(
     db: Session = Depends(get_db),
     current_admin: models.User = Depends(require_admin),
 ):
-    if days not in (7, 30, 90):
-        raise HTTPException(status_code=422, detail="days must be 7, 30, or 90")
+    if days not in (1, 7, 30, 90):
+        raise HTTPException(status_code=422, detail="days must be 1, 7, 30, or 90")
 
     since = datetime.now(timezone.utc) - timedelta(days=days)
     analysis_query = db.query(models.Analysis).filter(models.Analysis.created_at >= since)
@@ -145,6 +145,8 @@ def get_admin_analyses(
     classification: str = None,
     risk_level: str = None,
     status: str = None,
+    input_type: str = None,
+    category: str = None,
     search: str = None,
     db: Session = Depends(get_db),
     current_admin: models.User = Depends(require_admin)
@@ -155,6 +157,10 @@ def get_admin_analyses(
         query = query.filter(models.Analysis.classification == classification)
     if risk_level:
         query = query.filter(models.Analysis.risk_level == risk_level)
+    if input_type and input_type.strip():
+        query = query.filter(models.Analysis.input_type.ilike(f"%{input_type.strip()}%"))
+    if category and category.strip():
+        query = query.filter(models.Analysis.category.ilike(f"%{category.strip()}%"))
     if status:
         if status == "COMPLETED":
             query = query.filter(models.Analysis.processing_status.ilike("COMPLETED%"))
@@ -216,6 +222,18 @@ def get_admin_analysis(analysis_id: int, db: Session = Depends(get_db), current_
     perf_data = None
     if perf:
         perf_data = {k: v for k, v in perf.__dict__.items() if not k.startswith('_')}
+
+    related_review = None
+    if analysis.review_case:
+        related_review = {
+            "id": analysis.review_case.id,
+            "status": analysis.review_case.status,
+            "priority": analysis.review_case.priority,
+            "assigned_reviewer_id": analysis.review_case.assigned_reviewer_id,
+            "review_decision": analysis.review_case.review_decision,
+            "reviewer_notes": analysis.review_case.reviewer_notes,
+            "created_at": analysis.review_case.created_at,
+        }
         
     return {
         "analysis": {
@@ -235,6 +253,7 @@ def get_admin_analysis(analysis_id: int, db: Session = Depends(get_db), current_
         },
         "user": user_info,
         "performance": perf_data,
+        "related_review": related_review,
         "evidence": [
             {
                 "id": ev.id,
@@ -259,8 +278,8 @@ def get_admin_community_reports(
     query = db.query(models.CommunityReport)
     if report_id is not None:
         query = query.filter(models.CommunityReport.id == report_id)
-    if status:
-        query = query.filter(models.CommunityReport.status == status)
+    if status and status.strip():
+        query = query.filter(models.CommunityReport.status.ilike(status.strip()))
     if category:
         query = query.filter(models.CommunityReport.category.ilike(f"%{category.strip()}%"))
     if search and search.strip():
@@ -288,6 +307,7 @@ def get_admin_community_reports(
                 "description": r.description,
                 "evidence": r.evidence,
                 "status": r.status,
+                "flags_count": len(r.flags) if hasattr(r, "flags") and r.flags is not None else 0,
                 "created_at": r.created_at,
                 "reporter": r.user.email if r.user else "Unknown"
             } for r in reports
@@ -296,6 +316,39 @@ def get_admin_community_reports(
         "page": (skip // limit) + 1,
         "page_size": limit,
         "total_pages": (total + limit - 1) // limit
+    }
+
+@router.get("/community/flags")
+def get_community_flags(
+    skip: int = Query(0, ge=0),
+    limit: int = Query(50, ge=1, le=200),
+    db: Session = Depends(get_db),
+    current_admin: models.User = Depends(require_admin),
+):
+    query = (
+        db.query(models.CommunityReportFlag, models.CommunityReport, models.User.email)
+        .join(models.CommunityReport, models.CommunityReportFlag.report_id == models.CommunityReport.id)
+        .outerjoin(models.User, models.CommunityReportFlag.reporter_user_id == models.User.id)
+        .order_by(models.CommunityReportFlag.created_at.desc())
+    )
+    total = query.count()
+    items = query.offset(skip).limit(limit).all()
+    return {
+        "items": [
+            {
+                "flag_id": flag.id,
+                "report_id": flag.report_id,
+                "report_content": report.content,
+                "report_category": report.category,
+                "report_status": report.status,
+                "reporter_user_id": flag.reporter_user_id,
+                "reporter_email": reporter_email or "Unknown",
+                "reason": flag.reason,
+                "created_at": flag.created_at,
+            }
+            for flag, report, reporter_email in items
+        ],
+        "total": total,
     }
 
 from pydantic import BaseModel, Field
@@ -325,6 +378,12 @@ def action_community_report(
         report.status = "RESOLVED"
     elif action == "ESCALATE":
         report.status = "ESCALATED"
+    elif action == "REMOVE":
+        report.status = "REMOVED"
+    elif action == "DISMISS_FLAGS":
+        db.query(models.CommunityReportFlag).filter(
+            models.CommunityReportFlag.report_id == report_id
+        ).delete(synchronize_session=False)
     elif action == "CONVERT_TO_KNOWLEDGE":
         if report.status != "VERIFIED":
             raise HTTPException(
@@ -382,10 +441,10 @@ def get_admin_knowledge(
     current_admin: models.User = Depends(require_admin)
 ):
     query = db.query(models.KnowledgeEntry)
-    if status:
-        query = query.filter(models.KnowledgeEntry.status == status)
-    if category:
-        query = query.filter(models.KnowledgeEntry.category == category)
+    if status and status.strip():
+        query = query.filter(models.KnowledgeEntry.status.ilike(status.strip()))
+    if category and category.strip():
+        query = query.filter(models.KnowledgeEntry.category.ilike(f"%{category.strip()}%"))
     if search and search.strip():
         term = f"%{search.strip()}%"
         query = query.filter(or_(

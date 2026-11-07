@@ -3,8 +3,8 @@ import 'package:flutter/material.dart';
 import '../../../theme/app_colors.dart';
 import '../../../theme/app_spacing.dart';
 
-/// 4-mode input tab selector matching the row in all reference screens:
-/// [Text, Image, Document, Audio]
+/// 5-mode input tab selector matching the ScamShield 2.0 design system:
+/// [Text, Link, Image, Document, Audio]
 class InputModeSelector extends StatelessWidget {
   const InputModeSelector({
     required this.selectedMode,
@@ -21,6 +21,7 @@ class InputModeSelector extends StatelessWidget {
 
     final modes = const [
       _ModeItem(id: 'text', label: 'Text', icon: Icons.chat_bubble_outline_rounded),
+      _ModeItem(id: 'url', label: 'Link', icon: Icons.link_rounded),
       _ModeItem(id: 'image', label: 'Image', icon: Icons.image_outlined),
       _ModeItem(id: 'document', label: 'Document', icon: Icons.description_outlined),
       _ModeItem(id: 'audio', label: 'Audio', icon: Icons.mic_none_rounded),
@@ -29,10 +30,11 @@ class InputModeSelector extends StatelessWidget {
     return Row(
       children: modes.map((m) {
         final isSelected = selectedMode == m.id ||
-            (selectedMode == 'pdf' && m.id == 'document');
+            (selectedMode == 'pdf' && m.id == 'document') ||
+            (selectedMode == 'url' && m.id == 'link');
         return Expanded(
           child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 4),
+            padding: const EdgeInsets.symmetric(horizontal: 2.5),
             child: _ModeTabButton(
               item: m,
               isSelected: isSelected,
@@ -94,7 +96,7 @@ class _ModeTabButton extends StatelessWidget {
           child: AnimatedContainer(
             duration: const Duration(milliseconds: 200),
             curve: Curves.easeInOut,
-            padding: const EdgeInsets.symmetric(vertical: 12),
+            padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 2),
             decoration: BoxDecoration(
               color: isSelected ? activeBg : inactiveBg,
               borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
@@ -123,17 +125,21 @@ class _ModeTabButton extends StatelessWidget {
               children: [
                 Icon(
                   item.icon,
-                  size: 22,
+                  size: 20,
                   color: isSelected ? activeFg : inactiveIconColor,
                 ),
-                const SizedBox(height: 6),
-                Text(
-                  item.label,
-                  style: TextStyle(
-                    fontFamily: 'Inter',
-                    fontSize: 13,
-                    fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
-                    color: isSelected ? activeFg : inactiveTextColor,
+                const SizedBox(height: 5),
+                FittedBox(
+                  fit: BoxFit.scaleDown,
+                  child: Text(
+                    item.label,
+                    maxLines: 1,
+                    style: TextStyle(
+                      fontFamily: 'Inter',
+                      fontSize: 12,
+                      fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+                      color: isSelected ? activeFg : inactiveTextColor,
+                    ),
                   ),
                 ),
               ],

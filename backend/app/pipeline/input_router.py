@@ -132,11 +132,17 @@ class InputRouter:
         original_filename = None
         original_text = None
 
-        if input_type == "text":
+        if input_type in ("text", "url"):
             if not content:
-                raise HTTPException(status_code=400, detail="Text content is required")
+                raise HTTPException(
+                    status_code=400,
+                    detail="URL is required" if input_type == "url" else "Text content is required",
+                )
             if len(content) > MAX_TEXT_CHARS:
-                raise HTTPException(status_code=413, detail="Text exceeds the allowed size limit.")
+                raise HTTPException(
+                    status_code=413,
+                    detail="URL exceeds the allowed size limit." if input_type == "url" else "Text exceeds the allowed size limit.",
+                )
             extracted_text = content.strip()
             original_text = content
             

@@ -221,7 +221,7 @@ class HelpSupportScreen extends StatelessWidget {
                   step: '2',
                   title: 'Enable Sentinel Call Protection',
                   description:
-                      'Activate Sentinel from the Guardian tab. Grant phone state and notification permissions to allow background call monitoring.',
+                      'Activate Sentinel from the Sentinel tab. Grant phone state and notification permissions to allow background call monitoring.',
                 ),
                 const SizedBox(height: 12),
                 const _GuideStep(

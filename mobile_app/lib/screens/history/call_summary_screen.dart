@@ -115,7 +115,7 @@ class _CallSummaryScreenState extends State<CallSummaryScreen> {
                 context,
                 title: 'Audio analysis unavailable',
                 description:
-                    'Guardian detected the call, but supported call audio was unavailable. No AI risk assessment was generated.',
+                    'Sentinel detected the call, but supported call audio was unavailable. No AI risk assessment was generated.',
                 icon: Icons.mic_off_outlined,
                 color: colors.onSurfaceVariant,
               )

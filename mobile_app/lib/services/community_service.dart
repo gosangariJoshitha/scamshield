@@ -61,4 +61,25 @@ class CommunityService {
 
     return CommunityReportModel.fromJson(response);
   }
+
+  Future<bool> flagReport({
+    required int reportId,
+    required String reason,
+  }) async {
+    final token = await authService.getStoredToken();
+    if (token == null) {
+      throw const ApiException('Authentication required to flag report.');
+    }
+
+    final body = <String, dynamic>{
+      'reason': reason.trim(),
+    };
+
+    final response = await api.postJson(
+      '/community/reports/$reportId/flag',
+      body,
+      token: token,
+    );
+    return response is Map<String, dynamic>;
+  }
 }

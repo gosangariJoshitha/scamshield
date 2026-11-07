@@ -131,7 +131,7 @@ class PermissionsAccessCard extends StatelessWidget {
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
-                    'Floating Guardian button will appear when protection is active. You can move it anywhere on the screen.',
+                    'Floating Sentinel button will appear when protection is active. You can move it anywhere on the screen.',
                     style: TextStyle(
                       fontFamily: 'Inter',
                       fontSize: 11.5,

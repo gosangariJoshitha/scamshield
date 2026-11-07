@@ -70,8 +70,8 @@ void main() {
 
     expect(completed, isTrue);
     expect(find.text('Analysis Result'), findsOneWidget);
-    expect(find.text('HIGH'), findsOneWidget);
-    expect(find.text('SCAM'), findsOneWidget);
+    expect(find.text('High'), findsOneWidget);
+    expect(find.text('Scam Detected'), findsOneWidget);
     expect(find.text('Verify using the official website.'), findsOneWidget);
   });
 }

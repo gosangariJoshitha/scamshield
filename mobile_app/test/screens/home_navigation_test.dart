@@ -179,12 +179,12 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('Unusual payment request'), findsOneWidget);
 
-    await tester.tap(find.text('Guardian'));
+    await tester.tap(find.text('Sentinel'));
     await tester.pumpAndSettle();
-    expect(find.text('Live Call Guardian'), findsNWidgets(2));
+    expect(find.text('Live Call Sentinel'), findsWidgets);
     expect(find.textContaining('call detection'), findsOneWidget);
     expect(
-      find.text('Guardian is off. Call activity is not monitored.'),
+      find.text('Sentinel is off. Call activity is not monitored.'),
       findsOneWidget,
     );
     expect(find.textContaining('not granted'), findsNothing);
@@ -241,7 +241,7 @@ void main() {
 
     await tester.pumpWidget(_home());
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Guardian'));
+    await tester.tap(find.text('Sentinel'));
     await tester.pumpAndSettle();
 
     expect(find.text('Call Active'), findsOneWidget);
@@ -317,7 +317,7 @@ void main() {
 
       await tester.pumpWidget(_home());
       await tester.pumpAndSettle();
-      await tester.tap(find.text('Guardian'));
+      await tester.tap(find.text('Sentinel'));
       await tester.pumpAndSettle();
       final audioProtectionSwitch = find.descendant(
         of: find.widgetWithText(SwitchListTile, 'Microphone audio protection'),
@@ -389,7 +389,7 @@ void main() {
 
     await tester.pumpWidget(_home());
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Guardian'));
+    await tester.tap(find.text('Sentinel'));
     await tester.pumpAndSettle();
     await tester.drag(find.byType(ListView).last, const Offset(0, -850));
     await tester.pumpAndSettle();
@@ -457,16 +457,16 @@ void main() {
 
     await tester.pumpWidget(_home());
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Guardian'));
+    await tester.tap(find.text('Sentinel'));
     await tester.pumpAndSettle();
     await tester.ensureVisible(find.byType(Switch).first);
     await tester.tap(find.byType(Switch).first);
     await tester.pumpAndSettle();
 
-    expect(find.text('Enable Guardian?'), findsOneWidget);
+    expect(find.text('Enable Sentinel?'), findsOneWidget);
     expect(
       find.textContaining(
-        'Android shows a notification while Guardian is enabled.',
+        'Android shows a notification while Sentinel is enabled.',
       ),
       findsOneWidget,
     );
@@ -476,7 +476,7 @@ void main() {
     expect(permissionRequests, 1);
     expect(startRequests, 1);
     expect(guardianEnabled, isTrue);
-    expect(find.text('Guardian is on · Ready'), findsOneWidget);
+    expect(find.text('Sentinel is on · Ready'), findsOneWidget);
 
     await tester.ensureVisible(find.byType(Switch).first);
     await tester.tap(find.byType(Switch).first);
@@ -488,7 +488,7 @@ void main() {
     expect(startRequests, 2);
     expect(guardianEnabled, isFalse);
     expect(
-      find.text('Guardian is off. Call activity is not monitored.'),
+      find.text('Sentinel is off. Call activity is not monitored.'),
       findsOneWidget,
     );
   });
@@ -538,7 +538,7 @@ void main() {
 
     await tester.pumpWidget(_home());
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Guardian'));
+    await tester.tap(find.text('Sentinel'));
     await tester.pumpAndSettle();
     await tester.ensureVisible(find.byType(Switch).first);
     await tester.tap(find.byType(Switch).first);
@@ -548,7 +548,7 @@ void main() {
 
     expect(startRequests, 0);
     expect(
-      find.text('Guardian is off. Call activity is not monitored.'),
+      find.text('Sentinel is off. Call activity is not monitored.'),
       findsOneWidget,
     );
     expect(find.text('APP SETTINGS'), findsOneWidget);
@@ -605,10 +605,10 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.text('Call Analysis Settings').first);
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Open Guardian'));
+    await tester.tap(find.text('Open Sentinel'));
     await tester.pumpAndSettle();
 
-    expect(find.text('Enable Guardian'), findsOneWidget);
+    expect(find.text('Enable Sentinel'), findsOneWidget);
     expect(find.textContaining('M9.'), findsNothing);
     expect(find.textContaining('future floating'), findsNothing);
   });

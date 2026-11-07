@@ -55,7 +55,7 @@ class AboutScreen extends StatelessWidget {
                 const SizedBox(height: 12),
                 _FeatureItem(
                   icon: Icons.shield_rounded,
-                  title: 'Sentinel Live Call Guardian',
+                  title: 'Sentinel Live Call Protection',
                   description:
                       'Background call-state detection, real-time on-device audio transcription, and immediate in-call scam indicator alerts.',
                 ),

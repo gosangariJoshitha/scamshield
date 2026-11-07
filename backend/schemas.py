@@ -1,7 +1,7 @@
 import json
 from typing import Literal
 
-from pydantic import BaseModel, EmailStr, Field, field_validator, model_validator
+from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_validator, model_validator
 from typing import Optional, List, Any, Dict
 from datetime import datetime
 from uuid import UUID
@@ -53,8 +53,7 @@ class UserResponse(BaseModel):
     community_updates: bool
     marketing_updates: bool
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
     @field_validator("two_factor_enabled", "marketing_updates", mode="before")
     @classmethod
@@ -152,8 +151,7 @@ class RetrievedEvidence(BaseModel):
     language: Optional[str] = None
     source_type: Optional[str] = None
     
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 class SafeActionsResponse(BaseModel):
     canonical: List[str]
@@ -206,8 +204,7 @@ class AnalysisResponse(BaseModel):
     
     created_at: datetime
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
     @model_validator(mode="before")
     @classmethod
@@ -303,14 +300,15 @@ class ForgotPassword(BaseModel):
     email: EmailStr
 
 class CommunityReportCreate(BaseModel):
-    content: str
-    category: str
-    description: Optional[str] = None
-    evidence: Optional[str] = None
+    content: str = Field(min_length=3, max_length=5000)
+    category: str = Field(min_length=2, max_length=100)
+    description: Optional[str] = Field(None, max_length=5000)
+    evidence: Optional[str] = Field(None, max_length=10000)
     analysis_id: Optional[int] = None
 
 class CommunityReportResponse(BaseModel):
     id: int
+    user_id: Optional[int] = None
     content: str
     category: str
     description: Optional[str] = None
@@ -320,8 +318,19 @@ class CommunityReportResponse(BaseModel):
     status: str
     created_at: datetime
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
+
+class CommunityReportFlagCreate(BaseModel):
+    reason: str = Field(min_length=3, max_length=500)
+
+class CommunityReportFlagResponse(BaseModel):
+    id: int
+    report_id: int
+    reporter_user_id: int
+    reason: str
+    created_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)
 
 
 class CallFinalizeRequest(BaseModel):
@@ -358,8 +367,7 @@ class CallHistoryItemResponse(BaseModel):
     analysis_status: str
     created_at: datetime
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class CallHistoryDetailResponse(BaseModel):
@@ -386,8 +394,7 @@ class CallHistoryDetailResponse(BaseModel):
     created_at: datetime
     updated_at: Optional[datetime] = None
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class CallHistoryListResponse(BaseModel):
@@ -407,8 +414,7 @@ class NotificationResponse(BaseModel):
     is_read: bool
     created_at: datetime
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class NotificationListResponse(BaseModel):
@@ -422,4 +428,46 @@ class NotificationListResponse(BaseModel):
 
 class NotificationUnreadCountResponse(BaseModel):
     unread_count: int
+
+
+class EmergencyContactCreate(BaseModel):
+    name: str = Field(min_length=1, max_length=100)
+    phone_number: str = Field(min_length=5, max_length=20)
+    relationship_type: Optional[str] = Field(default="Family", max_length=50)
+    notify_sms: bool = True
+
+
+class EmergencyContactUpdate(BaseModel):
+    name: Optional[str] = Field(None, min_length=1, max_length=100)
+    phone_number: Optional[str] = Field(None, min_length=5, max_length=20)
+    relationship_type: Optional[str] = Field(None, max_length=50)
+    is_active: Optional[bool] = None
+    notify_sms: Optional[bool] = None
+
+
+class EmergencyContactResponse(BaseModel):
+    id: int
+    user_id: int
+    name: str
+    phone_number: str
+    relationship_type: Optional[str] = "Family"
+    is_active: bool
+    notify_sms: bool
+    created_at: datetime
+    updated_at: Optional[datetime] = None
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class EmergencyAlertRequest(BaseModel):
+    session_id: str
+    risk_score: int = Field(ge=0, le=100)
+    detected_category: str = "Scam Call"
+    alert_message: Optional[str] = None
+
+
+class EmergencyAlertResponse(BaseModel):
+    status: str
+    dispatched_count: int
+    recipients: List[str]
 

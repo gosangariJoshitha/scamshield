@@ -50,6 +50,12 @@ class CallGuardianStatus {
   final int audioChunksCreated;
   final int audioChunksDropped;
 
+  /// Authoritative single source of truth: live protection is active ONLY when
+  /// the feature is enabled, the background service is running, and phone state
+  /// permission is granted by the user.
+  bool get isProtected =>
+      enabled && serviceRunning && phoneStatePermissionGranted;
+
   factory CallGuardianStatus.fromMap(Map<Object?, Object?> values) {
     bool readBool(String key) {
       final value = values[key];
@@ -543,14 +549,120 @@ class CallBridge {
     }
   }
 
+  Future<bool> launchDialer(String phoneNumber) async {
+    try {
+      final result = await _channel.invokeMethod<bool>(
+        'launchDialer',
+        {'phoneNumber': phoneNumber},
+      );
+      return result ?? false;
+    } on Exception {
+      return false;
+    }
+  }
+
   Future<void> triggerHapticAlert(String intensity) async {
     try {
       await _channel.invokeMethod<void>(
         'triggerHapticAlert',
         {'intensity': intensity},
       );
-    } on Exception {
+    } catch (_) {
       // Haptics fail silently without disturbing UI
+    }
+  }
+
+  Future<bool> canDrawOverlays() async {
+    try {
+      final result = await _channel.invokeMethod<bool>('canDrawOverlays');
+      return result ?? true;
+    } catch (_) {
+      return true;
+    }
+  }
+
+  Future<void> requestOverlayPermission() async {
+    try {
+      await _channel.invokeMethod<void>('requestOverlayPermission');
+    } catch (_) {
+      // Ignored
+    }
+  }
+
+  Future<bool> speakVoiceAlert(String message) async {
+    try {
+      final result = await _channel.invokeMethod<bool>(
+        'speakVoiceAlert',
+        {'message': message},
+      );
+      return result ?? false;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  Future<bool> showFloatingGuardian({
+    required String state,
+    String? title,
+    int? riskScore,
+  }) async {
+    try {
+      final args = <String, dynamic>{'state': state};
+      if (title != null) args['title'] = title;
+      if (riskScore != null) args['riskScore'] = riskScore;
+      final result = await _channel.invokeMethod<bool>(
+        'showFloatingGuardian',
+        args,
+      );
+      return result ?? false;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  Future<bool> updateFloatingGuardian({
+    required String state,
+    String? title,
+    int? riskScore,
+  }) async {
+    try {
+      final args = <String, dynamic>{'state': state};
+      if (title != null) args['title'] = title;
+      if (riskScore != null) args['riskScore'] = riskScore;
+      final result = await _channel.invokeMethod<bool>(
+        'updateFloatingGuardian',
+        args,
+      );
+      return result ?? false;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  Future<bool> hideFloatingGuardian() async {
+    try {
+      final result = await _channel.invokeMethod<bool>('hideFloatingGuardian');
+      return result ?? false;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  Future<bool> isFloatingGuardianShowing() async {
+    try {
+      final result = await _channel.invokeMethod<bool>('isFloatingGuardianShowing');
+      return result ?? false;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  Future<Map<String, dynamic>?> getInitialAction() async {
+    try {
+      final result = await _channel.invokeMapMethod<String, dynamic>('getInitialAction');
+      return result;
+    } catch (_) {
+      return null;
     }
   }
 }

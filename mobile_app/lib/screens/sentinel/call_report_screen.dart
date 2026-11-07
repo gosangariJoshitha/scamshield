@@ -266,7 +266,7 @@ class CallReportScreen extends StatelessWidget {
                   child: FloatingGuardianPill(
                     onTap: () {
                       ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('Guardian live call shield is active.')),
+                        const SnackBar(content: Text('Sentinel live call shield is active.')),
                       );
                     },
                   ),

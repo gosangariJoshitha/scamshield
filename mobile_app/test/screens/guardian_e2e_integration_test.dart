@@ -238,23 +238,23 @@ void main() {
     // Verify Dashboard is displayed
     expect(find.text('Hello, Alice 👋'), findsOneWidget);
 
-    // Switch to Guardian tab (index 2)
+    // Switch to Sentinel tab (index 3)
     await tester.tap(find.byIcon(Icons.shield_outlined).last);
     await tester.pumpAndSettle();
-    expect(find.text('Live Call Guardian'), findsWidgets);
+    expect(find.text('Live Call Sentinel'), findsWidgets);
 
     // Switch to History tab (index 3)
     await tester.tap(find.byIcon(Icons.history_rounded));
     await tester.pumpAndSettle();
     expect(find.text('Analysis History'), findsWidgets);
 
-    // Switch back to Calls tab in History
-    await tester.tap(find.text('Calls'));
+    // Switch to Call History tab in History
+    await tester.tap(find.text('Call History'));
     await tester.pumpAndSettle();
 
     // Verify call history item loaded
-    expect(find.text('CRITICAL RISK'), findsWidgets);
-    expect(find.text('92/100'), findsOneWidget);
+    expect(find.textContaining('CRITICAL'), findsWidgets);
+    expect(find.textContaining('92/100'), findsOneWidget);
     expect(find.text('OTP Verification Scam'), findsWidgets);
 
     // Tap call item to open CallSummaryScreen

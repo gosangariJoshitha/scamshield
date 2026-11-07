@@ -32,6 +32,27 @@ abstract final class SampleScamData {
     },
   ];
 
+  static const List<Map<String, String>> links = [
+    {
+      'title': 'SBI Phishing Verification Portal',
+      'category': 'Banking Impersonation',
+      'url': 'http://sbi-kyc-verify-portal.top/update',
+      'description': 'Spoofed bank domain attempting credential and OTP harvesting.',
+    },
+    {
+      'title': 'Shortened Lottery Reward URL',
+      'category': 'Reward Phishing',
+      'url': 'http://bit.ly/claim-diwali-reward-50k',
+      'description': 'Obfuscated URL redirecting to malicious identity theft page.',
+    },
+    {
+      'title': 'Electricity Bill Urgent Payment Link',
+      'category': 'Utility Scam',
+      'url': 'https://powerbill-update-payment.xyz/pay',
+      'description': 'Malicious payment gateway imitating official power board.',
+    },
+  ];
+
   static const List<Map<String, String>> documents = [
     {
       'title': 'Fake Job Offer Letter (PDF)',
@@ -205,6 +226,176 @@ class SampleMessagesDialog extends StatelessWidget {
                                     : AppColors.textMutedLight,
                               ),
                             ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  );
+                },
+              ),
+            ),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('Cancel'),
+        ),
+      ],
+    );
+  }
+}
+
+/// Dialog to select an educational sample phishing link.
+class SampleLinksDialog extends StatelessWidget {
+  const SampleLinksDialog({
+    required this.onLinkSelected,
+    super.key,
+  });
+
+  final ValueChanged<String> onLinkSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final cardBg = isDark ? AppColors.darkCard : AppColors.lightCard;
+    final primaryTeal = isDark ? AppColors.darkPrimary : AppColors.primary;
+
+    return AlertDialog(
+      backgroundColor: cardBg,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(AppSpacing.radiusCard),
+      ),
+      title: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: primaryTeal.withValues(alpha: 0.15),
+              shape: BoxShape.circle,
+            ),
+            child: Icon(Icons.link_rounded, color: primaryTeal, size: 20),
+          ),
+          const SizedBox(width: 12),
+          const Expanded(
+            child: Text(
+              'Sample Suspicious Links',
+              style: TextStyle(
+                fontFamily: 'Inter',
+                fontSize: 18,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ),
+        ],
+      ),
+      content: SizedBox(
+        width: double.maxFinite,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Select an educational suspicious link to test safe threat analysis:',
+              style: TextStyle(
+                fontFamily: 'Inter',
+                fontSize: 13,
+                color: isDark
+                    ? AppColors.textSecondaryDark
+                    : AppColors.textSecondaryLight,
+              ),
+            ),
+            const SizedBox(height: 12),
+            Flexible(
+              child: ListView.separated(
+                shrinkWrap: true,
+                itemCount: SampleScamData.links.length,
+                separatorBuilder: (_, _) => const SizedBox(height: 8),
+                itemBuilder: (context, index) {
+                  final linkItem = SampleScamData.links[index];
+                  return Material(
+                    color: Colors.transparent,
+                    child: InkWell(
+                      onTap: () {
+                        Navigator.of(context).pop();
+                        onLinkSelected(linkItem['url']!);
+                      },
+                      borderRadius: BorderRadius.circular(10),
+                      child: Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(
+                            color: isDark
+                                ? AppColors.darkBorder
+                                : AppColors.lightBorder,
+                            width: 1,
+                          ),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: Text(
+                                    linkItem['title']!,
+                                    style: const TextStyle(
+                                      fontFamily: 'Inter',
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                ),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 8,
+                                    vertical: 2,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: Colors.red.withValues(alpha: 0.15),
+                                    borderRadius: BorderRadius.circular(6),
+                                  ),
+                                  child: Text(
+                                    linkItem['category']!,
+                                    style: const TextStyle(
+                                      fontFamily: 'Inter',
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.w600,
+                                      color: Colors.redAccent,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              linkItem['url']!,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                fontFamily: 'Inter',
+                                fontSize: 12,
+                                fontWeight: FontWeight.w500,
+                                color: primaryTeal,
+                              ),
+                            ),
+                            if (linkItem['description'] != null) ...[
+                              const SizedBox(height: 2),
+                              Text(
+                                linkItem['description']!,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(
+                                  fontFamily: 'Inter',
+                                  fontSize: 11,
+                                  color: isDark
+                                      ? AppColors.textMutedDark
+                                      : AppColors.textMutedLight,
+                                ),
+                              ),
+                            ],
                           ],
                         ),
                       ),

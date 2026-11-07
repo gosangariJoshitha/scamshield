@@ -112,17 +112,33 @@ class AnalysisService {
     return AnalysisRecord.fromJson(_asObject(response, 'Text analysis'));
   }
 
+  Future<AnalysisRecord> analyzeUrl(String url) async {
+    final token = await _requireToken();
+    final response = await api.postJson(
+      '/analysis/url',
+      {'content': url},
+      token: token,
+      requestTimeout: const Duration(seconds: 60),
+    );
+    return AnalysisRecord.fromJson(_asObject(response, 'URL analysis'));
+  }
+
   Future<AnalysisRecord> analyzeFile({
     required String type,
     required String filename,
     required List<int> bytes,
+    String? language,
   }) async {
     final token = await _requireToken();
+    final fields = (language != null && language.trim().isNotEmpty)
+        ? {'language': language.trim()}
+        : const <String, String>{};
     final response = await api.postMultipart(
       path: '/analysis/$type',
       fieldName: 'file',
       bytes: bytes,
       filename: filename,
+      fields: fields,
       token: token,
       requestTimeout: const Duration(seconds: 60),
     );

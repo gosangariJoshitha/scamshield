@@ -104,6 +104,66 @@ class _SentinelScreenState extends State<SentinelScreen> {
     );
   }
 
+  Future<void> _confirmAndOpenLiveMonitoring(BuildContext context) async {
+    final audioAlreadyEnabled = widget.status?.audioProtectionEnabled == true;
+    if (!audioAlreadyEnabled) {
+      final confirmed = await showDialog<bool>(
+        context: context,
+        builder: (ctx) {
+          final isDark = Theme.of(ctx).brightness == Brightness.dark;
+          return AlertDialog(
+            backgroundColor: isDark ? AppColors.darkCard : Colors.white,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+            title: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF0284C7).withValues(alpha: 0.15),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(Icons.volume_up_rounded, color: Color(0xFF0284C7), size: 24),
+                ),
+                const SizedBox(width: 12),
+                const Expanded(
+                  child: Text(
+                    'Start Call Protection?',
+                    style: TextStyle(fontFamily: 'Inter', fontSize: 17, fontWeight: FontWeight.w700),
+                  ),
+                ),
+              ],
+            ),
+            content: const Text(
+              'Speaker mode will be enabled for live call protection. ScamShield will analyze incoming conversation in real-time to alert you of potential scams.',
+              style: TextStyle(fontFamily: 'Inter', fontSize: 13.5, height: 1.45),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(ctx).pop(false),
+                child: const Text('Cancel'),
+              ),
+              ElevatedButton.icon(
+                onPressed: () => Navigator.of(ctx).pop(true),
+                icon: const Icon(Icons.shield_rounded, size: 18),
+                label: const Text('Start Protection'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF0284C7),
+                  foregroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                ),
+              ),
+            ],
+          );
+        },
+      );
+      if (confirmed != true) return;
+      widget.onToggleAudioProtection(true);
+    }
+    if (context.mounted) {
+      _openLiveMonitoring(context);
+    }
+  }
+
   void _openFinalReport(BuildContext context, CallHistoryDetail detail) {
     Navigator.of(context).push<void>(
       MaterialPageRoute<void>(
@@ -125,7 +185,7 @@ class _SentinelScreenState extends State<SentinelScreen> {
     final callEvent = widget.callEvent;
 
     final canEnable = currentStatus?.available == true && currentStatus?.supported == true;
-    final running = currentStatus?.enabled == true && currentStatus?.serviceRunning == true;
+    final running = currentStatus?.isProtected == true;
     final audioProtectionEnabled = currentStatus?.audioProtectionEnabled == true;
     final audioCanChange = running || audioProtectionEnabled;
 
@@ -149,7 +209,7 @@ class _SentinelScreenState extends State<SentinelScreen> {
                 _ActiveCallAlertBanner(
                   callEvent: callEvent!,
                   activeCallSeconds: widget.activeCallSeconds,
-                  onTapMonitor: () => _openLiveMonitoring(context),
+                  onTapMonitor: () => _confirmAndOpenLiveMonitoring(context),
                 ),
                 const SizedBox(height: 10),
               ],
@@ -189,7 +249,7 @@ class _SentinelScreenState extends State<SentinelScreen> {
                         const SizedBox(width: 8),
                         Expanded(
                           child: Text(
-                            'Live Call Guardian',
+                            'Live Call Sentinel',
                             style: TextStyle(
                               fontFamily: 'Inter',
                               fontSize: 15,
@@ -212,18 +272,18 @@ class _SentinelScreenState extends State<SentinelScreen> {
                     ),
                     const Divider(height: 10),
 
-                    // Switch 1: Enable Guardian
+                    // Switch 1: Enable Sentinel
                     SwitchListTile(
                       contentPadding: EdgeInsets.zero,
                       value: currentStatus?.enabled ?? false,
                       onChanged: canEnable ? widget.onToggleGuardian : null,
                       title: const Text(
-                        'Enable Guardian',
+                        'Enable Sentinel',
                         style: TextStyle(fontWeight: FontWeight.w700, fontFamily: 'Inter'),
                       ),
                       subtitle: Text(
                         canEnable
-                            ? 'Monitor supported call activity. Android shows a notification while Guardian is on.'
+                            ? 'Monitor supported call activity. Android shows a notification while Sentinel is on.'
                             : 'Call protection is unavailable on this device.',
                         style: const TextStyle(fontFamily: 'Inter', fontSize: 12),
                       ),
@@ -480,7 +540,7 @@ class _ActiveCallAlertBanner extends StatelessWidget {
                       ? 'Call duration · $minutes:$seconds'
                       : callEvent.event == 'CALL_ENDED'
                       ? 'Call ended. Protected summary saved to Call History.'
-                      : 'Guardian detected call activity.',
+                      : 'Sentinel detected call activity.',
                   style: const TextStyle(
                     fontFamily: 'Inter',
                     fontSize: 12,

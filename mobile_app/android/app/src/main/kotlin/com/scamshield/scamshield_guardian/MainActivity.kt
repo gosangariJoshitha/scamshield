@@ -4,6 +4,7 @@ import android.Manifest
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.app.role.RoleManager
@@ -12,6 +13,9 @@ import android.os.VibratorManager
 import android.os.VibrationEffect
 import android.telecom.TelecomManager
 import android.provider.BlockedNumberContract
+import android.provider.Settings
+import android.speech.tts.TextToSpeech
+import java.util.Locale
 import android.util.Log
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
@@ -25,6 +29,25 @@ class MainActivity : FlutterActivity() {
     private var pendingAudioPermissionResult: MethodChannel.Result? = null
     private var eventSink: EventChannel.EventSink? = null
     private var audioEventSink: EventChannel.EventSink? = null
+    private var textToSpeech: TextToSpeech? = null
+    private var ttsReady = false
+
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        textToSpeech = TextToSpeech(this) { status ->
+            if (status == TextToSpeech.SUCCESS) {
+                textToSpeech?.language = Locale.US
+                ttsReady = true
+            }
+        }
+    }
+
+    override fun onDestroy() {
+        textToSpeech?.stop()
+        textToSpeech?.shutdown()
+        textToSpeech = null
+        super.onDestroy()
+    }
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
@@ -102,6 +125,69 @@ class MainActivity : FlutterActivity() {
                     val intensity = call.argument<String>("intensity") ?: "HIGH"
                     triggerHapticAlert(intensity, result)
                 }
+                "launchDialer" -> {
+                    val phoneNumber = call.argument<String>("phoneNumber")
+                    launchDialer(phoneNumber, result)
+                }
+                "canDrawOverlays" -> {
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                        result.success(Settings.canDrawOverlays(this))
+                    } else {
+                        result.success(true)
+                    }
+                }
+                "requestOverlayPermission" -> {
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M && !Settings.canDrawOverlays(this)) {
+                        val intent = Intent(
+                            Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
+                            Uri.parse("package:$packageName"),
+                        )
+                        startActivity(intent)
+                    }
+                    result.success(null)
+                }
+                "speakVoiceAlert" -> {
+                    val message = call.argument<String>("message") ?: "Warning. Potential scam call detected. Do not share OTP or banking details."
+                    if (ttsReady && textToSpeech != null) {
+                        textToSpeech?.speak(message, TextToSpeech.QUEUE_FLUSH, null, "scamshield_tts_alert")
+                        result.success(true)
+                    } else {
+                        result.success(false)
+                    }
+                }
+                "showFloatingGuardian" -> {
+                    val state = call.argument<String>("state") ?: FloatingGuardianService.STATE_NORMAL
+                    val title = call.argument<String>("title")
+                    val score = call.argument<Int>("riskScore")
+                    FloatingGuardianService.show(this, state, title, score)
+                    result.success(true)
+                }
+                "updateFloatingGuardian" -> {
+                    val state = call.argument<String>("state") ?: FloatingGuardianService.STATE_NORMAL
+                    val title = call.argument<String>("title")
+                    val score = call.argument<Int>("riskScore")
+                    FloatingGuardianService.update(state, title, score)
+                    result.success(true)
+                }
+                "hideFloatingGuardian" -> {
+                    FloatingGuardianService.hide(this)
+                    result.success(true)
+                }
+                "isFloatingGuardianShowing" -> {
+                    result.success(FloatingGuardianService.isShowing)
+                }
+                "getInitialAction" -> {
+                    val action = intent?.getStringExtra("action")
+                    val source = intent?.getStringExtra("source")
+                    val state = intent?.getStringExtra("state")
+                    result.success(
+                        mapOf(
+                            "action" to action,
+                            "source" to source,
+                            "state" to state,
+                        )
+                    )
+                }
                 else -> result.notImplemented()
             }
         }
@@ -178,8 +264,26 @@ class MainActivity : FlutterActivity() {
         }
     }
 
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+    }
+
     override fun onResume() {
         super.onResume()
+        // If phone permission was revoked externally in settings while backgrounded,
+        // synchronize stored enabled state so UI never displays active protection erroneously.
+        val phonePermissionGranted = ContextCompat.checkSelfPermission(
+            this,
+            Manifest.permission.READ_PHONE_STATE,
+        ) == PackageManager.PERMISSION_GRANTED
+        if (!phonePermissionGranted) {
+            getSharedPreferences(GUARDIAN_PREFERENCES, Context.MODE_PRIVATE)
+                .edit()
+                .putBoolean(KEY_GUARDIAN_ENABLED, false)
+                .putBoolean(KEY_AUDIO_PROTECTION_ENABLED, false)
+                .apply()
+        }
         publishGuardianStatus()
     }
 
@@ -705,6 +809,24 @@ class MainActivity : FlutterActivity() {
             } catch (_: Throwable) {
                 result.success(mapOf("success" to false, "reason" to "Could not open settings."))
             }
+        }
+    }
+
+    private fun launchDialer(phoneNumber: String?, result: MethodChannel.Result) {
+        try {
+            val uri = if (phoneNumber.isNullOrBlank()) {
+                Uri.parse("tel:")
+            } else {
+                Uri.parse("tel:${Uri.encode(phoneNumber)}")
+            }
+            val intent = Intent(Intent.ACTION_DIAL, uri).apply {
+                flags = Intent.FLAG_ACTIVITY_NEW_TASK
+            }
+            startActivity(intent)
+            result.success(true)
+        } catch (e: Throwable) {
+            Log.e(TAG, "Failed to launch dialer", e)
+            result.success(false)
         }
     }
 

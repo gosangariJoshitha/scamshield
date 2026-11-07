@@ -21,7 +21,7 @@ object GuardianAudioPipeline {
     const val SAMPLE_RATE_HZ = 16_000
     const val CHANNEL_COUNT = 1
     const val ENCODING = "PCM_16BIT"
-    const val CHUNK_DURATION_MS = 5_000
+    const val CHUNK_DURATION_MS = 3_000
     const val MAX_BUFFERED_CHUNKS = 2
     private const val BYTES_PER_SAMPLE = 2
     private const val TAG = "ScamShieldAudio"

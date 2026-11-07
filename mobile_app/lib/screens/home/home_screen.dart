@@ -27,6 +27,8 @@ import '../../services/community_service.dart';
 import '../community/community_screen.dart';
 import '../help/help_support_screen.dart';
 import '../sentinel/sentinel_screen.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import '../notifications/notification_screen.dart';
 import 'dashboard_view.dart';
 
 enum _ProfileAction { profile, settings, community, help, logout }
@@ -43,6 +45,8 @@ class HomeScreen extends StatefulWidget {
     this.authService,
     this.notificationService,
     this.communityService,
+    this.secureStorage,
+    this.callBridge,
     super.key,
   });
 
@@ -52,6 +56,8 @@ class HomeScreen extends StatefulWidget {
   final AuthService? authService;
   final NotificationService? notificationService;
   final CommunityService? communityService;
+  final FlutterSecureStorage? secureStorage;
+  final CallBridge? callBridge;
   final Future<void> Function() onLogout;
   final Future<void> Function() onSessionExpired;
   final bool isDarkMode;
@@ -61,40 +67,12 @@ class HomeScreen extends StatefulWidget {
   State<HomeScreen> createState() => _HomeScreenState();
 }
 
-class ScamShieldNotification {
-  const ScamShieldNotification({
-    required this.id,
-    required this.title,
-    required this.message,
-    required this.timestamp,
-    required this.icon,
-    required this.color,
-    this.isRead = false,
-  });
-
-  final String id;
-  final String title;
-  final String message;
-  final DateTime timestamp;
-  final IconData icon;
-  final Color color;
-  final bool isRead;
-
-  ScamShieldNotification copyWith({bool? isRead}) {
-    return ScamShieldNotification(
-      id: id,
-      title: title,
-      message: message,
-      timestamp: timestamp,
-      icon: icon,
-      color: color,
-      isRead: isRead ?? this.isRead,
-    );
-  }
-}
 
 class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
-  final _callBridge = CallBridge();
+  late final CallBridge _callBridge;
+  late final FlutterSecureStorage _secureStorage;
+  bool _showCyberHelpline = true;
+  int _unreadNotificationCount = 0;
   late final GuardianAudioService _guardianAudioService;
   late final GuardianTranscriptionService _guardianTranscriptionService;
   late final StreamSubscription<CallGuardianStatus> _guardianSubscription;
@@ -129,13 +107,14 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   bool _handlingExpiredSession = false;
   bool _transcriptionEnabled = false;
   int _totalCallsAnalyzed = 0;
-  List<ScamShieldNotification> _notifications = [];
-  final Set<String> _readNotificationIds = {};
+
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    _callBridge = widget.callBridge ?? CallBridge();
+    _secureStorage = widget.secureStorage ?? const FlutterSecureStorage();
     _callHistoryService = widget.callHistoryService ??
         CallHistoryService(
           api: widget.analysisService.api,
@@ -219,6 +198,23 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     _loadGuardianStatus();
     _loadAudioCapability();
     _loadLatestCallEvent();
+    _loadCyberHelplineState();
+    _loadUnreadNotificationCount();
+  }
+
+  @override
+  void didUpdateWidget(covariant HomeScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.user.id != widget.user.id) {
+      setState(() {
+        _unreadNotificationCount = 0;
+        _dashboard = null;
+        _showCyberHelpline = true;
+      });
+      _loadUnreadNotificationCount();
+      _loadDashboard();
+      _loadCyberHelplineState();
+    }
   }
 
   @override
@@ -271,77 +267,80 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       if (mounted) setState(() => _totalCallsAnalyzed = calls.total);
     } catch (_) {}
 
-    _refreshNotifications();
+    _loadUnreadNotificationCount();
   }
 
-  void _refreshNotifications() {
-    final list = <ScamShieldNotification>[];
-    final recent = _dashboard?.recentAnalyses ?? [];
+  Future<void> _loadUnreadNotificationCount() async {
+    try {
+      final count = await _notificationService.getUnreadCount();
+      if (mounted) {
+        setState(() => _unreadNotificationCount = count);
+      }
+    } catch (_) {
+      // Retain existing count on network error
+    }
+  }
 
-    for (final r in recent) {
-      final isHigh = r.riskLevel.toUpperCase() == 'HIGH' ||
-          r.classification.toUpperCase() == 'SCAM' ||
-          r.riskScore >= 70;
-      if (isHigh) {
-        final snippet = r.content.replaceAll('\n', ' ').trim();
-        final displaySnippet = snippet.length > 36 ? '${snippet.substring(0, 36)}...' : snippet;
-        list.add(
-          ScamShieldNotification(
-            id: 'analysis-${r.id}',
-            title: '⚠️ High Risk Threat Detected',
-            message: 'A ${r.inputType.toUpperCase()} analysis was flagged as ${r.category.isNotEmpty ? r.category : "High Risk"}: "$displaySnippet".',
-            timestamp: r.createdAt,
-            icon: Icons.warning_amber_rounded,
-            color: const Color(0xFFEF4444),
-            isRead: _readNotificationIds.contains('analysis-${r.id}'),
-          ),
-        );
-      } else if (r.riskLevel.toUpperCase() == 'LOW' || r.classification.toUpperCase() == 'SAFE') {
-        list.add(
-          ScamShieldNotification(
-            id: 'analysis-${r.id}',
-            title: '✓ Analysis Verified Genuine',
-            message: 'Your ${r.inputType} submission was analyzed and verified safe.',
-            timestamp: r.createdAt,
-            icon: Icons.check_circle_outline_rounded,
-            color: const Color(0xFF10B981),
-            isRead: _readNotificationIds.contains('analysis-${r.id}'),
-          ),
-        );
+  Future<void> _loadCyberHelplineState() async {
+    try {
+      final dismissed = await _secureStorage.read(
+        key: 'cyber_helpline_dismissed_${widget.user.id}',
+      );
+      if (mounted) {
+        setState(() {
+          _showCyberHelpline = dismissed != 'true';
+        });
+      }
+    } catch (_) {
+      if (mounted) {
+        setState(() {
+          _showCyberHelpline = true;
+        });
       }
     }
+  }
 
-    if (_guardianStatus?.enabled == true && _guardianStatus?.serviceRunning == true) {
-      list.add(
-        ScamShieldNotification(
-          id: 'guardian-active',
-          title: '🛡️ Live Call Guardian Active',
-          message: 'Incoming and active call detection is running on your device.',
-          timestamp: DateTime.now(),
-          icon: Icons.phone_in_talk_rounded,
-          color: const Color(0xFF10B981),
-          isRead: _readNotificationIds.contains('guardian-active'),
+  Future<void> _handleCyberHelplineDial() async {
+    final success = await _callBridge.launchDialer('1930');
+    if (!mounted) return;
+
+    if (success) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Opening phone dialer for National Cyber Helpline 1930...'),
+          duration: Duration(seconds: 3),
+        ),
+      );
+      await _dismissCyberHelpline();
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Text('Could not open phone dialer. National Cyber Helpline is 1930.'),
+          action: SnackBarAction(
+            label: 'Copy 1930',
+            onPressed: () {
+              Clipboard.setData(const ClipboardData(text: '1930'));
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('Helpline number 1930 copied to clipboard.')),
+              );
+            },
+          ),
+          duration: const Duration(seconds: 6),
         ),
       );
     }
+  }
 
-    list.add(
-      ScamShieldNotification(
-        id: 'system-intel-update',
-        title: '🔒 Scam Intelligence Updated',
-        message: 'Security definitions for UPI, KYC, and imposter scams have been refreshed.',
-        timestamp: DateTime.now().subtract(const Duration(hours: 3)),
-        icon: Icons.shield_rounded,
-        color: const Color(0xFF06B6D4),
-        isRead: _readNotificationIds.contains('system-intel-update'),
-      ),
-    );
-
-    if (mounted) {
-      setState(() {
-        _notifications = list;
-      });
-    }
+  Future<void> _dismissCyberHelpline() async {
+    setState(() {
+      _showCyberHelpline = false;
+    });
+    try {
+      await _secureStorage.write(
+        key: 'cyber_helpline_dismissed_${widget.user.id}',
+        value: 'true',
+      );
+    } catch (_) {}
   }
 
   Future<void> _loadGuardianStatus() async {
@@ -625,9 +624,9 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       final confirmed = await showDialog<bool>(
         context: context,
         builder: (context) => AlertDialog(
-          title: const Text('Disable Call Guardian?'),
+          title: const Text('Disable Call Sentinel?'),
           content: const Text(
-            'Live call monitoring and real-time scam warnings will be stopped. You can re-enable Guardian anytime.',
+            'Live call monitoring and real-time scam warnings will be stopped. You can re-enable Sentinel anytime.',
           ),
           actions: [
             TextButton(
@@ -656,9 +655,9 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       final consented = await showDialog<bool>(
         context: context,
         builder: (context) => AlertDialog(
-          title: const Text('Enable Guardian?'),
+          title: const Text('Enable Sentinel?'),
           content: const Text(
-            'Guardian uses the required Android permissions to detect supported call activity. This call-state monitor does not access call audio; optional device-microphone capture is a separate setting with its own permission and consent. Guardian does not read conversations or block or end calls. Android shows a notification while Guardian is enabled.',
+            'Sentinel uses the required Android permissions to detect supported call activity. This call-state monitor does not access call audio; optional device-microphone capture is a separate setting with its own permission and consent. Sentinel does not read private conversations or block calls without permission. Android shows a notification while Sentinel is enabled.',
           ),
           actions: [
             TextButton(
@@ -682,7 +681,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
                 content: const Text(
-                  'Phone-state and notification permissions are required to enable Guardian.',
+                  'Phone-state and notification permissions are required to enable Sentinel.',
                 ),
                 action: SnackBarAction(
                   label: 'APP SETTINGS',
@@ -696,11 +695,11 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
         }
       } on PlatformException {
         _showGuardianError(
-          'Could not request Guardian permissions. Please retry.',
+          'Could not request Sentinel permissions. Please retry.',
         );
         return;
       } on MissingPluginException {
-        _showGuardianError('Guardian is available only in the Android app.');
+        _showGuardianError('Sentinel is available only in the Android app.');
         return;
       }
     }
@@ -718,11 +717,11 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
           'Grant the required Android permissions to continue.',
         );
       } else {
-        _showGuardianError('Could not update Guardian. Please retry.');
+        _showGuardianError('Could not update Sentinel. Please retry.');
       }
       await _loadGuardianStatus();
     } on MissingPluginException {
-      _showGuardianError('Guardian is available only in the Android app.');
+      _showGuardianError('Sentinel is available only in the Android app.');
     }
   }
 
@@ -738,7 +737,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
         builder: (context) => AlertDialog(
           title: const Text('Enable microphone audio protection?'),
           content: const Text(
-            'With your permission, ScamShield will capture device microphone input only while Guardian detects an active call. This is not direct access to cellular call audio. If you want nearby call audio picked up, you must turn on speakerphone yourself; Android or the device may still limit what the microphone receives. Audio is held in a small, bounded in-memory buffer and is not uploaded or saved as a recording in this milestone.',
+            'With your permission, ScamShield will capture device microphone input only while Sentinel detects an active call. This is not direct access to cellular call audio. If you want nearby call audio picked up, you must turn on speakerphone yourself; Android or the device may still limit what the microphone receives. Audio is held in a small, bounded in-memory buffer and is not uploaded or saved as a recording in this milestone.',
           ),
           actions: [
             TextButton(
@@ -793,7 +792,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     } on PlatformException catch (error) {
       _showGuardianError(
         error.code == 'AUDIO_SERVICE_UNAVAILABLE'
-            ? 'Android could not start audio protection. Guardian call detection remains available.'
+            ? 'Android could not start audio protection. Sentinel call detection remains available.'
             : 'Could not update audio protection. Please try again.',
       );
       await _loadGuardianStatus();
@@ -908,11 +907,11 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
           ),
           IconButton(
             tooltip: 'Notifications',
-            onPressed: _showNotificationCenter,
-            icon: _notifications.where((n) => !n.isRead).isNotEmpty
+            onPressed: _openNotificationScreen,
+            icon: _unreadNotificationCount > 0
                 ? Badge(
                     label: Text(
-                      '${_notifications.where((n) => !n.isRead).length}',
+                      '$_unreadNotificationCount',
                       style: const TextStyle(
                         fontSize: 10,
                         fontWeight: FontWeight.bold,
@@ -1107,7 +1106,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
           NavigationDestination(
             icon: Icon(Icons.shield_outlined),
             selectedIcon: Icon(Icons.shield_rounded),
-            label: 'Guardian',
+            label: 'Sentinel',
           ),
           NavigationDestination(
             icon: Icon(Icons.more_horiz_rounded),
@@ -1208,230 +1207,47 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     ),
   );
 
-  void _showNotificationCenter() {
-    showModalBottomSheet<void>(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (context) {
-        return StatefulBuilder(
-          builder: (context, setSheetState) {
-            final isDark = Theme.of(context).brightness == Brightness.dark;
-            final bg = isDark ? const Color(0xFF111827) : Colors.white;
-            final border = isDark ? const Color(0xFF334155) : const Color(0xFFE2E8F0);
-            final unread = _notifications.where((n) => !n.isRead).length;
-
-            return Container(
-              constraints: BoxConstraints(
-                maxHeight: MediaQuery.of(context).size.height * 0.75,
-              ),
-              decoration: BoxDecoration(
-                color: bg,
-                borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
-                border: Border(top: BorderSide(color: border)),
-              ),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Container(
-                    margin: const EdgeInsets.only(top: 10, bottom: 8),
-                    width: 40,
-                    height: 4,
-                    decoration: BoxDecoration(
-                      color: isDark ? const Color(0xFF475569) : const Color(0xFFCBD5E1),
-                      borderRadius: BorderRadius.circular(2),
-                    ),
-                  ),
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(20, 6, 16, 12),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Row(
-                          children: [
-                            const Icon(
-                              Icons.notifications_active_outlined,
-                              color: Color(0xFF06B6D4),
-                              size: 22,
-                            ),
-                            const SizedBox(width: 8),
-                            Text(
-                              'Notifications',
-                              style: TextStyle(
-                                fontSize: 17,
-                                fontWeight: FontWeight.w800,
-                                color: isDark ? Colors.white : const Color(0xFF0F172A),
-                              ),
-                            ),
-                            if (unread > 0) ...[
-                              const SizedBox(width: 8),
-                              Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
-                                decoration: BoxDecoration(
-                                  color: const Color(0xFFEF4444),
-                                  borderRadius: BorderRadius.circular(10),
-                                ),
-                                child: Text(
-                                  '$unread',
-                                  style: const TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 10.5,
-                                    fontWeight: FontWeight.w800,
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ],
-                        ),
-                        Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            if (_notifications.isNotEmpty && unread > 0) ...[
-                              TextButton.icon(
-                                onPressed: () {
-                                  setState(() {
-                                    for (final n in _notifications) {
-                                      _readNotificationIds.add(n.id);
-                                    }
-                                    _notifications = _notifications
-                                        .map((n) => n.copyWith(isRead: true))
-                                        .toList();
-                                  });
-                                  setSheetState(() {});
-                                },
-                                icon: const Icon(Icons.done_all_rounded, size: 16, color: Color(0xFF06B6D4)),
-                                label: const Text(
-                                  'Clear All',
-                                  style: TextStyle(
-                                    color: Color(0xFF06B6D4),
-                                    fontWeight: FontWeight.w700,
-                                    fontSize: 12.5,
-                                  ),
-                                ),
-                              ),
-                              const SizedBox(width: 4),
-                            ],
-                            IconButton(
-                              icon: const Icon(Icons.close_rounded, size: 20),
-                              tooltip: 'Close',
-                              padding: EdgeInsets.zero,
-                              constraints: const BoxConstraints(),
-                              onPressed: () => Navigator.of(context).pop(),
-                            ),
-                          ],
-                        ),
-                      ],
-                    ),
-                  ),
-                  const Divider(height: 1),
-                  Flexible(
-                    child: _notifications.isEmpty || unread == 0
-                        ? Padding(
-                            padding: const EdgeInsets.symmetric(vertical: 40, horizontal: 24),
-                            child: Column(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Container(
-                                  width: 56,
-                                  height: 56,
-                                  decoration: BoxDecoration(
-                                    color: const Color(0xFF06B6D4).withValues(alpha: 0.12),
-                                    shape: BoxShape.circle,
-                                  ),
-                                  child: const Icon(
-                                    Icons.done_all_rounded,
-                                    color: Color(0xFF06B6D4),
-                                    size: 30,
-                                  ),
-                                ),
-                                const SizedBox(height: 14),
-                                Text(
-                                  'All caught up!',
-                                  style: TextStyle(
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.w800,
-                                    color: isDark ? Colors.white : const Color(0xFF0F172A),
-                                  ),
-                                ),
-                                const SizedBox(height: 4),
-                                Text(
-                                  'No unread security alerts at this time.\nStay alert and informed.',
-                                  textAlign: TextAlign.center,
-                                  style: TextStyle(
-                                    fontSize: 12,
-                                    color: isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B),
-                                    height: 1.4,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          )
-                        : ListView.separated(
-                            padding: const EdgeInsets.symmetric(vertical: 8),
-                            shrinkWrap: true,
-                            itemCount: _notifications.length,
-                            separatorBuilder: (_, _) => Divider(
-                              height: 1,
-                              color: isDark ? const Color(0xFF1E293B) : const Color(0xFFF1F5F9),
-                            ),
-                            itemBuilder: (context, index) {
-                              final item = _notifications[index];
-                              return Material(
-                                color: Colors.transparent,
-                                child: ListTile(
-                                  leading: Container(
-                                    width: 38,
-                                    height: 38,
-                                    decoration: BoxDecoration(
-                                      color: item.color.withValues(alpha: 0.12),
-                                      borderRadius: BorderRadius.circular(10),
-                                    ),
-                                    child: Icon(item.icon, color: item.color, size: 20),
-                                  ),
-                                  title: Text(
-                                    item.title,
-                                    style: TextStyle(
-                                      fontSize: 13,
-                                      fontWeight: item.isRead ? FontWeight.w600 : FontWeight.w800,
-                                      color: isDark ? Colors.white : const Color(0xFF0F172A),
-                                    ),
-                                  ),
-                                  subtitle: Text(
-                                    item.message,
-                                    style: TextStyle(
-                                      fontSize: 11.5,
-                                      color: isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B),
-                                    ),
-                                  ),
-                                  trailing: item.isRead
-                                      ? null
-                                      : Container(
-                                          width: 8,
-                                          height: 8,
-                                          decoration: const BoxDecoration(
-                                            color: Color(0xFF06B6D4),
-                                            shape: BoxShape.circle,
-                                          ),
-                                        ),
-                                  onTap: () {
-                                    setState(() {
-                                      _readNotificationIds.add(item.id);
-                                      _notifications[index] = item.copyWith(isRead: true);
-                                    });
-                                    setSheetState(() {});
-                                  },
-                                ),
-                              );
-                            },
-                          ),
-                  ),
-                ],
-              ),
-            );
-          },
-        );
-      },
+  Future<void> _openNotificationScreen() async {
+    await Navigator.of(context).push<void>(
+      MaterialPageRoute<void>(
+        builder: (_) => NotificationScreen(
+          notificationService: _notificationService,
+          onOpenAnalysis: (id) => _openAnalysisDetails(id),
+          onOpenCallSummary: (sessionId) => _openCallSummary(sessionId),
+        ),
+      ),
     );
+    if (mounted) {
+      await _loadUnreadNotificationCount();
+    }
+  }
+
+  Future<void> _openAnalysisDetails(int analysisId) async {
+    try {
+      final record = await widget.analysisService.getAnalysis(analysisId);
+      if (!mounted) return;
+      await Navigator.of(context).push<void>(
+        MaterialPageRoute<void>(
+          builder: (_) => AnalysisResultScreen(
+            analysis: record,
+            onBackToDashboard: () => _returnToTab(0),
+            onAnalyzeAnother: () => _returnToTab(1),
+          ),
+        ),
+      );
+    } catch (_) {
+      if (mounted) _returnToTab(2);
+    }
+  }
+
+  Future<void> _openCallSummary(String sessionId) async {
+    try {
+      final detail = await _callHistoryService.getCallSummary(sessionId);
+      if (!mounted) return;
+      _openCallDetail(detail);
+    } catch (_) {
+      if (mounted) _returnToTab(2);
+    }
   }
 
   Widget _buildDashboard(BuildContext context) {
@@ -1442,6 +1258,10 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       dashboardError: _dashboardError,
       guardianStatus: _guardianStatus,
       totalCallsAnalyzed: _totalCallsAnalyzed,
+      showCyberHelpline: _showCyberHelpline,
+      onDismissCyberHelpline: _dismissCyberHelpline,
+      onDialCyberHelpline: _handleCyberHelplineDial,
+      onToggleProtection: _toggleGuardian,
       onRefresh: _loadDashboard,
       onOpenAnalyze: _openAnalyze,
       onOpenGuardian: () => _returnToTab(3),

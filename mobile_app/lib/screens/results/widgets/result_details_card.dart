@@ -326,6 +326,7 @@ class ResultDetailsCard extends StatelessWidget {
       'document' || 'pdf' => (Icons.description_outlined, 'Document (PDF)'),
       'audio' => (Icons.mic_none_rounded, 'Audio Recording'),
       'call' => (Icons.phone_in_talk_rounded, 'Phone Call'),
+      'url' || 'link' => (Icons.link_rounded, 'Website Link / URL'),
       _ => (Icons.chat_bubble_outline_rounded, 'Text Message'),
     };
   }

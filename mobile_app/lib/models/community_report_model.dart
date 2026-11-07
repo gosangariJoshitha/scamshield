@@ -1,6 +1,7 @@
 class CommunityReportModel {
   const CommunityReportModel({
     required this.id,
+    this.userId,
     required this.content,
     required this.category,
     this.description,
@@ -12,6 +13,7 @@ class CommunityReportModel {
   });
 
   final int id;
+  final int? userId;
   final String content;
   final String category;
   final String? description;
@@ -24,6 +26,7 @@ class CommunityReportModel {
   factory CommunityReportModel.fromJson(Map<String, dynamic> json) {
     return CommunityReportModel(
       id: json['id'] as int? ?? 0,
+      userId: json['user_id'] as int?,
       content: json['content'] as String? ?? '',
       category: json['category'] as String? ?? 'General',
       description: json['description'] as String?,

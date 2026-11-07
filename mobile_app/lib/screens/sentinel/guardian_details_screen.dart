@@ -58,7 +58,7 @@ class _GuardianDetailsScreenState extends State<GuardianDetailsScreen> {
     final capability = widget.audioCapability;
 
     final canEnable = currentStatus?.available == true && currentStatus?.supported == true;
-    final running = currentStatus?.enabled == true && currentStatus?.serviceRunning == true;
+    final running = currentStatus?.isProtected == true;
     final audioProtectionEnabled = currentStatus?.audioProtectionEnabled == true;
     final audioCanChange = running || audioProtectionEnabled;
 
@@ -148,18 +148,18 @@ class _GuardianDetailsScreenState extends State<GuardianDetailsScreen> {
                         ),
                         const SizedBox(height: 12),
 
-                        // Switch 1: Enable Guardian
+                        // Switch 1: Enable Sentinel
                         SwitchListTile(
                           contentPadding: EdgeInsets.zero,
                           value: currentStatus?.enabled ?? false,
                           onChanged: canEnable ? widget.onToggleGuardian : null,
                           title: const Text(
-                            'Enable Guardian',
+                            'Enable Sentinel',
                             style: TextStyle(fontWeight: FontWeight.w700, fontFamily: 'Inter'),
                           ),
                           subtitle: Text(
                             canEnable
-                                ? 'Monitor supported call activity. Android shows a notification while Guardian is on.'
+                                ? 'Monitor supported call activity. Android shows a notification while Sentinel is on.'
                                 : 'Call protection is unavailable on this device.',
                             style: const TextStyle(fontFamily: 'Inter', fontSize: 12),
                           ),
@@ -298,9 +298,9 @@ class _GuardianDetailsScreenState extends State<GuardianDetailsScreen> {
     showDialog<void>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('About Live Call Guardian'),
+        title: const Text('About Live Call Sentinel'),
         content: const Text(
-          'Live Call Guardian monitors telephony state events in the background under supported Android conditions. '
+          'Live Call Sentinel monitors telephony state events in the background under supported Android conditions. '
           'Audio capture is strictly optional, requires explicit user consent, and captures microphone audio only while on speakerphone. '
           'No audio is permanently stored.',
         ),

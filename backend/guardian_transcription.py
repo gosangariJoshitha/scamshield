@@ -129,7 +129,7 @@ async def transcribe_guardian_chunk(
         sample_rate_hz != WHISPER_CHUNK_SAMPLE_RATE
         or channels != 1
         or encoding != "PCM_16BIT"
-        or duration_ms != WHISPER_CHUNK_MAX_SECONDS * 1000
+        or duration_ms not in (3000, 5000)
     ):
         raise HTTPException(
             status_code=422,

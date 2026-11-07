@@ -9,12 +9,14 @@ class AnalyzeSubmitButton extends StatelessWidget {
     required this.onPressed,
     this.loading = false,
     this.label = 'Analyze',
+    this.loadingLabel,
     super.key,
   });
 
   final VoidCallback? onPressed;
   final bool loading;
   final String label;
+  final String? loadingLabel;
 
   @override
   Widget build(BuildContext context) {
@@ -62,10 +64,10 @@ class AnalyzeSubmitButton extends StatelessWidget {
                   ),
                   const SizedBox(width: 10),
                   Text(
-                    'Analyzing...',
+                    loadingLabel ?? 'Analyzing...',
                     style: TextStyle(
                       fontFamily: 'Inter',
-                      fontSize: 16,
+                      fontSize: 15,
                       fontWeight: FontWeight.w700,
                       color: onPrimaryColor,
                       letterSpacing: 0.3,

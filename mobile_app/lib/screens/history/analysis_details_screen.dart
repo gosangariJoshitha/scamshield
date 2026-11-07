@@ -258,8 +258,9 @@ class _AnalysisDetailsScreenState extends State<AnalysisDetailsScreen> {
 
     final contentTypeLabel = switch (record.inputType.toLowerCase()) {
       'image' => 'Image / Screenshot',
-      'pdf' => 'PDF / Document',
+      'pdf' || 'document' => 'PDF / Document',
       'audio' => 'Voice Message / Audio',
+      'url' || 'link' => 'Website Link / URL',
       _ => 'Text Message',
     };
 

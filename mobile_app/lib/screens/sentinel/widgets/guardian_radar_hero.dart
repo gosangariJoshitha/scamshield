@@ -17,7 +17,7 @@ class GuardianRadarHero extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final isRunning = status?.enabled == true && status?.serviceRunning == true;
+    final isRunning = status?.isProtected == true;
 
     final Color primaryColor = isDark ? AppColors.darkPrimary : const Color(0xFF0284C7);
     final Color activeGreen = isDark ? const Color(0xFF34D399) : const Color(0xFF10B981);
@@ -30,7 +30,7 @@ class GuardianRadarHero extends StatelessWidget {
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Text(
-              'Live Call Guardian',
+              'Live Call Sentinel',
               style: TextStyle(
                 fontFamily: 'Inter',
                 fontSize: 18,
@@ -221,7 +221,7 @@ class GuardianRadarHero extends StatelessWidget {
                 ),
                 const SizedBox(width: 8),
                 Text(
-                  'Guardian Service',
+                  'Sentinel Service',
                   style: TextStyle(
                     fontFamily: 'Inter',
                     fontSize: 13,

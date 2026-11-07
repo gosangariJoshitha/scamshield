@@ -2,6 +2,7 @@ import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../../models/analysis_record.dart';
 import '../../services/analysis_service.dart';
 import '../../services/api_service.dart';
 import '../../theme/app_colors.dart';
@@ -17,14 +18,15 @@ import 'widgets/secondary_utility_cards.dart';
 
 /// ScamShield 2.0 Analyze Submission Screen
 ///
-/// Designed in strict accordance with the approved Phase 04 master blueprint
-/// and visual references (analysze ape.jpeg and analysze ape.2jpeg.jpeg).
+/// Designed in strict accordance with the approved Phase 03 master blueprint
+/// and visual references.
 ///
-/// Supports 4 authenticated input modes:
+/// Supports 5 authenticated input channels:
 /// 1. Text: Unicode multiline entry with 0/5000 counter and clipboard paste
-/// 2. Image: Photo/gallery picker with image preview (JPG, PNG, WEBP up to 10 MB)
-/// 3. Document: PDF picker with file metadata (PDF up to 20 MB)
-/// 4. Audio: Audio file upload & recording (MP3, WAV, M4A up to 25 MB)
+/// 2. Link / URL: Dedicated URL syntax validation with safe cloud inspection
+/// 3. Image: Photo/gallery picker with image preview (JPG, PNG, WEBP <= 10 MB) and multilingual OCR (en, hi, te)
+/// 4. Document: PDF picker with file metadata (PDF <= 20 MB)
+/// 5. Audio: Audio file upload & recording (MP3, WAV, M4A, AAC, OGG <= 25 MB)
 class AnalyzeScreen extends StatefulWidget {
   const AnalyzeScreen({
     required this.analysisService,
@@ -47,16 +49,20 @@ class AnalyzeScreen extends StatefulWidget {
 
 class _AnalyzeScreenState extends State<AnalyzeScreen> {
   final _textController = TextEditingController();
+  final _urlController = TextEditingController();
   late String _type = _normalizeInitialType(widget.initialType);
   bool _loading = false;
+  String? _processingStatus;
   String? _error;
   String? _selectedFileName;
   Uint8List? _selectedFileBytes;
+  String _selectedOcrLanguage = 'en';
 
   static const int _maxTextLength = 5000;
 
   static String _normalizeInitialType(String type) {
     if (type == 'document') return 'pdf';
+    if (type == 'link') return 'url';
     return type;
   }
 
@@ -64,6 +70,7 @@ class _AnalyzeScreenState extends State<AnalyzeScreen> {
   void initState() {
     super.initState();
     _textController.addListener(_onTextChanged);
+    _urlController.addListener(_onTextChanged);
   }
 
   @override
@@ -77,7 +84,9 @@ class _AnalyzeScreenState extends State<AnalyzeScreen> {
   @override
   void dispose() {
     _textController.removeListener(_onTextChanged);
+    _urlController.removeListener(_onTextChanged);
     _textController.dispose();
+    _urlController.dispose();
     super.dispose();
   }
 
@@ -100,6 +109,18 @@ class _AnalyzeScreenState extends State<AnalyzeScreen> {
       _selectedFileName = null;
       _selectedFileBytes = null;
       _error = null;
+    });
+  }
+
+  void _resetInput() {
+    setState(() {
+      _textController.clear();
+      _urlController.clear();
+      _selectedFileName = null;
+      _selectedFileBytes = null;
+      _error = null;
+      _loading = false;
+      _processingStatus = null;
     });
   }
 
@@ -162,11 +183,15 @@ class _AnalyzeScreenState extends State<AnalyzeScreen> {
         return;
       }
       setState(() {
-        _type = 'text';
-        _textController.text = text;
+        if (_type == 'url') {
+          _urlController.text = text;
+        } else {
+          _type = 'text';
+          _textController.text = text;
+        }
         _error = null;
       });
-      _showToast('Text pasted from clipboard.');
+      _showToast('Pasted from clipboard.');
     } catch (_) {
       _showToast('Could not access clipboard.');
     }
@@ -189,6 +214,20 @@ class _AnalyzeScreenState extends State<AnalyzeScreen> {
         onMessageSelected: (sample) {
           setState(() {
             _textController.text = sample;
+            _error = null;
+          });
+        },
+      ),
+    );
+  }
+
+  void _showSampleLinksDialog() {
+    showDialog<void>(
+      context: context,
+      builder: (_) => SampleLinksDialog(
+        onLinkSelected: (link) {
+          setState(() {
+            _urlController.text = link;
             _error = null;
           });
         },
@@ -277,32 +316,82 @@ class _AnalyzeScreenState extends State<AnalyzeScreen> {
   }
 
   Future<void> _submit() async {
+    // Prevent duplicate parallel submissions
     if (_loading) return;
 
     if (_type == 'text' && _textController.text.trim().isEmpty) {
       setState(() => _error = 'Enter a message or link to analyze.');
       return;
     }
-    if (_type != 'text' && _selectedFileBytes == null) {
-      setState(() => _error = 'Choose a file before starting the analysis.');
+
+    if (_type == 'url' && _urlController.text.trim().isEmpty) {
+      setState(() => _error = 'Enter a website link to analyze.');
       return;
     }
 
+    if (_type != 'text' && _type != 'url' && _selectedFileBytes == null) {
+      final itemDesc = switch (_type) {
+        'image' => 'an image file',
+        'pdf' => 'a PDF document',
+        _ => 'an audio file',
+      };
+      setState(() => _error = 'Choose $itemDesc before starting the analysis.');
+      return;
+    }
+
+    // URL normalization and syntax validation
+    String? normalizedUrl;
+    if (_type == 'url') {
+      var raw = _urlController.text.trim();
+      if (!raw.startsWith('http://') && !raw.startsWith('https://')) {
+        raw = 'https://$raw';
+      }
+      final parsed = Uri.tryParse(raw);
+      if (parsed == null ||
+          parsed.host.isEmpty ||
+          (!parsed.host.contains('.') && parsed.host != 'localhost')) {
+        setState(() => _error = 'Please enter a valid website link (e.g. https://example.com).');
+        return;
+      }
+      normalizedUrl = raw;
+    }
+
+    final status = switch (_type) {
+      'text' => 'Analyzing message threat indicators...',
+      'url' => 'Checking link threat intelligence...',
+      'image' => 'Extracting text with OCR and analyzing...',
+      'pdf' => 'Extracting document text and analyzing...',
+      _ => 'Transcribing audio and analyzing speech...',
+    };
+
     setState(() {
       _loading = true;
+      _processingStatus = status;
       _error = null;
     });
 
     try {
-      final result = _type == 'text'
-          ? await widget.analysisService.analyzeText(
-              _textController.text.trim(),
-            )
-          : await widget.analysisService.analyzeFile(
-              type: _type,
-              filename: _selectedFileName!,
-              bytes: _selectedFileBytes!,
-            );
+      final AnalysisRecord result;
+      if (_type == 'text') {
+        result = await widget.analysisService.analyzeText(
+          _textController.text.trim(),
+        );
+      } else if (_type == 'url') {
+        result = await widget.analysisService.analyzeUrl(normalizedUrl!);
+      } else if (_type == 'image') {
+        result = await widget.analysisService.analyzeFile(
+          type: 'image',
+          filename: _selectedFileName!,
+          bytes: _selectedFileBytes!,
+          language: _selectedOcrLanguage,
+        );
+      } else {
+        result = await widget.analysisService.analyzeFile(
+          type: _type,
+          filename: _selectedFileName!,
+          bytes: _selectedFileBytes!,
+        );
+      }
 
       if (!mounted) return;
       widget.onAnalysisCompleted();
@@ -316,13 +405,27 @@ class _AnalyzeScreenState extends State<AnalyzeScreen> {
           ),
         ),
       );
+
+      // Phase 03 Requirement: Clear input upon return from result screen
+      if (mounted) {
+        _resetInput();
+      }
     } on ApiException catch (error) {
       if (error.statusCode == 401 || error.statusCode == 403) {
         await widget.onSessionExpired();
         return;
       }
       if (mounted) {
-        setState(() => _error = error.message);
+        if (error.message.toLowerCase().contains('no readable content')) {
+          final hint = _type == 'image'
+              ? 'No readable content could be extracted. Please ensure the image contains clear, legible text.'
+              : _type == 'pdf'
+                  ? 'No readable content could be extracted from this PDF document.'
+                  : 'No readable speech or audio could be transcribed from this recording.';
+          setState(() => _error = hint);
+        } else {
+          setState(() => _error = error.message);
+        }
       }
     } catch (_) {
       if (mounted) {
@@ -331,15 +434,22 @@ class _AnalyzeScreenState extends State<AnalyzeScreen> {
         );
       }
     } finally {
-      if (mounted) setState(() => _loading = false);
+      if (mounted) {
+        setState(() {
+          _loading = false;
+          _processingStatus = null;
+        });
+      }
     }
   }
 
   bool get _canSubmit {
     if (_loading) return false;
-    return _type == 'text'
-        ? _textController.text.trim().isNotEmpty
-        : _selectedFileBytes != null;
+    return switch (_type) {
+      'text' => _textController.text.trim().isNotEmpty,
+      'url' => _urlController.text.trim().isNotEmpty,
+      _ => _selectedFileBytes != null,
+    };
   }
 
   @override
@@ -385,7 +495,7 @@ class _AnalyzeScreenState extends State<AnalyzeScreen> {
               const AnalyzeHeroCard(),
               const SizedBox(height: 18),
 
-              // 4-Mode Selector: [Text, Image, Document, Audio]
+              // 5-Mode Selector: [Text, Link, Image, Document, Audio]
               InputModeSelector(
                 selectedMode: _type,
                 onModeSelected: _selectType,
@@ -463,7 +573,7 @@ class _AnalyzeScreenState extends State<AnalyzeScreen> {
                           required isFocused,
                           maxLength,
                         }) =>
-                            null, // Hidden default counter, we render custom counter below
+                            null, // Custom counter rendered below
                         style: TextStyle(
                           fontFamily: 'Inter',
                           fontSize: 15,
@@ -483,17 +593,34 @@ class _AnalyzeScreenState extends State<AnalyzeScreen> {
                         ),
                       ),
                       const SizedBox(height: 8),
-                      Align(
-                        alignment: Alignment.centerRight,
-                        child: Text(
-                          '${_textController.text.length}/$_maxTextLength',
-                          style: TextStyle(
-                            fontFamily: 'Inter',
-                            fontSize: 12,
-                            fontWeight: FontWeight.w500,
-                            color: isDark ? AppColors.textMutedDark : AppColors.textMutedLight,
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          if (_textController.text.isNotEmpty)
+                            GestureDetector(
+                              onTap: () => setState(() => _textController.clear()),
+                              child: Text(
+                                'Clear Text',
+                                style: TextStyle(
+                                  fontFamily: 'Inter',
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w600,
+                                  color: isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B),
+                                ),
+                              ),
+                            )
+                          else
+                            const SizedBox.shrink(),
+                          Text(
+                            '${_textController.text.length}/$_maxTextLength',
+                            style: TextStyle(
+                              fontFamily: 'Inter',
+                              fontSize: 12,
+                              fontWeight: FontWeight.w500,
+                              color: isDark ? AppColors.textMutedDark : AppColors.textMutedLight,
+                            ),
                           ),
-                        ),
+                        ],
                       ),
                     ],
                   ),
@@ -504,6 +631,7 @@ class _AnalyzeScreenState extends State<AnalyzeScreen> {
                 AnalyzeSubmitButton(
                   onPressed: _canSubmit ? _submit : null,
                   loading: _loading,
+                  loadingLabel: _processingStatus,
                 ),
 
                 // Or Divider
@@ -559,6 +687,171 @@ class _AnalyzeScreenState extends State<AnalyzeScreen> {
                     ),
                   ],
                 ),
+              ] else if (_type == 'url') ...[
+                // URL Input Card
+                Container(
+                  padding: const EdgeInsets.fromLTRB(16, 16, 16, 14),
+                  decoration: BoxDecoration(
+                    color: cardBg,
+                    borderRadius: BorderRadius.circular(AppSpacing.radiusCard),
+                    border: Border.all(color: borderColor, width: 1.2),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: isDark ? 0.2 : 0.03),
+                        blurRadius: 10,
+                        offset: const Offset(0, 3),
+                      ),
+                    ],
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Row(
+                        children: [
+                          Icon(
+                            Icons.link_rounded,
+                            color: isDark ? AppColors.darkPrimary : AppColors.primary,
+                            size: 20,
+                          ),
+                          const SizedBox(width: 8),
+                          Text(
+                            'Website Link / URL',
+                            style: TextStyle(
+                              fontFamily: 'Inter',
+                              fontSize: 14,
+                              fontWeight: FontWeight.w600,
+                              color: titleColor,
+                            ),
+                          ),
+                          const Spacer(),
+                          if (_urlController.text.isNotEmpty)
+                            GestureDetector(
+                              onTap: () => setState(() => _urlController.clear()),
+                              child: Padding(
+                                padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                                child: Text(
+                                  'Clear',
+                                  style: TextStyle(
+                                    fontFamily: 'Inter',
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w600,
+                                    color: isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B),
+                                  ),
+                                ),
+                              ),
+                            ),
+                        ],
+                      ),
+                      const SizedBox(height: 12),
+                      TextField(
+                        controller: _urlController,
+                        maxLines: 2,
+                        minLines: 1,
+                        style: TextStyle(
+                          fontFamily: 'Inter',
+                          fontSize: 15,
+                          color: titleColor,
+                        ),
+                        decoration: InputDecoration(
+                          hintText: 'https://example.com/verify...',
+                          hintStyle: TextStyle(
+                            fontFamily: 'Inter',
+                            fontSize: 14.5,
+                            color: isDark ? AppColors.textMutedDark : AppColors.textMutedLight,
+                          ),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(10),
+                            borderSide: BorderSide(
+                              color: isDark ? const Color(0xFF334155) : const Color(0xFFE2E8F0),
+                            ),
+                          ),
+                          enabledBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(10),
+                            borderSide: BorderSide(
+                              color: isDark ? const Color(0xFF334155) : const Color(0xFFE2E8F0),
+                            ),
+                          ),
+                          focusedBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(10),
+                            borderSide: BorderSide(
+                              color: isDark ? AppColors.darkPrimary : AppColors.primary,
+                              width: 1.5,
+                            ),
+                          ),
+                          contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      Container(
+                        padding: const EdgeInsets.all(10),
+                        decoration: BoxDecoration(
+                          color: isDark ? const Color(0xFF0C2431) : const Color(0xFFF0FDF4),
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(
+                            color: isDark ? const Color(0xFF155E75) : const Color(0xFFBBF7D0),
+                            width: 1,
+                          ),
+                        ),
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Icon(
+                              Icons.shield_outlined,
+                              size: 16,
+                              color: isDark ? const Color(0xFF38BDF8) : const Color(0xFF16A34A),
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                'Safe Inspection: ScamShield analyzes links via cloud threat intelligence without opening or executing them on your device.',
+                                style: TextStyle(
+                                  fontFamily: 'Inter',
+                                  fontSize: 11.5,
+                                  height: 1.4,
+                                  color: isDark ? const Color(0xFFBAE6FD) : const Color(0xFF166534),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 18),
+
+                // Primary Analyze CTA Button
+                AnalyzeSubmitButton(
+                  onPressed: _canSubmit ? _submit : null,
+                  loading: _loading,
+                  loadingLabel: _processingStatus,
+                ),
+
+                // Or Divider
+                const OrDivider(),
+
+                // Secondary Quick Actions for URL Mode
+                Row(
+                  children: [
+                    Expanded(
+                      child: UtilityActionCard(
+                        title: 'Paste Link',
+                        subtitle: 'Analyze copied website URL',
+                        icon: Icons.content_paste_rounded,
+                        onTap: _pasteFromClipboard,
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: UtilityActionCard(
+                        title: 'Sample Links',
+                        subtitle: 'Try example suspicious URLs',
+                        icon: Icons.link_rounded,
+                        onTap: _showSampleLinksDialog,
+                      ),
+                    ),
+                  ],
+                ),
               ] else if (_type == 'image') ...[
                 // Image Upload Dropzone / Preview Card
                 FileUploadCard(
@@ -592,12 +885,64 @@ class _AnalyzeScreenState extends State<AnalyzeScreen> {
                     ],
                   ),
                 ),
+                const SizedBox(height: 12),
+
+                // OCR Language Selector Chips
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: cardBg,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: borderColor, width: 1),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(
+                        Icons.translate_rounded,
+                        size: 16,
+                        color: isDark ? AppColors.darkPrimary : AppColors.primary,
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        'OCR Language:',
+                        style: TextStyle(
+                          fontFamily: 'Inter',
+                          fontSize: 12.5,
+                          fontWeight: FontWeight.w600,
+                          color: titleColor,
+                        ),
+                      ),
+                      const Spacer(),
+                      Wrap(
+                        spacing: 6,
+                        children: [
+                          _OcrLangChip(
+                            label: 'English',
+                            selected: _selectedOcrLanguage == 'en',
+                            onTap: () => setState(() => _selectedOcrLanguage = 'en'),
+                          ),
+                          _OcrLangChip(
+                            label: 'हिन्दी',
+                            selected: _selectedOcrLanguage == 'hi',
+                            onTap: () => setState(() => _selectedOcrLanguage = 'hi'),
+                          ),
+                          _OcrLangChip(
+                            label: 'తెలుగు',
+                            selected: _selectedOcrLanguage == 'te',
+                            onTap: () => setState(() => _selectedOcrLanguage = 'te'),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
                 const SizedBox(height: 18),
 
                 // Primary Analyze CTA Button
                 AnalyzeSubmitButton(
                   onPressed: _canSubmit ? _submit : null,
                   loading: _loading,
+                  loadingLabel: _processingStatus,
                 ),
 
                 // Or Divider
@@ -641,6 +986,7 @@ class _AnalyzeScreenState extends State<AnalyzeScreen> {
                 AnalyzeSubmitButton(
                   onPressed: _canSubmit ? _submit : null,
                   loading: _loading,
+                  loadingLabel: _processingStatus,
                 ),
 
                 // Or Divider
@@ -708,6 +1054,7 @@ class _AnalyzeScreenState extends State<AnalyzeScreen> {
                 AnalyzeSubmitButton(
                   onPressed: _canSubmit ? _submit : null,
                   loading: _loading,
+                  loadingLabel: _processingStatus,
                 ),
 
                 // Or Divider
@@ -742,6 +1089,55 @@ class _AnalyzeScreenState extends State<AnalyzeScreen> {
               // Bottom Privacy Guarantee Card
               const PrivacyMattersCard(),
             ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _OcrLangChip extends StatelessWidget {
+  const _OcrLangChip({
+    required this.label,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final primary = isDark ? AppColors.darkPrimary : AppColors.primary;
+    final onPrimary = isDark ? const Color(0xFF101820) : Colors.white;
+
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(8),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+          decoration: BoxDecoration(
+            color: selected ? primary : Colors.transparent,
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(
+              color: selected ? primary : (isDark ? AppColors.darkBorder : AppColors.lightBorder),
+              width: 1,
+            ),
+          ),
+          child: Text(
+            label,
+            style: TextStyle(
+              fontFamily: 'Inter',
+              fontSize: 11.5,
+              fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+              color: selected
+                  ? onPrimary
+                  : (isDark ? AppColors.textSecondaryDark : AppColors.textSecondaryLight),
+            ),
           ),
         ),
       ),
