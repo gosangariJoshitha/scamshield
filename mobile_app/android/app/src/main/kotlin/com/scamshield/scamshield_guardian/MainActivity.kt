@@ -8,6 +8,8 @@ import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.app.role.RoleManager
+import android.media.AudioManager
+import android.media.AudioDeviceInfo
 import android.os.Vibrator
 import android.os.VibratorManager
 import android.os.VibrationEffect
@@ -176,10 +178,15 @@ class MainActivity : FlutterActivity() {
                 "isFloatingGuardianShowing" -> {
                     result.success(FloatingGuardianService.isShowing)
                 }
+                "setSpeakerphoneEnabled" -> {
+                    val enabled = call.argument<Boolean>("enabled") ?: false
+                    result.success(setSpeakerphone(enabled))
+                }
                 "getInitialAction" -> {
                     val action = intent?.getStringExtra("action")
                     val source = intent?.getStringExtra("source")
                     val state = intent?.getStringExtra("state")
+                    intent?.removeExtra("action")
                     result.success(
                         mapOf(
                             "action" to action,
@@ -873,6 +880,36 @@ class MainActivity : FlutterActivity() {
         } else {
             @Suppress("DEPRECATION")
             getSystemService(Context.VIBRATOR_SERVICE) as? Vibrator
+        }
+    }
+
+    private fun setSpeakerphone(enabled: Boolean): Boolean {
+        return try {
+            val audioManager = getSystemService(Context.AUDIO_SERVICE) as? AudioManager ?: return false
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                if (enabled) {
+                    val speaker = audioManager.availableCommunicationDevices.firstOrNull {
+                        it.type == AudioDeviceInfo.TYPE_BUILTIN_SPEAKER
+                    }
+                    if (speaker != null) {
+                        audioManager.setCommunicationDevice(speaker)
+                    } else {
+                        @Suppress("DEPRECATION")
+                        audioManager.isSpeakerphoneOn = true
+                    }
+                } else {
+                    audioManager.clearCommunicationDevice()
+                    @Suppress("DEPRECATION")
+                    audioManager.isSpeakerphoneOn = false
+                }
+            } else {
+                @Suppress("DEPRECATION")
+                audioManager.isSpeakerphoneOn = enabled
+            }
+            true
+        } catch (e: Exception) {
+            Log.e(TAG, "Error setting speakerphone state to $enabled", e)
+            false
         }
     }
 

@@ -665,4 +665,16 @@ class CallBridge {
       return null;
     }
   }
+
+  Future<bool> setSpeakerphoneEnabled(bool enabled) async {
+    try {
+      final result = await _channel.invokeMethod<bool>(
+        'setSpeakerphoneEnabled',
+        {'enabled': enabled},
+      );
+      return result ?? false;
+    } catch (_) {
+      return false;
+    }
+  }
 }

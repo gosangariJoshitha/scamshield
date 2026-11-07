@@ -27,7 +27,9 @@ import '../../services/community_service.dart';
 import '../community/community_screen.dart';
 import '../help/help_support_screen.dart';
 import '../sentinel/call_report_screen.dart';
+import '../sentinel/live_call_monitoring_screen.dart';
 import '../sentinel/sentinel_screen.dart';
+import '../../theme/app_colors.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import '../notifications/notification_screen.dart';
 import 'dashboard_view.dart';
@@ -166,6 +168,25 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
           unawaited(
             _guardianProtectionService.onRiskEscalated(result.riskLevel),
           );
+          if (result.riskLevel == 'CRITICAL' || result.riskScore >= 80) {
+            unawaited(_callBridge.updateFloatingGuardian(
+              state: 'CRITICAL',
+              title: 'CRITICAL: ${result.riskScore}',
+              riskScore: result.riskScore,
+            ));
+          } else if (result.riskLevel == 'HIGH' || result.riskScore >= 70) {
+            unawaited(_callBridge.updateFloatingGuardian(
+              state: 'SUSPICIOUS',
+              title: 'HIGH RISK: ${result.riskScore}',
+              riskScore: result.riskScore,
+            ));
+          } else {
+            unawaited(_callBridge.updateFloatingGuardian(
+              state: 'MONITORING',
+              title: 'LIVE: ${result.riskScore}',
+              riskScore: result.riskScore,
+            ));
+          }
           final currentSessionId = _callEvent?.sessionId;
           final isCallActive = _callEvent?.event == 'CALL_ACTIVE';
           if (isCallActive &&
@@ -215,6 +236,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     _loadLatestCallEvent();
     _loadCyberHelplineState();
     _loadUnreadNotificationCount();
+    _checkPendingAction();
   }
 
   @override
@@ -234,8 +256,11 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state == AppLifecycleState.resumed) _loadGuardianStatus();
-    if (state == AppLifecycleState.resumed) _loadAudioCapability();
+    if (state == AppLifecycleState.resumed) {
+      _loadGuardianStatus();
+      _loadAudioCapability();
+      _checkPendingAction();
+    }
   }
 
   @override
@@ -445,6 +470,10 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
           : 0;
     });
     if (event.event == 'CALL_ACTIVE') {
+      unawaited(_callBridge.updateFloatingGuardian(
+        state: 'CALL_DETECTED',
+        title: 'Protect Call',
+      ));
       _sessionStartedAt = event.timestamp;
       _lastFinalizedSummary = null;
       _guardianTranscriptionService.startSession(
@@ -456,7 +485,17 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
         event.timestamp,
       );
       _guardianProtectionService.startSession(event.sessionId);
+    } else if (event.event == 'CALL_RINGING') {
+      unawaited(_callBridge.updateFloatingGuardian(
+        state: 'CALL_DETECTED',
+        title: 'Protect Call',
+      ));
     } else if (event.event == 'CALL_ENDED') {
+      unawaited(_callBridge.setSpeakerphoneEnabled(false));
+      unawaited(_callBridge.updateFloatingGuardian(
+        state: 'NORMAL',
+        title: 'ScamShield',
+      ));
       unawaited(_guardianTranscriptionService.endSession(event.sessionId));
       unawaited(_guardianLiveAnalysisService.endSession(event.sessionId));
       _guardianProtectionService.endSession(event.sessionId);
@@ -603,6 +642,104 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
             _returnToTab(2);
           },
           onBack: () => Navigator.of(context).pop(),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _checkPendingAction() async {
+    try {
+      final actionData = await _callBridge.getInitialAction();
+      final action = actionData?['action'];
+      if (action == 'PROTECT_CALL' && mounted) {
+        await _onProtectCallTapped();
+      }
+    } catch (_) {}
+  }
+
+  Future<void> _onProtectCallTapped() async {
+    if (!mounted) return;
+    setState(() => _selectedIndex = 3);
+
+    final isCallActive = _callEvent?.event == 'CALL_ACTIVE' || _callEvent?.event == 'CALL_RINGING';
+    if (isCallActive) {
+      final audioAlreadyEnabled = _guardianStatus?.audioProtectionEnabled == true;
+      if (!audioAlreadyEnabled) {
+        final confirmed = await showDialog<bool>(
+          context: context,
+          builder: (ctx) {
+            final isDark = Theme.of(ctx).brightness == Brightness.dark;
+            return AlertDialog(
+              backgroundColor: isDark ? AppColors.darkCard : Colors.white,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+              title: Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF0284C7).withValues(alpha: 0.15),
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(Icons.volume_up_rounded, color: Color(0xFF0284C7), size: 24),
+                  ),
+                  const SizedBox(width: 12),
+                  const Expanded(
+                    child: Text(
+                      'Start Call Protection?',
+                      style: TextStyle(fontFamily: 'Inter', fontSize: 17, fontWeight: FontWeight.w700),
+                    ),
+                  ),
+                ],
+              ),
+              content: const Text(
+                'Speaker mode will be enabled for live call protection. ScamShield will analyze incoming conversation in real-time to alert you of potential scams.',
+                style: TextStyle(fontFamily: 'Inter', fontSize: 13.5, height: 1.45),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(ctx).pop(false),
+                  child: const Text('Cancel'),
+                ),
+                ElevatedButton.icon(
+                  onPressed: () => Navigator.of(ctx).pop(true),
+                  icon: const Icon(Icons.shield_rounded, size: 18),
+                  label: const Text('Start Protection'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF0284C7),
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  ),
+                ),
+              ],
+            );
+          },
+        );
+        if (confirmed != true || !mounted) return;
+        await _toggleAudioProtection(true);
+        await _callBridge.setSpeakerphoneEnabled(true);
+      }
+      if (mounted) {
+        _openLiveMonitoringScreen();
+      }
+    }
+  }
+
+  void _openLiveMonitoringScreen() {
+    Navigator.of(context).push<void>(
+      MaterialPageRoute<void>(
+        builder: (_) => LiveCallMonitoringScreen(
+          callEvent: _callEvent,
+          activeCallSeconds: _activeCallSeconds,
+          analysisSnapshot: _analysisSnapshot,
+          segments: _transcriptionSnapshot?.segments ?? const [],
+          protectionService: _guardianProtectionService,
+          onBack: () => Navigator.of(context).pop(),
+          onEndCall: () {
+            final sid = _callEvent?.sessionId;
+            if (sid != null) {
+              _guardianProtectionService.executeEndCall(sessionId: sid);
+            }
+          },
         ),
       ),
     );
@@ -1086,9 +1223,111 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
           const SizedBox(width: 4),
         ],
       ),
-      body: IndexedStack(
-        index: _selectedIndex,
+      body: Column(
         children: [
+          if (_callEvent != null &&
+              (_callEvent!.event == 'CALL_ACTIVE' || _callEvent!.event == 'CALL_RINGING'))
+            Container(
+              margin: const EdgeInsets.fromLTRB(16, 8, 16, 4),
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+              decoration: BoxDecoration(
+                gradient: const LinearGradient(
+                  colors: [Color(0xFF0F172A), Color(0xFF1E293B)],
+                ),
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(
+                  color: _analysisSnapshot?.result != null &&
+                          (_analysisSnapshot!.result!.riskLevel == 'CRITICAL' ||
+                              _analysisSnapshot!.result!.riskLevel == 'HIGH')
+                      ? const Color(0xFFEF4444)
+                      : const Color(0xFF0284C7),
+                  width: 1.5,
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.3),
+                    blurRadius: 8,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
+              ),
+              child: Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(6),
+                    decoration: BoxDecoration(
+                      color: _analysisSnapshot?.result != null &&
+                              (_analysisSnapshot!.result!.riskLevel == 'CRITICAL' ||
+                                  _analysisSnapshot!.result!.riskLevel == 'HIGH')
+                          ? const Color(0xFFDC2626)
+                          : const Color(0xFF0284C7),
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(
+                      Icons.phone_in_talk_rounded,
+                      color: Colors.white,
+                      size: 16,
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          _callEvent!.event == 'CALL_RINGING'
+                              ? 'Incoming Call Detected'
+                              : 'Active Call in Progress',
+                          style: const TextStyle(
+                            fontFamily: 'Inter',
+                            fontSize: 12.5,
+                            fontWeight: FontWeight.w700,
+                            color: Colors.white,
+                          ),
+                        ),
+                        Text(
+                          _analysisSnapshot?.result != null
+                              ? 'Risk: ${_analysisSnapshot!.result!.riskScore}/100 (${_analysisSnapshot!.result!.riskLevel})'
+                              : 'Tap to activate live AI shield',
+                          style: TextStyle(
+                            fontFamily: 'Inter',
+                            fontSize: 11,
+                            color: _analysisSnapshot?.result != null &&
+                                    (_analysisSnapshot!.result!.riskLevel == 'CRITICAL' ||
+                                        _analysisSnapshot!.result!.riskLevel == 'HIGH')
+                                ? const Color(0xFFFCA5A5)
+                                : const Color(0xFF94A3B8),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  ElevatedButton.icon(
+                    onPressed: _onProtectCallTapped,
+                    icon: const Icon(Icons.shield_rounded, size: 14),
+                    label: const Text('Protect Call'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF0284C7),
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                      textStyle: const TextStyle(
+                        fontFamily: 'Inter',
+                        fontSize: 11.5,
+                        fontWeight: FontWeight.w700,
+                      ),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          Expanded(
+            child: IndexedStack(
+              index: _selectedIndex,
+              children: [
           _buildDashboard(context),
           AnalyzeScreen(
             key: ValueKey('analyze-$_selectedAnalysisType'),
@@ -1150,6 +1389,9 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
           ),
         ],
       ),
+    ),
+  ],
+),
       bottomNavigationBar: NavigationBar(
         selectedIndex: _selectedIndex,
         onDestinationSelected: (index) => setState(() {
