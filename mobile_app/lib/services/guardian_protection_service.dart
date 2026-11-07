@@ -24,6 +24,7 @@ class GuardianProtectionService {
 
   String? _activeSessionId;
   bool _isCallActive = false;
+  final Set<String> _autoDisconnectedSessions = {};
   final List<ProtectionActionResult> _sessionActionHistory = [];
   final List<ProtectionActionResult> _lastSessionActions = [];
   final Map<ProtectionActionType, ProtectionActionStatus> _actionStatuses = {
@@ -38,6 +39,9 @@ class GuardianProtectionService {
   Stream<ProtectionActionResult> get actionResults => _actionResults.stream;
   List<ProtectionActionResult> get sessionActionHistory =>
       List.unmodifiable(_sessionActionHistory.isNotEmpty ? _sessionActionHistory : _lastSessionActions);
+
+  bool isAutoDisconnected(String sessionId) =>
+      _autoDisconnectedSessions.contains(sessionId);
 
   ProtectionActionStatus statusFor(ProtectionActionType action) =>
       _actionStatuses[action] ?? ProtectionActionStatus.idle;
@@ -99,6 +103,8 @@ class GuardianProtectionService {
         'action': actionStr,
         'timestamp': res.timestamp.toUtc().toIso8601String(),
         'result': resultStr,
+        'auto_disconnected': res.autoDisconnected,
+        if (res.disconnectReason != null) 'disconnect_reason': res.disconnectReason,
       };
     }).toList();
   }
@@ -336,6 +342,52 @@ class GuardianProtectionService {
     } catch (_) {
       // Platform bridge alerts fail silently if bindings are uninitialized or unavailable
     }
+  }
+
+  Future<ProtectionActionResult?> autoDisconnectIfHighRisk({
+    required String sessionId,
+    required String riskLevel,
+    int? riskScore,
+    String? reasoning,
+  }) async {
+    if (!_settings.autoDisconnectHighRisk) return null;
+    if (_autoDisconnectedSessions.contains(sessionId)) return null;
+
+    final upper = riskLevel.toUpperCase();
+    final score = riskScore ?? (upper == 'CRITICAL' ? 90 : 75);
+    final isTrigger = upper == 'HIGH' ||
+        upper == 'CRITICAL' ||
+        score >= _settings.autoDisconnectThreshold;
+
+    if (!isTrigger) return null;
+    if (!_isCallActive || _activeSessionId != sessionId) return null;
+
+    _autoDisconnectedSessions.add(sessionId);
+
+    try {
+      if (_settings.highRiskVibrationEnabled) {
+        await callBridge.triggerHapticAlert('CRITICAL');
+      }
+      await callBridge.speakVoiceAlert(
+        'Warning. High scam risk detected. Disconnecting call to protect you.',
+      );
+    } catch (_) {}
+
+    final execResult = await executeEndCall(sessionId: sessionId);
+
+    final autoResult = ProtectionActionResult(
+      action: ProtectionActionType.endCall,
+      status: execResult.status,
+      message:
+          'Call automatically disconnected by ScamShield Guardian due to High Scam Risk ($score/100).',
+      timestamp: DateTime.now(),
+      sessionId: sessionId,
+      autoDisconnected: true,
+      disconnectReason: reasoning ??
+          'High scam risk detected during live conversation analysis',
+    );
+    _publishActionResult(autoResult);
+    return autoResult;
   }
 
   void openBlockedNumbersSettings() {

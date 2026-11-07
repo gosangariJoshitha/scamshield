@@ -111,6 +111,8 @@ class ProtectionActionResult {
     required this.timestamp,
     required this.sessionId,
     this.canOpenSettings = false,
+    this.autoDisconnected = false,
+    this.disconnectReason,
   });
 
   final ProtectionActionType action;
@@ -119,6 +121,8 @@ class ProtectionActionResult {
   final DateTime timestamp;
   final String sessionId;
   final bool canOpenSettings;
+  final bool autoDisconnected;
+  final String? disconnectReason;
 }
 
 @immutable
@@ -129,6 +133,8 @@ class GuardianProtectionSettings {
     this.criticalRiskAlertsEnabled = true,
     this.showProtectionActions = true,
     this.askBeforeProtectiveActions = true,
+    this.autoDisconnectHighRisk = true,
+    this.autoDisconnectThreshold = 75,
   });
 
   final bool riskAlertsEnabled;
@@ -136,12 +142,16 @@ class GuardianProtectionSettings {
   final bool criticalRiskAlertsEnabled;
   final bool showProtectionActions;
   final bool askBeforeProtectiveActions;
+  final bool autoDisconnectHighRisk;
+  final int autoDisconnectThreshold;
 
   GuardianProtectionSettings copyWith({
     bool? riskAlertsEnabled,
     bool? highRiskVibrationEnabled,
     bool? criticalRiskAlertsEnabled,
     bool? showProtectionActions,
+    bool? autoDisconnectHighRisk,
+    int? autoDisconnectThreshold,
   }) {
     return GuardianProtectionSettings(
       riskAlertsEnabled: riskAlertsEnabled ?? this.riskAlertsEnabled,
@@ -152,6 +162,10 @@ class GuardianProtectionSettings {
       showProtectionActions:
           showProtectionActions ?? this.showProtectionActions,
       askBeforeProtectiveActions: true,
+      autoDisconnectHighRisk:
+          autoDisconnectHighRisk ?? this.autoDisconnectHighRisk,
+      autoDisconnectThreshold:
+          autoDisconnectThreshold ?? this.autoDisconnectThreshold,
     );
   }
 }

@@ -285,5 +285,77 @@ void main() {
       expect(result.status, ProtectionActionStatus.failed);
       expect(result.message, contains('Call is no longer active'));
     });
+
+    test('autoDisconnectIfHighRisk automatically terminates call on HIGH or CRITICAL risk', () async {
+      await service.initialize();
+      service.startSession('session-auto-1');
+
+      final result = await service.autoDisconnectIfHighRisk(
+        sessionId: 'session-auto-1',
+        riskLevel: 'CRITICAL',
+        riskScore: 92,
+        reasoning: 'Caller demanding immediate OTP for bank account verification.',
+      );
+
+      expect(result, isNotNull);
+      expect(result!.autoDisconnected, isTrue);
+      expect(result.action, ProtectionActionType.endCall);
+      expect(result.disconnectReason, contains('demanding immediate OTP'));
+      expect(fakeBridge.endCallInvocations, contains('session-auto-1'));
+      expect(service.isAutoDisconnected('session-auto-1'), isTrue);
+    });
+
+    test('autoDisconnectIfHighRisk ignores LOW or MEDIUM risk', () async {
+      await service.initialize();
+      service.startSession('session-auto-2');
+
+      final result = await service.autoDisconnectIfHighRisk(
+        sessionId: 'session-auto-2',
+        riskLevel: 'LOW',
+        riskScore: 20,
+      );
+
+      expect(result, isNull);
+      expect(fakeBridge.endCallInvocations, isEmpty);
+      expect(service.isAutoDisconnected('session-auto-2'), isFalse);
+    });
+
+    test('autoDisconnectIfHighRisk respects user setting when disabled', () async {
+      await service.initialize();
+      service.startSession('session-auto-3');
+      service.updateSettings(
+        const GuardianProtectionSettings(autoDisconnectHighRisk: false),
+      );
+
+      final result = await service.autoDisconnectIfHighRisk(
+        sessionId: 'session-auto-3',
+        riskLevel: 'HIGH',
+        riskScore: 85,
+      );
+
+      expect(result, isNull);
+      expect(fakeBridge.endCallInvocations, isEmpty);
+    });
+
+    test('autoDisconnectIfHighRisk does not re-trigger twice for the same session', () async {
+      await service.initialize();
+      service.startSession('session-auto-4');
+
+      final first = await service.autoDisconnectIfHighRisk(
+        sessionId: 'session-auto-4',
+        riskLevel: 'HIGH',
+        riskScore: 80,
+      );
+      expect(first, isNotNull);
+      expect(fakeBridge.endCallInvocations.length, 1);
+
+      final second = await service.autoDisconnectIfHighRisk(
+        sessionId: 'session-auto-4',
+        riskLevel: 'CRITICAL',
+        riskScore: 95,
+      );
+      expect(second, isNull);
+      expect(fakeBridge.endCallInvocations.length, 1);
+    });
   });
 }

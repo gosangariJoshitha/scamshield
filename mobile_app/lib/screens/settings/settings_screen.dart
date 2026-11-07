@@ -833,6 +833,22 @@ class _CallProtectionSettingsScreenState
                   const Divider(height: 1),
                   SwitchListTile(
                     title: const Text(
+                      'Auto-Disconnect High Risk Calls',
+                      style: TextStyle(fontWeight: FontWeight.w600),
+                    ),
+                    subtitle: const Text(
+                      'Automatically sever active call when ScamShield detects High or Critical scam risk to prevent fraud.',
+                    ),
+                    value: _settings.autoDisconnectHighRisk,
+                    onChanged: (val) {
+                      _updateSettings(
+                        _settings.copyWith(autoDisconnectHighRisk: val),
+                      );
+                    },
+                  ),
+                  const Divider(height: 1),
+                  SwitchListTile(
+                    title: const Text(
                       'Ask before protective actions',
                       style: TextStyle(fontWeight: FontWeight.w600),
                     ),

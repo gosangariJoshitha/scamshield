@@ -46,6 +46,22 @@ class CallReportScreen extends StatelessWidget {
         ? reasoning
         : 'The caller claimed a prize reward and asked for personal and banking details. This matches known scam patterns used to steal financial information.';
 
+    final wasAutoDisconnected = call.protectionActions.any((action) =>
+            action['auto_disconnected'] == true ||
+            action['action'] == 'AUTO_DISCONNECT' ||
+            action['action'] == 'END_CALL' ||
+            (action['result'] == 'SUCCESS' && action['action'] == 'END_CALL')) ||
+        (isScam && call.finalRiskScore >= 70);
+
+    final autoDisconnectReason = call.protectionActions
+            .firstWhere(
+              (a) => a['disconnect_reason'] != null || a['reason'] != null,
+              orElse: () => <String, dynamic>{},
+            )['disconnect_reason'] as String? ??
+        (reasoning != null && reasoning.isNotEmpty
+            ? reasoning
+            : 'Severe scam indicators and high risk detected during live conversation analysis.');
+
     return Scaffold(
       backgroundColor: isDark ? AppColors.darkBackground : AppColors.lightBackground,
       appBar: AppBar(
@@ -101,6 +117,102 @@ class CallReportScreen extends StatelessWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
+                      // Auto-Disconnected Emergency Notice & Reasoning Card
+                      if (wasAutoDisconnected) ...[
+                        Container(
+                          margin: const EdgeInsets.only(bottom: 14),
+                          padding: const EdgeInsets.all(16),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF7F1D1D).withValues(alpha: isDark ? 0.95 : 0.08),
+                            borderRadius: BorderRadius.circular(16),
+                            border: Border.all(
+                              color: const Color(0xFFEF4444).withValues(alpha: isDark ? 0.8 : 0.4),
+                              width: 1.5,
+                            ),
+                            boxShadow: isDark
+                                ? [
+                                    BoxShadow(
+                                      color: const Color(0xFFEF4444).withValues(alpha: 0.25),
+                                      blurRadius: 14,
+                                      offset: const Offset(0, 4),
+                                    ),
+                                  ]
+                                : null,
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                children: [
+                                  Container(
+                                    padding: const EdgeInsets.all(8),
+                                    decoration: BoxDecoration(
+                                      color: const Color(0xFFDC2626).withValues(alpha: 0.2),
+                                      shape: BoxShape.circle,
+                                    ),
+                                    child: const Icon(
+                                      Icons.phone_disabled_rounded,
+                                      color: Color(0xFFEF4444),
+                                      size: 22,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 12),
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          'CALL AUTOMATICALLY DISCONNECTED',
+                                          style: TextStyle(
+                                            fontFamily: 'Inter',
+                                            fontSize: 13.5,
+                                            fontWeight: FontWeight.w900,
+                                            color: isDark ? Colors.white : const Color(0xFF991B1B),
+                                            letterSpacing: 0.3,
+                                          ),
+                                        ),
+                                        Text(
+                                          'ScamShield severed this call to protect you from ongoing fraud.',
+                                          style: TextStyle(
+                                            fontFamily: 'Inter',
+                                            fontSize: 12,
+                                            fontWeight: FontWeight.w600,
+                                            color: isDark ? const Color(0xFFFECACA) : const Color(0xFFB91C1C),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 12),
+                              const Divider(color: Color(0xFFEF4444), height: 1),
+                              const SizedBox(height: 10),
+                              Text(
+                                'REASON FOR CALL TERMINATION:',
+                                style: TextStyle(
+                                  fontFamily: 'Inter',
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w800,
+                                  color: isDark ? const Color(0xFFFCA5A5) : const Color(0xFF991B1B),
+                                  letterSpacing: 0.5,
+                                ),
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                autoDisconnectReason,
+                                style: TextStyle(
+                                  fontFamily: 'Inter',
+                                  fontSize: 13,
+                                  height: 1.4,
+                                  color: isDark ? Colors.white : const Color(0xFF450A0A),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+
                       // 1. Outcome Banner
                       FinalReportBanner(
                         classification: call.classification,

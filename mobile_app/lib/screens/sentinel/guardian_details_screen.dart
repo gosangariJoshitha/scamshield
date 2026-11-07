@@ -61,6 +61,7 @@ class _GuardianDetailsScreenState extends State<GuardianDetailsScreen> {
     final running = currentStatus?.isProtected == true;
     final audioProtectionEnabled = currentStatus?.audioProtectionEnabled == true;
     final audioCanChange = running || audioProtectionEnabled;
+    final autoDisconnect = widget.protectionService?.settings.autoDisconnectHighRisk ?? true;
 
     return Scaffold(
       backgroundColor: isDark ? AppColors.darkBackground : AppColors.lightBackground,
@@ -218,6 +219,38 @@ class _GuardianDetailsScreenState extends State<GuardianDetailsScreen> {
                                 ? Icons.closed_caption_rounded
                                 : Icons.closed_caption_off_rounded,
                             color: widget.transcriptionEnabled
+                                ? (isDark ? AppColors.darkPrimary : AppColors.primary)
+                                : const Color(0xFF94A3B8),
+                          ),
+                        ),
+                        const Divider(height: 16),
+
+                        // Switch 4: Auto-disconnect High Risk Calls
+                        SwitchListTile(
+                          contentPadding: EdgeInsets.zero,
+                          value: autoDisconnect,
+                          onChanged: widget.protectionService != null
+                              ? (val) {
+                                  setState(() {
+                                    widget.protectionService!.updateSettings(
+                                      widget.protectionService!.settings.copyWith(
+                                        autoDisconnectHighRisk: val,
+                                      ),
+                                    );
+                                  });
+                                }
+                              : null,
+                          title: const Text(
+                            'Auto-Disconnect High Risk Calls',
+                            style: TextStyle(fontWeight: FontWeight.w700, fontFamily: 'Inter'),
+                          ),
+                          subtitle: const Text(
+                            'Automatically terminate ongoing calls when ScamShield detects High or Critical scam risk.',
+                            style: TextStyle(fontFamily: 'Inter', fontSize: 12),
+                          ),
+                          secondary: Icon(
+                            Icons.phone_disabled_rounded,
+                            color: autoDisconnect
                                 ? (isDark ? AppColors.darkPrimary : AppColors.primary)
                                 : const Color(0xFF94A3B8),
                           ),

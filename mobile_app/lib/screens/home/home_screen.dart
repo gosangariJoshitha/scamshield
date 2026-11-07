@@ -26,6 +26,7 @@ import '../../services/notification_service.dart';
 import '../../services/community_service.dart';
 import '../community/community_screen.dart';
 import '../help/help_support_screen.dart';
+import '../sentinel/call_report_screen.dart';
 import '../sentinel/sentinel_screen.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import '../notifications/notification_screen.dart';
@@ -165,6 +166,20 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
           unawaited(
             _guardianProtectionService.onRiskEscalated(result.riskLevel),
           );
+          final currentSessionId = _callEvent?.sessionId;
+          final isCallActive = _callEvent?.event == 'CALL_ACTIVE';
+          if (isCallActive &&
+              currentSessionId != null &&
+              _guardianProtectionService.settings.autoDisconnectHighRisk) {
+            final isTrigger = result.riskLevel == 'HIGH' ||
+                result.riskLevel == 'CRITICAL' ||
+                result.riskScore >=
+                    _guardianProtectionService.settings.autoDisconnectThreshold;
+            if (isTrigger &&
+                !_guardianProtectionService.isAutoDisconnected(currentSessionId)) {
+              unawaited(_triggerAutoDisconnect(currentSessionId, result));
+            }
+          }
         }
       }
     });
@@ -552,6 +567,47 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     }
   }
 
+  Future<void> _triggerAutoDisconnect(
+    String sessionId,
+    GuardianLiveAnalysisResult result,
+  ) async {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          '🚨 High Scam Risk (${result.riskScore}/100) detected! Auto-disconnecting call for your protection...',
+          style: const TextStyle(fontWeight: FontWeight.w700),
+        ),
+        backgroundColor: const Color(0xFFDC2626),
+        duration: const Duration(seconds: 4),
+      ),
+    );
+    await _guardianProtectionService.autoDisconnectIfHighRisk(
+      sessionId: sessionId,
+      riskLevel: result.riskLevel,
+      riskScore: result.riskScore,
+      reasoning: result.reasoning,
+    );
+  }
+
+  void _autoOpenReportScreen(CallHistoryDetail detail) {
+    if (!mounted) return;
+    Navigator.of(context).popUntil((route) => route.isFirst);
+    Navigator.of(context).push<void>(
+      MaterialPageRoute<void>(
+        builder: (_) => CallReportScreen(
+          call: detail,
+          protectionService: _guardianProtectionService,
+          onViewHistory: () {
+            Navigator.of(context).pop();
+            _returnToTab(2);
+          },
+          onBack: () => Navigator.of(context).pop(),
+        ),
+      ),
+    );
+  }
+
   Future<void> _finalizeCallSession(CallFinalizePayload payload) async {
     if (_callHistoryService.isSessionFinalized(payload.sessionId)) return;
     try {
@@ -561,34 +617,47 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
           _lastFinalizedSummary = detail;
           _historyRevision++;
         });
+        if (detail.finalRiskLevel == 'HIGH' ||
+            detail.finalRiskLevel == 'CRITICAL' ||
+            detail.finalRiskScore >= 70 ||
+            _guardianProtectionService.isAutoDisconnected(detail.sessionId)) {
+          _autoOpenReportScreen(detail);
+        }
       }
     } catch (_) {
       // Offline / network failure: retain local summary from payload so user still has summary
       if (mounted) {
+        final fallbackDetail = CallHistoryDetail(
+          id: 0,
+          sessionId: payload.sessionId,
+          startedAt: payload.startedAt,
+          endedAt: payload.endedAt ?? DateTime.now(),
+          durationSeconds: payload.durationSeconds,
+          guardianEnabled: payload.guardianEnabled,
+          guardianStatus: payload.guardianStatus,
+          finalRiskScore: payload.finalRiskScore,
+          finalRiskLevel: payload.finalRiskLevel,
+          classification: payload.classification,
+          scamCategory: payload.scamCategory,
+          riskReasoning: payload.riskReasoning,
+          safeAction: payload.safeAction,
+          detectedIndicators: payload.detectedIndicators ?? const [],
+          supportingEvidence: payload.supportingEvidence ?? const [],
+          protectionActions: payload.protectionActions ?? const [],
+          analysisStatus: payload.analysisStatus,
+          transcriptionStatus: payload.transcriptionStatus,
+          audioStatus: payload.audioStatus,
+        );
         setState(() {
-          _lastFinalizedSummary = CallHistoryDetail(
-            id: 0,
-            sessionId: payload.sessionId,
-            startedAt: payload.startedAt,
-            endedAt: payload.endedAt ?? DateTime.now(),
-            durationSeconds: payload.durationSeconds,
-            guardianEnabled: payload.guardianEnabled,
-            guardianStatus: payload.guardianStatus,
-            finalRiskScore: payload.finalRiskScore,
-            finalRiskLevel: payload.finalRiskLevel,
-            classification: payload.classification,
-            scamCategory: payload.scamCategory,
-            riskReasoning: payload.riskReasoning,
-            safeAction: payload.safeAction,
-            detectedIndicators: payload.detectedIndicators ?? const [],
-            supportingEvidence: payload.supportingEvidence ?? const [],
-            protectionActions: payload.protectionActions ?? const [],
-            analysisStatus: payload.analysisStatus,
-            transcriptionStatus: payload.transcriptionStatus,
-            audioStatus: payload.audioStatus,
-          );
+          _lastFinalizedSummary = fallbackDetail;
           _historyRevision++;
         });
+        if (fallbackDetail.finalRiskLevel == 'HIGH' ||
+            fallbackDetail.finalRiskLevel == 'CRITICAL' ||
+            fallbackDetail.finalRiskScore >= 70 ||
+            _guardianProtectionService.isAutoDisconnected(payload.sessionId)) {
+          _autoOpenReportScreen(fallbackDetail);
+        }
       }
     }
   }

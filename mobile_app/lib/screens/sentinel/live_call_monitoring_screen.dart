@@ -242,6 +242,34 @@ class LiveCallMonitoringScreen extends StatelessWidget {
                                   ),
                                 ],
                               ),
+                              if (protectionService?.settings.autoDisconnectHighRisk ?? true) ...[
+                                const SizedBox(height: 10),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFF991B1B).withValues(alpha: 0.85),
+                                    borderRadius: BorderRadius.circular(10),
+                                    border: Border.all(color: const Color(0xFFF87171), width: 1),
+                                  ),
+                                  child: const Row(
+                                    children: [
+                                      Icon(Icons.phone_disabled_rounded, color: Colors.white, size: 18),
+                                      SizedBox(width: 8),
+                                      Expanded(
+                                        child: Text(
+                                          'Auto-Disconnect Active: ScamShield will terminate high-risk calls automatically.',
+                                          style: TextStyle(
+                                            fontFamily: 'Inter',
+                                            fontSize: 11.5,
+                                            fontWeight: FontWeight.w700,
+                                            color: Colors.white,
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
                               const SizedBox(height: 12),
                               const Divider(color: Color(0xFF991B1B), height: 1),
                               const SizedBox(height: 12),

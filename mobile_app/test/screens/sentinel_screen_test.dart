@@ -338,6 +338,8 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('Sentinel'), findsOneWidget);
+      expect(find.text('CALL AUTOMATICALLY DISCONNECTED'), findsOneWidget);
+      expect(find.text('REASON FOR CALL TERMINATION:'), findsOneWidget);
       expect(find.text('Scam Call Detected'), findsOneWidget);
       expect(find.text('High Risk'), findsOneWidget);
       expect(find.text('Call Details'), findsOneWidget);
