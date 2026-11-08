@@ -63,14 +63,18 @@ class AnalyzeSubmitButton extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(width: 10),
-                  Text(
-                    loadingLabel ?? 'Analyzing...',
-                    style: TextStyle(
-                      fontFamily: 'Inter',
-                      fontSize: 15,
-                      fontWeight: FontWeight.w700,
-                      color: onPrimaryColor,
-                      letterSpacing: 0.3,
+                  Flexible(
+                    child: Text(
+                      loadingLabel ?? 'Analyzing...',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontFamily: 'Inter',
+                        fontSize: 15,
+                        fontWeight: FontWeight.w700,
+                        color: onPrimaryColor,
+                        letterSpacing: 0.3,
+                      ),
                     ),
                   ),
                 ],

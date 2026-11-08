@@ -10,6 +10,8 @@ import '../../services/guardian_protection_service.dart';
 import '../../services/notification_service.dart';
 import '../../theme/app_colors.dart';
 import '../notifications/notification_screen.dart';
+import '../sentinel/widgets/remote_access_scanner_sheet.dart';
+import '../sentinel/widgets/sms_shield_sheet.dart';
 import 'emergency_contacts_screen.dart';
 
 class SettingsScreen extends StatefulWidget {
@@ -45,7 +47,41 @@ class _SettingsScreenState extends State<SettingsScreen> {
   late bool _emailNotifications = widget.user?.emailNotifications ?? true;
   late bool _communityUpdates = widget.user?.communityUpdates ?? true;
   bool _floatingButtonEnabled = false;
+  bool _autoSpeakerphoneEnabled = false;
   String _selectedLanguage = 'English';
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.protectionService != null) {
+      _floatingButtonEnabled = widget.protectionService!.settings.floatingHudEnabled;
+      _autoSpeakerphoneEnabled = widget.protectionService!.settings.autoSpeakerphoneEnabled;
+    }
+  }
+
+  void _openSmsShieldSheet() {
+    final bridge = widget.callBridge ?? CallBridge();
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (_) => SmsShieldSheet(callBridge: bridge),
+    );
+  }
+
+  void _openRemoteAccessScanner() {
+    final bridge = widget.callBridge ?? CallBridge();
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (_) => RemoteAccessScannerSheet(callBridge: bridge),
+    );
+  }
 
   @override
   void didUpdateWidget(covariant SettingsScreen oldWidget) {
@@ -336,7 +372,16 @@ class _SettingsScreenState extends State<SettingsScreen> {
     return Scaffold(
       backgroundColor: isDark ? AppColors.darkBackground : AppColors.lightBackground,
       appBar: AppBar(
-        title: const Text('Settings'),
+        title: Text(
+          'Settings',
+          style: TextStyle(
+            fontFamily: 'Inter',
+            fontSize: 24,
+            fontWeight: FontWeight.w800,
+            letterSpacing: -0.5,
+            color: isDark ? AppColors.textMainDark : const Color(0xFF0F172A),
+          ),
+        ),
       ),
       body: SafeArea(
         child: ListView(
@@ -389,12 +434,47 @@ class _SettingsScreenState extends State<SettingsScreen> {
               isDark: isDark,
               onChanged: (val) {
                 setState(() => _floatingButtonEnabled = val);
+                if (widget.protectionService != null) {
+                  widget.protectionService!.updateSettings(
+                    widget.protectionService!.settings.copyWith(floatingHudEnabled: val),
+                  );
+                }
+                widget.callBridge?.setFloatingGuardianEnabled(val);
+                if (!val) {
+                  widget.callBridge?.hideFloatingGuardian();
+                }
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(
                     content: Text(
                       val
                           ? 'Floating button enabled. Sentinel will show a floating indicator during active call screening.'
                           : 'Floating button disabled.',
+                    ),
+                  ),
+                );
+              },
+            ),
+            const SizedBox(height: 8),
+            _SettingSwitchTile(
+              icon: Icons.volume_up_outlined,
+              title: 'Automatic Speakerphone for Sentinel',
+              subtitle: 'When supported, automatically enable speakerphone after a call is answered so Sentinel can capture available conversation audio for analysis.',
+              value: _autoSpeakerphoneEnabled,
+              isDark: isDark,
+              onChanged: (val) {
+                setState(() => _autoSpeakerphoneEnabled = val);
+                if (widget.protectionService != null) {
+                  widget.protectionService!.updateSettings(
+                    widget.protectionService!.settings.copyWith(autoSpeakerphoneEnabled: val),
+                  );
+                }
+                widget.callBridge?.setAutoSpeakerphoneEnabled(val);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text(
+                      val
+                          ? 'Automatic speakerphone enabled for Sentinel call monitoring.'
+                          : 'Automatic speakerphone disabled.',
                     ),
                   ),
                 );
@@ -461,6 +541,24 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   ),
                 );
               },
+            ),
+            const SizedBox(height: 8),
+            _SettingNavTile(
+              icon: Icons.mark_chat_unread_rounded,
+              title: 'SMS & WhatsApp Fraud Shield',
+              subtitle: 'Zero-Click message scam scanner & threat log',
+              trailingText: null,
+              isDark: isDark,
+              onTap: _openSmsShieldSheet,
+            ),
+            const SizedBox(height: 8),
+            _SettingNavTile(
+              icon: Icons.screen_share_rounded,
+              title: 'Remote Access App Shield',
+              subtitle: 'Scan for AnyDesk, TeamViewer & screen mirrors',
+              trailingText: null,
+              isDark: isDark,
+              onTap: _openRemoteAccessScanner,
             ),
 
             const SizedBox(height: 24),

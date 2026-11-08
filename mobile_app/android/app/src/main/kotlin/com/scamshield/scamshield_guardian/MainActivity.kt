@@ -7,6 +7,9 @@ import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
+import android.app.NotificationChannel
+import android.app.NotificationManager
+import android.app.PendingIntent
 import android.app.role.RoleManager
 import android.media.AudioManager
 import android.media.AudioDeviceInfo
@@ -20,6 +23,7 @@ import android.speech.tts.TextToSpeech
 import java.util.Locale
 import android.util.Log
 import androidx.core.app.ActivityCompat
+import androidx.core.app.NotificationCompat
 import androidx.core.content.ContextCompat
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
@@ -151,7 +155,10 @@ class MainActivity : FlutterActivity() {
                 "speakVoiceAlert" -> {
                     val message = call.argument<String>("message") ?: "Warning. Potential scam call detected. Do not share OTP or banking details."
                     if (ttsReady && textToSpeech != null) {
-                        textToSpeech?.speak(message, TextToSpeech.QUEUE_FLUSH, null, "scamshield_tts_alert")
+                        val params = Bundle().apply {
+                            putInt(TextToSpeech.Engine.KEY_PARAM_STREAM, AudioManager.STREAM_VOICE_CALL)
+                        }
+                        textToSpeech?.speak(message, TextToSpeech.QUEUE_FLUSH, params, "scamshield_tts_alert")
                         result.success(true)
                     } else {
                         result.success(false)
@@ -161,18 +168,33 @@ class MainActivity : FlutterActivity() {
                     val state = call.argument<String>("state") ?: FloatingGuardianService.STATE_NORMAL
                     val title = call.argument<String>("title")
                     val score = call.argument<Int>("riskScore")
-                    FloatingGuardianService.show(this, state, title, score)
+                    val category = call.argument<String>("category")
+                    val snippet = call.argument<String>("snippet")
+                    FloatingGuardianService.show(this, state, title, score, category, snippet)
                     result.success(true)
                 }
                 "updateFloatingGuardian" -> {
                     val state = call.argument<String>("state") ?: FloatingGuardianService.STATE_NORMAL
                     val title = call.argument<String>("title")
                     val score = call.argument<Int>("riskScore")
-                    FloatingGuardianService.update(state, title, score)
+                    val category = call.argument<String>("category")
+                    val snippet = call.argument<String>("snippet")
+                    FloatingGuardianService.update(state, title, score, category, snippet)
                     result.success(true)
                 }
                 "hideFloatingGuardian" -> {
                     FloatingGuardianService.hide(this)
+                    result.success(true)
+                }
+                "setFloatingGuardianEnabled" -> {
+                    val enabled = call.argument<Boolean>("enabled") ?: true
+                    getSharedPreferences(CallStateGuardianService.GUARDIAN_PREFERENCES, Context.MODE_PRIVATE)
+                        .edit()
+                        .putBoolean(CallStateGuardianService.KEY_FLOATING_BUTTON_ENABLED, enabled)
+                        .apply()
+                    if (!enabled) {
+                        FloatingGuardianService.hide(this)
+                    }
                     result.success(true)
                 }
                 "isFloatingGuardianShowing" -> {
@@ -180,18 +202,132 @@ class MainActivity : FlutterActivity() {
                 }
                 "setSpeakerphoneEnabled" -> {
                     val enabled = call.argument<Boolean>("enabled") ?: false
-                    result.success(setSpeakerphone(enabled))
+                    result.success(CallAudioRouter.setSpeakerphone(this, enabled))
+                }
+                "isSpeakerphoneActive" -> {
+                    result.success(CallAudioRouter.isSpeakerphoneActive(this))
+                }
+                "getCurrentAudioRoute" -> {
+                    result.success(CallAudioRouter.getCurrentAudioRoute(this))
+                }
+                "setAutoSpeakerphoneEnabled" -> {
+                    val enabled = call.argument<Boolean>("enabled") ?: false
+                    getSharedPreferences(CallStateGuardianService.GUARDIAN_PREFERENCES, Context.MODE_PRIVATE)
+                        .edit()
+                        .putBoolean(CallStateGuardianService.KEY_AUTO_SPEAKERPHONE_ENABLED, enabled)
+                        .apply()
+                    result.success(true)
+                }
+                "isAutoSpeakerphoneEnabled" -> {
+                    val enabled = getSharedPreferences(CallStateGuardianService.GUARDIAN_PREFERENCES, Context.MODE_PRIVATE)
+                        .getBoolean(CallStateGuardianService.KEY_AUTO_SPEAKERPHONE_ENABLED, false)
+                    result.success(enabled)
+                }
+                "isAutoSpeakerphoneSupported" -> {
+                    result.success(CallAudioRouter.isAutoSpeakerphoneSupported(this))
+                }
+                "addNumberToBlacklist" -> {
+                    val phoneNumber = call.argument<String>("phoneNumber")
+                    if (!phoneNumber.isNullOrBlank()) {
+                        addNumberToScreeningBlacklist(phoneNumber)
+                        result.success(true)
+                    } else {
+                        result.success(false)
+                    }
+                }
+                "removeNumberFromBlacklist" -> {
+                    val phoneNumber = call.argument<String>("phoneNumber")
+                    if (!phoneNumber.isNullOrBlank()) {
+                        removeNumberFromScreeningBlacklist(phoneNumber)
+                        result.success(true)
+                    } else {
+                        result.success(false)
+                    }
+                }
+                "isNumberBlacklisted" -> {
+                    val phoneNumber = call.argument<String>("phoneNumber")
+                    result.success(isNumberScreeningBlacklisted(phoneNumber))
+                }
+                "getBlacklistedNumbers" -> {
+                    result.success(getScreeningBlacklist())
+                }
+                "showAutoDisconnectNotification" -> {
+                    val phoneNumber = call.argument<String>("phoneNumber") ?: "Unknown"
+                    val reason = call.argument<String>("reason") ?: "Critical Scam Threat Detected"
+                    showAutoDisconnectNotification(phoneNumber, reason)
+                    result.success(true)
+                }
+                "showCallSummaryNotification" -> {
+                    val sessionId = call.argument<String>("sessionId") ?: ""
+                    val phoneNumber = call.argument<String>("phoneNumber") ?: "Unknown"
+                    val riskLevel = call.argument<String>("riskLevel") ?: "LOW"
+                    val riskScore = call.argument<Int>("riskScore") ?: 0
+                    val category = call.argument<String>("category") ?: "General"
+                    val reasoning = call.argument<String>("reasoning")
+                    showCallSummaryNotification(sessionId, phoneNumber, riskLevel, riskScore, category, reasoning)
+                    result.success(true)
+                }
+                "isNotificationListenerPermissionGranted" -> {
+                    val flat = Settings.Secure.getString(contentResolver, "enabled_notification_listeners") ?: ""
+                    result.success(flat.contains(packageName))
+                }
+                "openNotificationListenerSettings" -> {
+                    val intent = Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS).apply {
+                        flags = Intent.FLAG_ACTIVITY_NEW_TASK
+                    }
+                    startActivity(intent)
+                    result.success(true)
+                }
+                "isNotificationShieldEnabled" -> {
+                    val prefs = getSharedPreferences(ScamShieldNotificationListenerService.PREFS_NOTIFICATION_SHIELD, Context.MODE_PRIVATE)
+                    result.success(prefs.getBoolean(ScamShieldNotificationListenerService.KEY_SHIELD_ENABLED, true))
+                }
+                "setNotificationShieldEnabled" -> {
+                    val enabled = call.argument<Boolean>("enabled") ?: true
+                    val prefs = getSharedPreferences(ScamShieldNotificationListenerService.PREFS_NOTIFICATION_SHIELD, Context.MODE_PRIVATE)
+                    prefs.edit().putBoolean(ScamShieldNotificationListenerService.KEY_SHIELD_ENABLED, enabled).apply()
+                    result.success(true)
+                }
+                "getDetectedSmsThreats" -> {
+                    val prefs = getSharedPreferences(ScamShieldNotificationListenerService.PREFS_NOTIFICATION_SHIELD, Context.MODE_PRIVATE)
+                    val json = prefs.getString(ScamShieldNotificationListenerService.KEY_DETECTED_THREATS, "[]") ?: "[]"
+                    result.success(json)
+                }
+                "detectActiveRemoteAccessApps" -> {
+                    result.success(detectRemoteAccessApps())
+                }
+                "openAppUninstallSettings" -> {
+                    val pkg = call.argument<String>("packageName")
+                    if (pkg != null) {
+                        val uninstallIntent = Intent(Intent.ACTION_DELETE, Uri.parse("package:$pkg")).apply {
+                            flags = Intent.FLAG_ACTIVITY_NEW_TASK
+                        }
+                        startActivity(uninstallIntent)
+                        result.success(true)
+                    } else {
+                        result.error("INVALID_ARGUMENT", "packageName is required", null)
+                    }
                 }
                 "getInitialAction" -> {
                     val action = intent?.getStringExtra("action")
                     val source = intent?.getStringExtra("source")
                     val state = intent?.getStringExtra("state")
+                    val sender = intent?.getStringExtra("sender")
+                    val content = intent?.getStringExtra("content")
+                    val category = intent?.getStringExtra("category")
+                    val reason = intent?.getStringExtra("reason")
+                    val score = intent?.getIntExtra("score", 0)
                     intent?.removeExtra("action")
                     result.success(
                         mapOf(
                             "action" to action,
                             "source" to source,
                             "state" to state,
+                            "sender" to sender,
+                            "content" to content,
+                            "category" to category,
+                            "reason" to reason,
+                            "score" to score,
                         )
                     )
                 }
@@ -848,28 +984,168 @@ class MainActivity : FlutterActivity() {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                 when (intensity.uppercase()) {
                     "CRITICAL" -> {
-                        val timings = longArrayOf(0, 120, 80, 150)
-                        val amplitudes = intArrayOf(0, 255, 0, 255)
+                        // Urgent escalating rumble pattern
+                        val timings = longArrayOf(0, 350, 100, 350, 100, 500)
+                        val amplitudes = intArrayOf(0, 255, 0, 255, 0, 255)
                         vibrator.vibrate(VibrationEffect.createWaveform(timings, amplitudes, -1))
                     }
                     "HIGH" -> {
-                        vibrator.vibrate(VibrationEffect.createOneShot(100, VibrationEffect.DEFAULT_AMPLITUDE))
+                        // Distinct double-pulse alert
+                        val timings = longArrayOf(0, 200, 100, 250)
+                        val amplitudes = intArrayOf(0, 220, 0, 255)
+                        vibrator.vibrate(VibrationEffect.createWaveform(timings, amplitudes, -1))
                     }
                     else -> {
-                        vibrator.vibrate(VibrationEffect.createOneShot(50, 100))
+                        vibrator.vibrate(VibrationEffect.createOneShot(120, VibrationEffect.DEFAULT_AMPLITUDE))
                     }
                 }
             } else {
                 @Suppress("DEPRECATION")
                 when (intensity.uppercase()) {
-                    "CRITICAL" -> vibrator.vibrate(longArrayOf(0, 120, 80, 150), -1)
-                    "HIGH" -> vibrator.vibrate(100)
-                    else -> vibrator.vibrate(50)
+                    "CRITICAL" -> vibrator.vibrate(longArrayOf(0, 350, 100, 350, 100, 500), -1)
+                    "HIGH" -> vibrator.vibrate(longArrayOf(0, 200, 100, 250), -1)
+                    else -> vibrator.vibrate(120)
                 }
             }
             result.success(mapOf("success" to true))
         } catch (e: Throwable) {
             result.success(mapOf("success" to false, "reason" to e.message))
+        }
+    }
+
+    private fun addNumberToScreeningBlacklist(phoneNumber: String) {
+        val clean = phoneNumber.replace(Regex("[^0-9+]"), "")
+        if (clean.isEmpty()) return
+        val prefs = getSharedPreferences(ScamShieldCallScreeningService.PREFS_BLACKLIST, Context.MODE_PRIVATE)
+        val current = prefs.getStringSet(ScamShieldCallScreeningService.KEY_BLOCKED_NUMBERS, emptySet())?.toMutableSet() ?: mutableSetOf()
+        current.add(clean)
+        prefs.edit().putStringSet(ScamShieldCallScreeningService.KEY_BLOCKED_NUMBERS, current).apply()
+    }
+
+    private fun removeNumberFromScreeningBlacklist(phoneNumber: String) {
+        val clean = phoneNumber.replace(Regex("[^0-9+]"), "")
+        if (clean.isEmpty()) return
+        val prefs = getSharedPreferences(ScamShieldCallScreeningService.PREFS_BLACKLIST, Context.MODE_PRIVATE)
+        val current = prefs.getStringSet(ScamShieldCallScreeningService.KEY_BLOCKED_NUMBERS, emptySet())?.toMutableSet() ?: mutableSetOf()
+        current.remove(clean)
+        prefs.edit().putStringSet(ScamShieldCallScreeningService.KEY_BLOCKED_NUMBERS, current).apply()
+    }
+
+    private fun isNumberScreeningBlacklisted(phoneNumber: String?): Boolean {
+        if (phoneNumber.isNullOrBlank()) return false
+        val clean = phoneNumber.replace(Regex("[^0-9+]"), "")
+        val prefs = getSharedPreferences(ScamShieldCallScreeningService.PREFS_BLACKLIST, Context.MODE_PRIVATE)
+        val current = prefs.getStringSet(ScamShieldCallScreeningService.KEY_BLOCKED_NUMBERS, emptySet()) ?: emptySet()
+        return current.contains(clean) || current.any { it.isNotEmpty() && (clean.endsWith(it) || it.endsWith(clean)) }
+    }
+
+    private fun getScreeningBlacklist(): List<String> {
+        val prefs = getSharedPreferences(ScamShieldCallScreeningService.PREFS_BLACKLIST, Context.MODE_PRIVATE)
+        val current = prefs.getStringSet(ScamShieldCallScreeningService.KEY_BLOCKED_NUMBERS, emptySet()) ?: emptySet()
+        return current.toList()
+    }
+
+    private fun showAutoDisconnectNotification(phoneNumber: String, reason: String) {
+        try {
+            val manager = getSystemService(Context.NOTIFICATION_SERVICE) as? NotificationManager ?: return
+            val channelId = "scamshield_critical_alerts"
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                val channel = NotificationChannel(
+                    channelId,
+                    "ScamShield Critical Alerts",
+                    NotificationManager.IMPORTANCE_HIGH
+                ).apply {
+                    description = "Alerts when high risk calls are automatically disconnected"
+                }
+                manager.createNotificationChannel(channel)
+            }
+
+            val launchIntent = Intent(this, MainActivity::class.java).apply {
+                flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP
+                putExtra("action", "SHOW_CALL_REPORT")
+                putExtra("phoneNumber", phoneNumber)
+                putExtra("reason", reason)
+            }
+            val pendingIntent = PendingIntent.getActivity(
+                this,
+                9001,
+                launchIntent,
+                PendingIntent.FLAG_UPDATE_CURRENT or (if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) PendingIntent.FLAG_IMMUTABLE else 0)
+            )
+
+            val notification = NotificationCompat.Builder(this, channelId)
+                .setSmallIcon(android.R.drawable.ic_dialog_alert)
+                .setContentTitle("🚨 Scam Call Auto-Disconnected!")
+                .setContentText("ScamShield disconnected call from $phoneNumber. $reason")
+                .setPriority(NotificationCompat.PRIORITY_HIGH)
+                .setAutoCancel(true)
+                .setContentIntent(pendingIntent)
+                .build()
+
+            manager.notify(9001, notification)
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to show auto disconnect notification", e)
+        }
+    }
+
+    private fun showCallSummaryNotification(
+        sessionId: String,
+        phoneNumber: String,
+        riskLevel: String,
+        riskScore: Int,
+        category: String,
+        reasoning: String?
+    ) {
+        try {
+            val manager = getSystemService(Context.NOTIFICATION_SERVICE) as? NotificationManager ?: return
+            val channelId = "scamshield_call_summary"
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                val channel = NotificationChannel(
+                    channelId,
+                    "ScamShield Call Reports",
+                    NotificationManager.IMPORTANCE_DEFAULT
+                ).apply {
+                    description = "Post-call summary notifications and threat evaluations"
+                }
+                manager.createNotificationChannel(channel)
+            }
+
+            val launchIntent = Intent(this, MainActivity::class.java).apply {
+                flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP
+                putExtra("action", "SHOW_CALL_REPORT")
+                putExtra("sessionId", sessionId)
+                putExtra("phoneNumber", phoneNumber)
+                putExtra("riskLevel", riskLevel)
+                putExtra("riskScore", riskScore)
+                putExtra("category", category)
+            }
+            val pendingIntent = PendingIntent.getActivity(
+                this,
+                9002,
+                launchIntent,
+                PendingIntent.FLAG_UPDATE_CURRENT or (if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) PendingIntent.FLAG_IMMUTABLE else 0)
+            )
+
+            val title = if (riskScore >= 70 || riskLevel == "HIGH" || riskLevel == "CRITICAL") {
+                "🚨 Scam Threat Detected: $category ($riskScore%)"
+            } else {
+                "🛡️ Call Protected: Safe ($riskScore%)"
+            }
+
+            val text = reasoning ?: "Call with $phoneNumber was analyzed by ScamShield Sentinel."
+
+            val notification = NotificationCompat.Builder(this, channelId)
+                .setSmallIcon(R.mipmap.ic_launcher)
+                .setContentTitle(title)
+                .setContentText(text)
+                .setPriority(NotificationCompat.PRIORITY_DEFAULT)
+                .setAutoCancel(true)
+                .setContentIntent(pendingIntent)
+                .build()
+
+            manager.notify(9002, notification)
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to show call summary notification", e)
         }
     }
 
@@ -911,6 +1187,57 @@ class MainActivity : FlutterActivity() {
             Log.e(TAG, "Error setting speakerphone state to $enabled", e)
             false
         }
+    }
+
+    private fun detectRemoteAccessApps(): List<Map<String, Any>> {
+        val dangerousPackages = listOf(
+            Triple("com.anydesk.anydeskandroid", "AnyDesk Remote Desktop", "High-risk screen-sharing app commonly abused to take over mobile devices and bank accounts."),
+            Triple("com.teamviewer.quicksupport.market", "TeamViewer QuickSupport", "Remote control app that allows third parties full remote view and control of device screens."),
+            Triple("com.teamviewer.host.market", "TeamViewer Host", "Unattended remote access tool allowing complete device remote control."),
+            Triple("com.carriez.rustdesk", "RustDesk Remote Desktop", "Open source remote desktop client abused to bypass remote access detection."),
+            Triple("com.sand.airdroid", "AirDroid Remote Support", "File transfer and remote mirroring tool frequently leveraged in impersonation scams."),
+            Triple("com.splashtop.remote.pad.v2", "Splashtop Remote", "Screen sharing software used for remote desktop streaming."),
+            Triple("com.logmein.rescuesupport", "LogMeIn Rescue+Mobile", "Technical support tool enabling screen viewing and remote control."),
+            Triple("com.hoptodesk.hoptodesk", "HopToDesk Remote Desktop", "Screen sharing and remote desktop tool.")
+        )
+
+        val detected = mutableListOf<Map<String, Any>>()
+        val pm = packageManager
+
+        for ((pkgName, appLabel, description) in dangerousPackages) {
+            try {
+                val pkgInfo = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                    pm.getPackageInfo(pkgName, PackageManager.PackageInfoFlags.of(0))
+                } else {
+                    @Suppress("DEPRECATION")
+                    pm.getPackageInfo(pkgName, 0)
+                }
+
+                val appName = try {
+                    val appInfo = pkgInfo.applicationInfo
+                    if (appInfo != null) pm.getApplicationLabel(appInfo).toString() else appLabel
+                } catch (e: Exception) {
+                    appLabel
+                }
+
+                detected.add(
+                    mapOf(
+                        "packageName" to pkgName,
+                        "appName" to appName,
+                        "description" to description,
+                        "versionName" to (pkgInfo.versionName ?: "Unknown"),
+                        "threatLevel" to "CRITICAL",
+                        "recommendation" to "Uninstall immediately if an unknown caller asked you to install this app."
+                    )
+                )
+            } catch (e: PackageManager.NameNotFoundException) {
+                // Not installed - safe
+            } catch (e: Exception) {
+                Log.w(TAG, "Error checking package $pkgName", e)
+            }
+        }
+
+        return detected
     }
 
     companion object {

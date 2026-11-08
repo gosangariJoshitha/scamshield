@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../models/user.dart';
 import '../../native/call_bridge.dart';
+import '../../services/admin_portal_service.dart';
 import '../../services/auth_service.dart';
 import '../../services/community_service.dart';
 import '../../services/guardian_protection_service.dart';
@@ -11,6 +12,7 @@ import '../../widgets/brand_mark.dart';
 import '../about/about_screen.dart';
 import '../community/community_screen.dart';
 import '../help/help_support_screen.dart';
+import '../login/admin_portal_screen.dart';
 import '../privacy/privacy_center_screen.dart';
 import '../settings/settings_screen.dart';
 
@@ -220,6 +222,27 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
+  void _openAdminPortal() {
+    if (widget.authService == null) return;
+    Navigator.of(context).push<void>(
+      MaterialPageRoute<void>(
+        builder: (_) => AdminPortalScreen(
+          user: _currentUser,
+          adminService: AdminPortalService(
+            api: widget.authService!.api,
+            tokenProvider: () async =>
+                (await widget.authService!.getStoredAdminToken()) ??
+                (await widget.authService!.getStoredToken()),
+          ),
+          onLogout: _logout,
+          onSessionExpired: _logout,
+          isDarkMode: widget.isDarkMode,
+          onToggleTheme: widget.onToggleTheme,
+        ),
+      ),
+    );
+  }
+
   Future<void> _logout() async {
     final colors = Theme.of(context).colorScheme;
     final isDark = widget.isDarkMode;
@@ -328,116 +351,145 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
     return Scaffold(
       backgroundColor: isDark ? AppColors.darkBackground : AppColors.lightBackground,
-      appBar: AppBar(
-        title: const Text('More'),
-        actions: [
-          IconButton(
-            tooltip: 'Settings',
-            icon: const Icon(Icons.settings_outlined),
-            onPressed: _openSettings,
-          ),
-        ],
-      ),
       body: SafeArea(
         child: ListView(
           padding: const EdgeInsets.fromLTRB(20, 10, 20, 36),
           children: [
-            // 1. Profile Header Row (Avatar, "Hello,", Name, "Stay safe. Stay informed.")
-            Material(
-              color: Colors.transparent,
-              child: InkWell(
-                onTap: _openAccountDetails,
-                borderRadius: BorderRadius.circular(16),
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 4),
-                  child: Row(
-                    children: [
-                      CircleAvatar(
-                        radius: 30,
-                        backgroundColor: colors.primary.withValues(alpha: isDark ? 0.25 : 0.15),
-                        child: Text(
-                          displayName[0].toUpperCase(),
-                          style: TextStyle(
-                            fontSize: 24,
-                            fontWeight: FontWeight.w800,
-                            color: colors.primary,
+            // 1. Prominent More Title
+            Padding(
+              padding: const EdgeInsets.only(top: 6, bottom: 20),
+              child: Text(
+                'More',
+                style: TextStyle(
+                  fontFamily: 'Inter',
+                  fontSize: 28,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: -0.6,
+                  color: isDark ? AppColors.textMainDark : const Color(0xFF0F172A),
+                ),
+              ),
+            ),
+
+            // 2. Profile Summary Card
+            Container(
+              decoration: BoxDecoration(
+                color: isDark ? AppColors.darkCard : Colors.white,
+                borderRadius: BorderRadius.circular(18),
+                border: Border.all(
+                  color: isDark ? AppColors.darkBorder : const Color(0xFFE2E8F0),
+                ),
+              ),
+              child: Material(
+                color: Colors.transparent,
+                child: InkWell(
+                  onTap: _openAccountDetails,
+                  borderRadius: BorderRadius.circular(18),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                    child: Row(
+                      children: [
+                        CircleAvatar(
+                          radius: 28,
+                          backgroundColor: colors.primary.withValues(alpha: isDark ? 0.25 : 0.15),
+                          child: Text(
+                            displayName[0].toUpperCase(),
+                            style: TextStyle(
+                              fontSize: 22,
+                              fontWeight: FontWeight.w800,
+                              color: colors.primary,
+                            ),
                           ),
                         ),
-                      ),
-                      const SizedBox(width: 16),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              'Hello,',
-                              style: TextStyle(
-                                fontSize: 13,
-                                color: isDark ? AppColors.textMutedDark : AppColors.textMutedLight,
+                        const SizedBox(width: 14),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Hello,',
+                                style: TextStyle(
+                                  fontSize: 12.5,
+                                  color: isDark ? AppColors.textMutedDark : AppColors.textMutedLight,
+                                ),
                               ),
-                            ),
-                            Text(
-                              displayName,
-                              style: theme.textTheme.titleLarge?.copyWith(
-                                    fontWeight: FontWeight.w800,
-                                    letterSpacing: -0.3,
-                                  ),
-                            ),
-                            const SizedBox(height: 2),
-                            Text(
-                              'Stay safe. Stay informed.',
-                              style: TextStyle(
-                                fontSize: 12.5,
-                                color: colors.onSurfaceVariant,
+                              Text(
+                                displayName,
+                                style: theme.textTheme.titleMedium?.copyWith(
+                                      fontWeight: FontWeight.w800,
+                                      fontSize: 17,
+                                      letterSpacing: -0.3,
+                                      color: isDark ? AppColors.textMainDark : const Color(0xFF0F172A),
+                                    ),
                               ),
-                            ),
-                          ],
+                              const SizedBox(height: 2),
+                              Text(
+                                'Stay safe. Stay informed.',
+                                style: TextStyle(
+                                  fontSize: 12.5,
+                                  color: colors.onSurfaceVariant,
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
-                      ),
-                      Icon(
-                        Icons.chevron_right_rounded,
-                        color: isDark ? AppColors.textMutedDark : AppColors.textMutedLight,
-                      ),
-                    ],
+                        Icon(
+                          Icons.chevron_right_rounded,
+                          size: 20,
+                          color: isDark ? AppColors.textMutedDark : const Color(0xFF94A3B8),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
               ),
             ),
-            const SizedBox(height: 20),
+            const SizedBox(height: 16),
 
-            // 2. ScamShield Brand Card
+            // 3. ScamShield Brand Information Card
             Container(
-              padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
               decoration: BoxDecoration(
                 color: isDark
                     ? AppColors.darkCardElevated
-                    : colors.primaryContainer.withValues(alpha: 0.35),
-                borderRadius: BorderRadius.circular(18),
+                    : const Color(0xFFE0F2FE).withValues(alpha: 0.6),
+                borderRadius: BorderRadius.circular(16),
                 border: Border.all(
-                  color: isDark ? AppColors.darkBorder : AppColors.lightBorder,
+                  color: isDark
+                      ? AppColors.darkBorder
+                      : const Color(0xFFBAE6FD),
                 ),
               ),
               child: Row(
                 children: [
-                  const ScamShieldBrandMark(size: 38),
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: colors.primary.withValues(alpha: isDark ? 0.2 : 0.12),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: const ScamShieldBrandMark(size: 24),
+                  ),
                   const SizedBox(width: 14),
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Text(
+                        Text(
                           'ScamShield',
                           style: TextStyle(
-                            fontSize: 16,
+                            fontFamily: 'Inter',
+                            fontSize: 15,
                             fontWeight: FontWeight.w800,
+                            letterSpacing: -0.2,
+                            color: isDark ? AppColors.textMainDark : const Color(0xFF0F172A),
                           ),
                         ),
                         const SizedBox(height: 2),
                         Text(
                           'Smarter protection. Safer you.',
                           style: TextStyle(
-                            fontSize: 12.5,
-                            color: colors.onSurfaceVariant,
+                            fontSize: 12,
+                            color: isDark ? AppColors.textSecondaryDark : const Color(0xFF475569),
                           ),
                         ),
                       ],
@@ -446,13 +498,24 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 ],
               ),
             ),
-            const SizedBox(height: 20),
+            const SizedBox(height: 18),
 
-            // 3. Navigation Cards
+            // 4. Navigation Cards
+            if (_currentUser.role.toLowerCase() == 'admin') ...[
+              _MoreNavCard(
+                icon: Icons.admin_panel_settings_outlined,
+                title: 'Admin Portal',
+                subtitle: 'Command center, reviews, users and telemetry.',
+                isDark: isDark,
+                onTap: _openAdminPortal,
+              ),
+              const SizedBox(height: 10),
+            ],
+
             _MoreNavCard(
               icon: Icons.person_outline_rounded,
               title: 'Account Details',
-              subtitle: 'Profile, email & verification status',
+              subtitle: 'Profile, email and verification status.',
               isDark: isDark,
               onTap: _openAccountDetails,
             ),
@@ -461,7 +524,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
             _MoreNavCard(
               icon: Icons.settings_outlined,
               title: 'Settings',
-              subtitle: 'App preferences & notifications',
+              subtitle: 'App preferences and notifications.',
               isDark: isDark,
               onTap: _openSettings,
             ),
@@ -470,7 +533,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
             _MoreNavCard(
               icon: Icons.shield_outlined,
               title: 'Privacy & Security',
-              subtitle: 'Data, permissions & account safety',
+              subtitle: 'Data, permissions and account safety.',
               isDark: isDark,
               onTap: _openPrivacySecurity,
             ),
@@ -479,7 +542,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
             _MoreNavCard(
               icon: Icons.group_outlined,
               title: 'Community',
-              subtitle: 'Share, learn & stay informed',
+              subtitle: 'Share reports and stay informed.',
               isDark: isDark,
               onTap: _openCommunity,
             ),
@@ -488,7 +551,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
             _MoreNavCard(
               icon: Icons.help_outline_rounded,
               title: 'Help & Support',
-              subtitle: 'Get help and contact us',
+              subtitle: 'FAQs, assistance and contact.',
               isDark: isDark,
               onTap: _openHelpSupport,
             ),
@@ -497,13 +560,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
             _MoreNavCard(
               icon: Icons.info_outline_rounded,
               title: 'About',
-              subtitle: 'App version & more',
+              subtitle: 'App version and information.',
               isDark: isDark,
               onTap: _openAbout,
             ),
-            const SizedBox(height: 20),
+            const SizedBox(height: 18),
 
-            // 4. Differentiated Logout Card (Red tinted card)
+            // 5. Differentiated Logout Card (Red tinted card)
             _LogoutCard(
               isDark: isDark,
               loggingOut: _loggingOut,
@@ -567,12 +630,14 @@ class _MoreNavCard extends StatelessWidget {
           child: Row(
             children: [
               Container(
-                padding: const EdgeInsets.all(10),
+                width: 42,
+                height: 42,
+                alignment: Alignment.center,
                 decoration: BoxDecoration(
                   color: colors.primary.withValues(alpha: isDark ? 0.2 : 0.12),
                   borderRadius: BorderRadius.circular(12),
                 ),
-                child: Icon(icon, color: colors.primary, size: 22),
+                child: Icon(icon, color: colors.primary, size: 21),
               ),
               const SizedBox(width: 14),
               Expanded(
@@ -644,18 +709,20 @@ class _LogoutCard extends StatelessWidget {
           child: Row(
             children: [
               Container(
-                padding: const EdgeInsets.all(10),
+                width: 42,
+                height: 42,
+                alignment: Alignment.center,
                 decoration: BoxDecoration(
                   color: redColor.withValues(alpha: isDark ? 0.2 : 0.12),
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: loggingOut
                     ? SizedBox(
-                        width: 22,
-                        height: 22,
+                        width: 20,
+                        height: 20,
                         child: CircularProgressIndicator(strokeWidth: 2, color: redColor),
                       )
-                    : Icon(Icons.logout_rounded, color: redColor, size: 22),
+                    : Icon(Icons.logout_rounded, color: redColor, size: 21),
               ),
               const SizedBox(width: 14),
               Expanded(

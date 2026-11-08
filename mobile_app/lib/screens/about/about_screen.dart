@@ -171,7 +171,16 @@ class AboutScreen extends StatelessWidget {
     return Scaffold(
       backgroundColor: isDark ? AppColors.darkBackground : AppColors.lightBackground,
       appBar: AppBar(
-        title: const Text('About'),
+        title: Text(
+          'About',
+          style: TextStyle(
+            fontFamily: 'Inter',
+            fontSize: 24,
+            fontWeight: FontWeight.w800,
+            letterSpacing: -0.5,
+            color: isDark ? AppColors.textMainDark : const Color(0xFF0F172A),
+          ),
+        ),
       ),
       body: SafeArea(
         child: ListView(

@@ -328,7 +328,7 @@ void main() {
       await tester.pumpAndSettle();
 
       final switches = find.byType(Switch);
-      expect(switches, findsNWidgets(2));
+      expect(switches, findsNWidgets(3));
       await tester.tap(switches.last);
       await tester.pumpAndSettle();
 

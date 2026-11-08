@@ -238,8 +238,9 @@ class _EmergencyContactsScreenState extends State<EmergencyContactsScreen> {
                             setSheetState(() => validationError = 'Please enter contact name.');
                             return;
                           }
-                          if (phone.length < 5) {
-                            setSheetState(() => validationError = 'Please enter a valid phone number.');
+                          final phoneClean = phone.replaceAll(RegExp(r'[\s\-()]'), '');
+                          if (phoneClean.length < 7 || !RegExp(r'^\+?[0-9]{7,15}$').hasMatch(phoneClean)) {
+                            setSheetState(() => validationError = 'Please enter a valid phone number (at least 7 digits).');
                             return;
                           }
 
@@ -396,7 +397,16 @@ class _EmergencyContactsScreenState extends State<EmergencyContactsScreen> {
     return Scaffold(
       backgroundColor: isDark ? AppColors.darkBackground : AppColors.lightBackground,
       appBar: AppBar(
-        title: const Text('Emergency Contacts'),
+        title: Text(
+          'Emergency Contacts',
+          style: TextStyle(
+            fontFamily: 'Inter',
+            fontSize: 24,
+            fontWeight: FontWeight.w800,
+            letterSpacing: -0.5,
+            color: textColor,
+          ),
+        ),
       ),
       body: SafeArea(
         child: RefreshIndicator(
@@ -408,21 +418,35 @@ class _EmergencyContactsScreenState extends State<EmergencyContactsScreen> {
               Container(
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
-                  color: AppColors.primary.withValues(alpha: 0.08),
-                  borderRadius: BorderRadius.circular(12),
+                  color: isDark ? AppColors.darkCard : Colors.white,
+                  borderRadius: BorderRadius.circular(16),
                   border: Border.all(
-                    color: AppColors.primary.withValues(alpha: 0.2),
+                    color: AppColors.primary.withValues(alpha: isDark ? 0.35 : 0.25),
                   ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: AppColors.primary.withValues(alpha: isDark ? 0.08 : 0.04),
+                      blurRadius: 10,
+                      offset: const Offset(0, 3),
+                    ),
+                  ],
                 ),
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Icon(
-                      Icons.shield_outlined,
-                      color: AppColors.primary,
-                      size: 24,
+                    Container(
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        color: AppColors.primary.withValues(alpha: isDark ? 0.2 : 0.12),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: const Icon(
+                        Icons.shield_outlined,
+                        color: AppColors.primary,
+                        size: 22,
+                      ),
                     ),
-                    const SizedBox(width: 12),
+                    const SizedBox(width: 14),
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -431,7 +455,7 @@ class _EmergencyContactsScreenState extends State<EmergencyContactsScreen> {
                             'Sentinel Family Safety Net',
                             style: TextStyle(
                               fontSize: 15,
-                              fontWeight: FontWeight.bold,
+                              fontWeight: FontWeight.w800,
                               color: textColor,
                             ),
                           ),
@@ -601,21 +625,24 @@ class _EmergencyContactsScreenState extends State<EmergencyContactsScreen> {
                                         ),
                                       ),
                                       const SizedBox(width: 8),
-                                      Container(
-                                        padding: const EdgeInsets.symmetric(
-                                          horizontal: 6,
-                                          vertical: 2,
-                                        ),
-                                        decoration: BoxDecoration(
-                                          color: AppColors.primary.withValues(alpha: 0.1),
-                                          borderRadius: BorderRadius.circular(4),
-                                        ),
-                                        child: Text(
-                                          contact.relationshipType,
-                                          style: const TextStyle(
-                                            fontSize: 11,
-                                            fontWeight: FontWeight.w600,
-                                            color: AppColors.primary,
+                                      Flexible(
+                                        flex: 0,
+                                        child: Container(
+                                          padding: const EdgeInsets.symmetric(
+                                            horizontal: 7,
+                                            vertical: 2.5,
+                                          ),
+                                          decoration: BoxDecoration(
+                                            color: AppColors.primary.withValues(alpha: 0.12),
+                                            borderRadius: BorderRadius.circular(6),
+                                          ),
+                                          child: Text(
+                                            contact.relationshipType,
+                                            style: const TextStyle(
+                                              fontSize: 11,
+                                              fontWeight: FontWeight.w600,
+                                              color: AppColors.primary,
+                                            ),
                                           ),
                                         ),
                                       ),
@@ -644,28 +671,33 @@ class _EmergencyContactsScreenState extends State<EmergencyContactsScreen> {
                         ),
                         const Divider(height: 18),
                         Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
-                            Row(
-                              children: [
-                                Icon(
-                                  Icons.sms_outlined,
-                                  size: 16,
-                                  color: contact.notifySms
-                                      ? AppColors.primary
-                                      : subtextColor,
-                                ),
-                                const SizedBox(width: 6),
-                                Text(
-                                  'SMS Alerts on High Risk',
-                                  style: TextStyle(
-                                    fontSize: 13,
-                                    fontWeight: FontWeight.w500,
-                                    color: contact.notifySms ? textColor : subtextColor,
+                            Expanded(
+                              child: Row(
+                                children: [
+                                  Icon(
+                                    Icons.sms_outlined,
+                                    size: 16,
+                                    color: contact.notifySms
+                                        ? AppColors.primary
+                                        : subtextColor,
                                   ),
-                                ),
-                              ],
+                                  const SizedBox(width: 8),
+                                  Expanded(
+                                    child: Text(
+                                      'SMS Alerts on High Risk',
+                                      style: TextStyle(
+                                        fontSize: 13,
+                                        fontWeight: FontWeight.w500,
+                                        color: contact.notifySms ? textColor : subtextColor,
+                                      ),
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ),
+                                ],
+                              ),
                             ),
+                            const SizedBox(width: 8),
                             Switch.adaptive(
                               value: contact.notifySms,
                               activeTrackColor: AppColors.primary,

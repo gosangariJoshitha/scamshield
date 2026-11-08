@@ -255,6 +255,70 @@ class _GuardianDetailsScreenState extends State<GuardianDetailsScreen> {
                                 : const Color(0xFF94A3B8),
                           ),
                         ),
+                        const Divider(height: 16),
+
+                        // Switch 5: Interactive Floating Guardian HUD
+                        SwitchListTile(
+                          contentPadding: EdgeInsets.zero,
+                          value: widget.protectionService?.settings.floatingHudEnabled ?? true,
+                          onChanged: widget.protectionService != null
+                              ? (val) {
+                                  setState(() {
+                                    widget.protectionService!.updateSettings(
+                                      widget.protectionService!.settings.copyWith(
+                                        floatingHudEnabled: val,
+                                      ),
+                                    );
+                                  });
+                                }
+                              : null,
+                          title: const Text(
+                            'In-Call Floating Guardian HUD',
+                            style: TextStyle(fontWeight: FontWeight.w700, fontFamily: 'Inter'),
+                          ),
+                          subtitle: const Text(
+                            'Display an interactive floating badge over dialer with real-time scam threat pills, speech snippet, and emergency hang-up.',
+                            style: TextStyle(fontFamily: 'Inter', fontSize: 12),
+                          ),
+                          secondary: Icon(
+                            Icons.picture_in_picture_alt_rounded,
+                            color: (widget.protectionService?.settings.floatingHudEnabled ?? true)
+                                ? (isDark ? AppColors.darkPrimary : AppColors.primary)
+                                : const Color(0xFF94A3B8),
+                          ),
+                        ),
+                        const Divider(height: 16),
+
+                        // Switch 6: Pre-Call Screening Blacklist Shield
+                        SwitchListTile(
+                          contentPadding: EdgeInsets.zero,
+                          value: widget.protectionService?.settings.callScreeningAutoReject ?? true,
+                          onChanged: widget.protectionService != null
+                              ? (val) {
+                                  setState(() {
+                                    widget.protectionService!.updateSettings(
+                                      widget.protectionService!.settings.copyWith(
+                                        callScreeningAutoReject: val,
+                                      ),
+                                    );
+                                  });
+                                }
+                              : null,
+                          title: const Text(
+                            'Pre-Call Spam Screening & Auto-Reject',
+                            style: TextStyle(fontWeight: FontWeight.w700, fontFamily: 'Inter'),
+                          ),
+                          subtitle: const Text(
+                            'Automatically reject or silence known fraudulent numbers before ringing using Android Telecom screening.',
+                            style: TextStyle(fontFamily: 'Inter', fontSize: 12),
+                          ),
+                          secondary: Icon(
+                            Icons.block_rounded,
+                            color: (widget.protectionService?.settings.callScreeningAutoReject ?? true)
+                                ? (isDark ? AppColors.darkPrimary : AppColors.primary)
+                                : const Color(0xFF94A3B8),
+                          ),
+                        ),
 
                         // Device Capabilities Expandable
                         const SizedBox(height: 10),

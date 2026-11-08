@@ -6,6 +6,7 @@ import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:scamshield_guardian/models/user.dart';
 import 'package:scamshield_guardian/screens/login/admin_portal_screen.dart';
+import 'package:scamshield_guardian/screens/profile/profile_screen.dart';
 import 'package:scamshield_guardian/services/admin_portal_service.dart';
 import 'package:scamshield_guardian/services/api_service.dart';
 
@@ -225,5 +226,62 @@ void main() {
     expect(find.text('Command center'), findsOneWidget);
     expect(find.byType(NavigationBar), findsOneWidget);
     expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('overview day filter chips switch period and reload overview', (tester) async {
+    final requestedDays = <String?>[];
+    final service = AdminPortalService(
+      api: ApiService(
+        client: MockClient((request) async {
+          if (request.url.path == '/api/admin/overview') {
+            requestedDays.add(request.url.queryParameters['days']);
+            final d = int.tryParse(request.url.queryParameters['days'] ?? '30') ?? 30;
+            return http.Response(
+              jsonEncode({
+                'period_days': d,
+                'totalAnalyses': d * 2,
+                'scamsDetected': 1,
+                'highRisk': 1,
+                'pendingReviews': 0,
+                'communityReports': 0,
+                'verifiedKnowledge': 0,
+                'analysisActivity': [],
+                'recentReviews': [],
+              }),
+              200,
+            );
+          }
+          return http.Response('{}', 200);
+        }),
+        baseUri: Uri.parse('https://api.example.test/api'),
+      ),
+      tokenProvider: () async => 'admin-token',
+    );
+
+    await tester.pumpWidget(_portal(user: _admin, service: service));
+    await tester.pumpAndSettle();
+
+    expect(find.text('7d'), findsOneWidget);
+    await tester.tap(find.text('7d'));
+    await tester.pumpAndSettle();
+
+    expect(requestedDays, contains('7'));
+  });
+
+  testWidgets('profile screen renders Admin Portal card for admin users', (tester) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: ProfileScreen(
+          user: _admin,
+          isDarkMode: false,
+          onToggleTheme: () {},
+          onLogout: () async {},
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Admin Portal'), findsOneWidget);
+    expect(find.text('Command center, reviews, users and telemetry.'), findsOneWidget);
   });
 }

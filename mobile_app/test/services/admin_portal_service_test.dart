@@ -136,4 +136,99 @@ void main() {
       'DELETE /api/admin/knowledge/4',
     ]);
   });
+
+  test('loadOverview passes days query parameter', () async {
+    final service = AdminPortalService(
+      api: ApiService(
+        client: MockClient((request) async {
+          expect(request.url.path, '/api/admin/overview');
+          expect(request.url.queryParameters['days'], '7');
+          return http.Response('{"period_days":7,"totalAnalyses":5}', 200);
+        }),
+        baseUri: Uri.parse('https://api.example.test/api'),
+      ),
+      tokenProvider: () async => 'admin-token',
+    );
+
+    final res = await service.loadOverview(days: 7);
+    expect(res['period_days'], 7);
+  });
+
+  test('actOnCommunityReport normalizes APPROVE action to VERIFY', () async {
+    final service = AdminPortalService(
+      api: ApiService(
+        client: MockClient((request) async {
+          expect(request.method, 'POST');
+          expect(request.url.path, '/api/admin/community/reports/99/action');
+          final body = jsonDecode(request.body);
+          expect(body['action'], 'VERIFY');
+          return http.Response('{"status":"success"}', 200);
+        }),
+        baseUri: Uri.parse('https://api.example.test/api'),
+      ),
+      tokenProvider: () async => 'admin-token',
+    );
+
+    final res = await service.actOnCommunityReport(99, action: 'APPROVE');
+    expect(res['status'], 'success');
+  });
+
+  test('createKnowledge supplies safe_action default when omitted', () async {
+    final service = AdminPortalService(
+      api: ApiService(
+        client: MockClient((request) async {
+          expect(request.method, 'POST');
+          expect(request.url.path, '/api/admin/knowledge');
+          final body = jsonDecode(request.body);
+          expect(body.containsKey('safe_action'), isTrue);
+          expect(body['safe_action'], isNotEmpty);
+          expect(body.containsKey('indicators'), isTrue);
+          return http.Response('{"status":"success","id":10}', 200);
+        }),
+        baseUri: Uri.parse('https://api.example.test/api'),
+      ),
+      tokenProvider: () async => 'admin-token',
+    );
+
+    final res = await service.createKnowledge({'title': 'Auto Test', 'pattern': 'xyz'});
+    expect(res['status'], 'success');
+  });
+
+  test('loadMonitoringDetails enriches health with performance stages', () async {
+    final service = AdminPortalService(
+      api: ApiService(
+        client: MockClient((request) async {
+          if (request.url.path == '/api/admin/monitoring/health') {
+            return http.Response(jsonEncode({
+              'api': 'Healthy',
+              'database': 'Healthy',
+              'chromadb_vectors': 120,
+            }), 200);
+          }
+          if (request.url.path == '/api/admin/monitoring/performance') {
+            return http.Response(jsonEncode({
+              'stages': {
+                'total_ms': 345.2,
+                'ml_ms': 18.5,
+              },
+            }), 200);
+          }
+          if (request.url.path == '/api/admin/monitoring/overview') {
+            return http.Response(jsonEncode({
+              'system': {'total_analyses': 42},
+            }), 200);
+          }
+          return http.Response('{}', 200);
+        }),
+        baseUri: Uri.parse('https://api.example.test/api'),
+      ),
+      tokenProvider: () async => 'admin-token',
+    );
+
+    final telemetry = await service.loadMonitoringDetails();
+    expect(telemetry['api'], 'Healthy');
+    expect(telemetry['chromadb_vectors'], 120);
+    expect(telemetry['stages']['total_ms'], 345.2);
+    expect(telemetry['system_metrics']['total_analyses'], 42);
+  });
 }

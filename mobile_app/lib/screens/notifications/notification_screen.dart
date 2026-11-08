@@ -220,9 +220,15 @@ class _NotificationScreenState extends State<NotificationScreen> {
     return Scaffold(
       backgroundColor: isDark ? AppColors.darkBackground : AppColors.lightBackground,
       appBar: AppBar(
-        title: const Text(
+        title: Text(
           'Notifications',
-          style: TextStyle(fontWeight: FontWeight.w700),
+          style: TextStyle(
+            fontFamily: 'Inter',
+            fontSize: 26,
+            fontWeight: FontWeight.w800,
+            letterSpacing: -0.5,
+            color: isDark ? AppColors.textMainDark : const Color(0xFF0F172A),
+          ),
         ),
         actions: [
           if (_notifications.isNotEmpty) ...[

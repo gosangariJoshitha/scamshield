@@ -104,9 +104,9 @@ class AnalyzeHeroCard extends StatelessWidget {
             textAlign: TextAlign.center,
             style: TextStyle(
               fontFamily: 'Inter',
-              fontSize: 24,
-              fontWeight: FontWeight.w700,
-              letterSpacing: -0.5,
+              fontSize: 26,
+              fontWeight: FontWeight.w800,
+              letterSpacing: -0.6,
               color: primaryTeal,
             ),
           ),

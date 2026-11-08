@@ -28,10 +28,10 @@ class HistoryHeader extends StatelessWidget {
                 'History',
                 style: TextStyle(
                   fontFamily: 'Inter',
-                  fontSize: 26,
+                  fontSize: 28,
                   fontWeight: FontWeight.w800,
                   color: headlineColor,
-                  letterSpacing: -0.5,
+                  letterSpacing: -0.6,
                 ),
               ),
               const SizedBox(height: 4),

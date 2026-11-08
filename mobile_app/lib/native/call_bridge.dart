@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'package:flutter/services.dart';
 import '../models/guardian_protection_models.dart';
 
@@ -202,6 +203,8 @@ class GuardianAudioChunk {
     required this.encoding,
     required this.source,
     required this.audioData,
+    this.rms = 0.0,
+    this.isSilent = false,
   });
 
   final String chunkId;
@@ -214,6 +217,8 @@ class GuardianAudioChunk {
   final String encoding;
   final String source;
   final Uint8List audioData;
+  final double rms;
+  final bool isSilent;
 
   factory GuardianAudioChunk.fromMap(Map<Object?, Object?> values) {
     String readString(String key) {
@@ -235,6 +240,8 @@ class GuardianAudioChunk {
         message: 'Native audio chunk metadata or audio data was malformed.',
       );
     }
+    final rmsVal = values['rms'];
+    final isSilentVal = values['isSilent'];
     return GuardianAudioChunk(
       chunkId: readString('chunkId'),
       sessionId: readString('sessionId'),
@@ -246,6 +253,8 @@ class GuardianAudioChunk {
       encoding: readString('encoding'),
       source: readString('source'),
       audioData: audioData,
+      rms: rmsVal is num ? rmsVal.toDouble() : 0.0,
+      isSilent: isSilentVal is bool ? isSilentVal : false,
     );
   }
 }
@@ -605,11 +614,15 @@ class CallBridge {
     required String state,
     String? title,
     int? riskScore,
+    String? category,
+    String? snippet,
   }) async {
     try {
       final args = <String, dynamic>{'state': state};
       if (title != null) args['title'] = title;
       if (riskScore != null) args['riskScore'] = riskScore;
+      if (category != null) args['category'] = category;
+      if (snippet != null) args['snippet'] = snippet;
       final result = await _channel.invokeMethod<bool>(
         'showFloatingGuardian',
         args,
@@ -624,11 +637,15 @@ class CallBridge {
     required String state,
     String? title,
     int? riskScore,
+    String? category,
+    String? snippet,
   }) async {
     try {
       final args = <String, dynamic>{'state': state};
       if (title != null) args['title'] = title;
       if (riskScore != null) args['riskScore'] = riskScore;
+      if (category != null) args['category'] = category;
+      if (snippet != null) args['snippet'] = snippet;
       final result = await _channel.invokeMethod<bool>(
         'updateFloatingGuardian',
         args,
@@ -639,9 +656,164 @@ class CallBridge {
     }
   }
 
+  Future<bool> addNumberToBlacklist(String phoneNumber, {String? reason}) async {
+    try {
+      final result = await _channel.invokeMethod<bool>(
+        'addNumberToBlacklist',
+        {
+          'phoneNumber': phoneNumber,
+          // ignore: use_null_aware_elements
+          if (reason != null) 'reason': reason,
+        },
+      );
+      return result ?? false;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  Future<bool> removeNumberFromBlacklist(String phoneNumber) async {
+    try {
+      final result = await _channel.invokeMethod<bool>(
+        'removeNumberFromBlacklist',
+        {'phoneNumber': phoneNumber},
+      );
+      return result ?? false;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  Future<bool> isNumberBlacklisted(String phoneNumber) async {
+    try {
+      final result = await _channel.invokeMethod<bool>(
+        'isNumberBlacklisted',
+        {'phoneNumber': phoneNumber},
+      );
+      return result ?? false;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  Future<List<String>> getBlacklistedNumbers() async {
+    try {
+      final result = await _channel.invokeListMethod<String>('getBlacklistedNumbers');
+      return result ?? const [];
+    } catch (_) {
+      return const [];
+    }
+  }
+
+  Future<bool> showAutoDisconnectNotification({
+    required String phoneNumber,
+    required String reason,
+  }) async {
+    try {
+      final result = await _channel.invokeMethod<bool>(
+        'showAutoDisconnectNotification',
+        {
+          'phoneNumber': phoneNumber,
+          'reason': reason,
+        },
+      );
+      return result ?? false;
+    } catch (_) {
+      return false;
+    }
+  }
+
   Future<bool> hideFloatingGuardian() async {
     try {
       final result = await _channel.invokeMethod<bool>('hideFloatingGuardian');
+      return result ?? false;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  Future<bool> setFloatingGuardianEnabled(bool enabled) async {
+    try {
+      final result = await _channel.invokeMethod<bool>(
+        'setFloatingGuardianEnabled',
+        {'enabled': enabled},
+      );
+      return result ?? false;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  Future<bool> showCallSummaryNotification({
+    required String sessionId,
+    required String phoneNumber,
+    required String riskLevel,
+    required int riskScore,
+    required String category,
+    String? reasoning,
+  }) async {
+    try {
+      final result = await _channel.invokeMethod<bool>(
+        'showCallSummaryNotification',
+        {
+          'sessionId': sessionId,
+          'phoneNumber': phoneNumber,
+          'riskLevel': riskLevel,
+          'riskScore': riskScore,
+          'category': category,
+          'reasoning': ?reasoning,
+        },
+      );
+      return result ?? false;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  Future<bool> dismissFloatingGuardian() => hideFloatingGuardian();
+
+  Future<bool> setAutoSpeakerphoneEnabled(bool enabled) async {
+    try {
+      final result = await _channel.invokeMethod<bool>(
+        'setAutoSpeakerphoneEnabled',
+        {'enabled': enabled},
+      );
+      return result ?? false;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  Future<bool> isAutoSpeakerphoneEnabled() async {
+    try {
+      final result = await _channel.invokeMethod<bool>('isAutoSpeakerphoneEnabled');
+      return result ?? false;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  Future<bool> isSpeakerphoneActive() async {
+    try {
+      final result = await _channel.invokeMethod<bool>('isSpeakerphoneActive');
+      return result ?? false;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  Future<String> getCurrentAudioRoute() async {
+    try {
+      final result = await _channel.invokeMethod<String>('getCurrentAudioRoute');
+      return result ?? 'UNKNOWN';
+    } catch (_) {
+      return 'UNKNOWN';
+    }
+  }
+
+  Future<bool> isAutoSpeakerphoneSupported() async {
+    try {
+      final result = await _channel.invokeMethod<bool>('isAutoSpeakerphoneSupported');
       return result ?? false;
     } catch (_) {
       return false;
@@ -671,6 +843,87 @@ class CallBridge {
       final result = await _channel.invokeMethod<bool>(
         'setSpeakerphoneEnabled',
         {'enabled': enabled},
+      );
+      return result ?? false;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  Future<bool> isNotificationListenerPermissionGranted() async {
+    try {
+      final result = await _channel.invokeMethod<bool>('isNotificationListenerPermissionGranted');
+      return result ?? false;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  Future<bool> openNotificationListenerSettings() async {
+    try {
+      final result = await _channel.invokeMethod<bool>('openNotificationListenerSettings');
+      return result ?? false;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  Future<bool> isNotificationShieldEnabled() async {
+    try {
+      final result = await _channel.invokeMethod<bool>('isNotificationShieldEnabled');
+      return result ?? true;
+    } catch (_) {
+      return true;
+    }
+  }
+
+  Future<bool> setNotificationShieldEnabled(bool enabled) async {
+    try {
+      final result = await _channel.invokeMethod<bool>(
+        'setNotificationShieldEnabled',
+        {'enabled': enabled},
+      );
+      return result ?? false;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  Future<List<Map<String, dynamic>>> getDetectedSmsThreats() async {
+    try {
+      final raw = await _channel.invokeMethod<String>('getDetectedSmsThreats');
+      if (raw == null || raw.isEmpty) return const [];
+      final parsed = jsonDecode(raw);
+      if (parsed is List) {
+        return parsed
+            .whereType<Map>()
+            .map((e) => Map<String, dynamic>.from(e))
+            .toList();
+      }
+      return const [];
+    } catch (_) {
+      return const [];
+    }
+  }
+
+  Future<List<Map<String, dynamic>>> detectActiveRemoteAccessApps() async {
+    try {
+      final result = await _channel.invokeListMethod<dynamic>('detectActiveRemoteAccessApps');
+      if (result == null) return const [];
+      return result
+          .whereType<Map>()
+          .map((e) => Map<String, dynamic>.from(e))
+          .toList();
+    } catch (_) {
+      return const [];
+    }
+  }
+
+  Future<bool> openAppUninstallSettings(String packageName) async {
+    try {
+      final result = await _channel.invokeMethod<bool>(
+        'openAppUninstallSettings',
+        {'packageName': packageName},
       );
       return result ?? false;
     } catch (_) {

@@ -33,6 +33,8 @@ object GuardianAudioPipeline {
         val reason: String,
         val chunksCreated: Int,
         val chunksDropped: Int,
+        val lastRms: Double = 0.0,
+        val audioQuality: String = "IDLE",
     ) {
         fun toMap(): Map<String, Any> = mapOf(
             "state" to state,
@@ -41,6 +43,8 @@ object GuardianAudioPipeline {
             "reason" to reason,
             "chunksCreated" to chunksCreated,
             "chunksDropped" to chunksDropped,
+            "lastRms" to lastRms,
+            "audioQuality" to audioQuality,
         )
     }
 
@@ -50,6 +54,8 @@ object GuardianAudioPipeline {
         val sequence: Int,
         val timestamp: Long,
         val bytes: ByteArray,
+        val rms: Double = 0.0,
+        val audioLevel: String = "USABLE",
     )
 
     private val chunks = ArrayDeque<AudioChunk>()
@@ -67,6 +73,21 @@ object GuardianAudioPipeline {
     private var reason = ""
     private var chunksCreated = 0
     private var chunksDropped = 0
+    private var lastRms = 0.0
+    private var lastAudioLevel = "IDLE"
+
+    fun calculateRms(pcmBytes: ByteArray): Double {
+        var sum = 0.0
+        val sampleCount = pcmBytes.size / 2
+        if (sampleCount == 0) return 0.0
+        for (i in 0 until sampleCount) {
+            val low = pcmBytes[i * 2].toInt() and 0xFF
+            val high = pcmBytes[i * 2 + 1].toInt()
+            val sample = (high shl 8) or low
+            sum += sample.toDouble() * sample.toDouble()
+        }
+        return kotlin.math.sqrt(sum / sampleCount)
+    }
 
     @Synchronized
     fun setListeners(
@@ -95,6 +116,8 @@ object GuardianAudioPipeline {
         reason = reason,
         chunksCreated = chunksCreated,
         chunksDropped = chunksDropped,
+        lastRms = lastRms,
+        audioQuality = lastAudioLevel,
     )
 
     @Synchronized
@@ -212,6 +235,8 @@ object GuardianAudioPipeline {
             source = ""
             route = "UNKNOWN"
             reason = ""
+            lastRms = 0.0
+            lastAudioLevel = "IDLE"
             publishStatus()
         }
         if (activeRecorder != null) {
@@ -268,6 +293,9 @@ object GuardianAudioPipeline {
             "encoding" to ENCODING,
             "source" to source,
             "audioData" to chunk.bytes,
+            "rms" to chunk.rms,
+            "isSilent" to (chunk.rms < 80.0),
+            "audioLevel" to chunk.audioLevel,
         )
     }
 
@@ -323,12 +351,24 @@ object GuardianAudioPipeline {
             chunks.removeFirst()
             chunksDropped += 1
         }
+        val rms = calculateRms(data)
+        val isSilent = rms < 80.0
+        val audioLevel = when {
+            isSilent -> "SILENT"
+            rms < 250.0 -> "LOW"
+            else -> "USABLE"
+        }
+        lastRms = rms
+        lastAudioLevel = audioLevel
+
         val chunk = AudioChunk(
             id = UUID.randomUUID().toString(),
             sessionId = sessionId,
             sequence = sequence,
             timestamp = System.currentTimeMillis(),
             bytes = data,
+            rms = rms,
+            audioLevel = audioLevel,
         )
         chunks.addLast(chunk)
         chunksCreated += 1
@@ -345,6 +385,9 @@ object GuardianAudioPipeline {
             "channels" to CHANNEL_COUNT,
             "encoding" to ENCODING,
             "source" to source,
+            "rms" to chunk.rms,
+            "isSilent" to isSilent,
+            "audioLevel" to audioLevel,
         )
         publishStatus()
         chunkListener?.invoke(metadata)

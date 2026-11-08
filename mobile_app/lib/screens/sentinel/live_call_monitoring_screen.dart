@@ -166,10 +166,8 @@ class LiveCallMonitoringScreen extends StatelessWidget {
                       ),
                       const SizedBox(height: 14),
 
-                      // 3. Live Transcription Card (You / Caller)
+                      // 3. Live Transcription Card (Real conversational segments)
                       LiveTranscriptionView(
-                        userText: 'Hello, who is this?',
-                        callerText: 'You have won a prize of ₹50,000. Please share your bank details to claim it.',
                         segments: segments,
                         isScamAlert: isScam,
                       ),

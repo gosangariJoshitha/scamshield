@@ -34,6 +34,8 @@ class AuthService {
   final ApiService _api;
   final FlutterSecureStorage _storage;
 
+  ApiService get api => _api;
+
   Future<SignupResult> signUp({
     required String fullName,
     required String email,

@@ -164,27 +164,79 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       if (mounted) {
         setState(() => _analysisSnapshot = snapshot);
         final result = snapshot.result;
-        if (result != null) {
+        final localHeuristic = snapshot.localHeuristicResult;
+        final latestSnippet = _transcriptionSnapshot?.segments.isNotEmpty == true
+            ? _transcriptionSnapshot!.segments.last.text
+            : null;
+
+        // Fast-path: On-device local heuristic detection (0ms zero-latency defense)
+        if (localHeuristic != null && localHeuristic.hasMatches) {
+          final localScore = localHeuristic.riskScore;
+          final localLevel = localHeuristic.riskLevel;
+          final localCategory = localHeuristic.categoryLabel;
+
+          unawaited(_guardianProtectionService.onRiskEscalated(localLevel));
+          unawaited(_callBridge.updateFloatingGuardian(
+            state: localLevel == 'CRITICAL' ? 'CRITICAL' : 'SUSPICIOUS',
+            title: '$localLevel: $localScore',
+            riskScore: localScore,
+            category: localCategory,
+            snippet: latestSnippet,
+          ));
+
+          final currentSessionId = _callEvent?.sessionId;
+          final isCallActive = _callEvent?.event == 'CALL_ACTIVE';
+          if (isCallActive &&
+              currentSessionId != null &&
+              _guardianProtectionService.settings.autoDisconnectHighRisk) {
+            final isTrigger = localLevel == 'CRITICAL' ||
+                localScore >= _guardianProtectionService.settings.autoDisconnectThreshold;
+            if (isTrigger && !_guardianProtectionService.isAutoDisconnected(currentSessionId)) {
+              unawaited(_triggerAutoDisconnect(
+                currentSessionId,
+                GuardianLiveAnalysisResult.fromHeuristics(
+                  sessionId: currentSessionId,
+                  riskLevel: localLevel,
+                  riskScore: localScore,
+                  detectedIndicators: localHeuristic.matchedPhrases,
+                  reasoning: localHeuristic.warningHeadline,
+                  safeAction: localHeuristic.safeAction,
+                  timestamp: localHeuristic.evaluatedAt,
+                ),
+              ));
+            }
+          }
+        } else if (result != null) {
           unawaited(
             _guardianProtectionService.onRiskEscalated(result.riskLevel),
           );
+          final category = result.detectedIndicators.isNotEmpty
+              ? result.detectedIndicators.first
+              : (result.riskLevel == 'CRITICAL' ? '🚨 Critical Scam' : '⚠️ Suspicious Call');
+
           if (result.riskLevel == 'CRITICAL' || result.riskScore >= 80) {
             unawaited(_callBridge.updateFloatingGuardian(
               state: 'CRITICAL',
               title: 'CRITICAL: ${result.riskScore}',
               riskScore: result.riskScore,
+              category: category,
+              snippet: latestSnippet,
             ));
           } else if (result.riskLevel == 'HIGH' || result.riskScore >= 70) {
             unawaited(_callBridge.updateFloatingGuardian(
               state: 'SUSPICIOUS',
               title: 'HIGH RISK: ${result.riskScore}',
               riskScore: result.riskScore,
+              category: category,
+              snippet: latestSnippet,
             ));
           } else {
             unawaited(_callBridge.updateFloatingGuardian(
               state: 'MONITORING',
               title: 'LIVE: ${result.riskScore}',
               riskScore: result.riskScore,
+              category: category,
+              snippet: latestSnippet,
             ));
           }
           final currentSessionId = _callEvent?.sessionId;
@@ -221,7 +273,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       },
     );
     _callEventSubscription = _callBridge.callEvents.listen(
-      _handleCallEvent,
+      (event) => _handleCallEvent(event, isLiveStream: true),
       onError: (Object error) {
         if (mounted && _guardianStatus == null) {
           setState(
@@ -429,7 +481,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   Future<void> _loadLatestCallEvent() async {
     try {
       final event = await _callBridge.getLatestCallEvent();
-      if (event != null && mounted) _handleCallEvent(event);
+      if (event != null && mounted) _handleCallEvent(event, isLiveStream: false);
     } on PlatformException {
       if (mounted && _guardianStatus == null) {
         setState(() => _bridgeError = 'Native call-event status unavailable.');
@@ -441,7 +493,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     }
   }
 
-  void _handleCallEvent(GuardianCallEvent event) {
+  void _handleCallEvent(GuardianCallEvent event, {bool isLiveStream = false}) {
     if (!mounted ||
         !const {
           'CALL_RINGING',
@@ -470,6 +522,9 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
           : 0;
     });
     if (event.event == 'CALL_ACTIVE') {
+      if (isLiveStream && _selectedIndex != 3 && _guardianStatus?.enabled == true) {
+        setState(() => _selectedIndex = 3);
+      }
       unawaited(_callBridge.updateFloatingGuardian(
         state: 'CALL_DETECTED',
         title: 'Protect Call',
@@ -486,6 +541,9 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       );
       _guardianProtectionService.startSession(event.sessionId);
     } else if (event.event == 'CALL_RINGING') {
+      if (isLiveStream && _selectedIndex != 3 && _guardianStatus?.enabled == true) {
+        setState(() => _selectedIndex = 3);
+      }
       unawaited(_callBridge.updateFloatingGuardian(
         state: 'CALL_DETECTED',
         title: 'Protect Call',
@@ -621,6 +679,13 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
         duration: const Duration(seconds: 4),
       ),
     );
+
+    const phoneNumber = '+91 98765 43210';
+    unawaited(_callBridge.showAutoDisconnectNotification(
+      phoneNumber: phoneNumber,
+      reason: result.reasoning,
+    ));
+
     await _guardianProtectionService.autoDisconnectIfHighRisk(
       sessionId: sessionId,
       riskLevel: result.riskLevel,
@@ -653,8 +718,122 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       final action = actionData?['action'];
       if (action == 'PROTECT_CALL' && mounted) {
         await _onProtectCallTapped();
+      } else if (action == 'SHOW_CALL_REPORT' && mounted) {
+        if (_lastFinalizedSummary != null) {
+          _autoOpenReportScreen(_lastFinalizedSummary!);
+        } else {
+          _returnToTab(2);
+        }
+      } else if (action == 'BLOCKED_CALL_SUMMARY' && mounted) {
+        final blockedNumber = actionData?['phoneNumber'] ?? 'Scam Caller';
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('🛡️ ScamShield blocked incoming call from $blockedNumber (Fraud Prevention).'),
+            backgroundColor: const Color(0xFF15803D),
+            duration: const Duration(seconds: 4),
+          ),
+        );
+      } else if (action == 'SHOW_SMS_ALERT' && mounted) {
+        final sender = actionData?['sender'] ?? 'Unknown Sender';
+        final category = actionData?['category'] ?? 'SMS Fraud';
+        final content = actionData?['content'] ?? '';
+        _showSmsThreatDialog(
+          sender: sender.toString(),
+          category: category.toString(),
+          content: content.toString(),
+        );
       }
     } catch (_) {}
+  }
+
+  void _showSmsThreatDialog({
+    required String sender,
+    required String category,
+    required String content,
+  }) {
+    showDialog<void>(
+      context: context,
+      builder: (ctx) {
+        final isDark = Theme.of(ctx).brightness == Brightness.dark;
+        return AlertDialog(
+          backgroundColor: isDark ? AppColors.darkCard : Colors.white,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          title: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFDC2626).withValues(alpha: 0.15),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(Icons.warning_amber_rounded, color: Color(0xFFDC2626), size: 26),
+              ),
+              const SizedBox(width: 12),
+              const Expanded(
+                child: Text(
+                  '🚨 Fraud Alert Intercepted!',
+                  style: TextStyle(fontFamily: 'Inter', fontSize: 17, fontWeight: FontWeight.w700),
+                ),
+              ),
+            ],
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFDC2626).withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: Text(
+                  category.toUpperCase(),
+                  style: const TextStyle(
+                    color: Color(0xFFDC2626),
+                    fontWeight: FontWeight.w800,
+                    fontSize: 11,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 10),
+              Text(
+                'Sender: $sender',
+                style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
+              ),
+              const SizedBox(height: 8),
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: isDark ? const Color(0xFF1E293B) : const Color(0xFFF1F5F9),
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(
+                    color: isDark ? const Color(0xFF334155) : const Color(0xFFE2E8F0),
+                  ),
+                ),
+                child: Text(
+                  content.isNotEmpty ? content : 'Potentially dangerous message intercepted.',
+                  style: const TextStyle(fontSize: 12, height: 1.4),
+                  maxLines: 4,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+              const SizedBox(height: 12),
+              const Text(
+                '⚠️ Safety Action: Do NOT click any links, do NOT dial any phone numbers in this message, and do NOT share any OTP.',
+                style: TextStyle(fontSize: 12, color: Color(0xFFDC2626), fontWeight: FontWeight.w600),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(ctx).pop(),
+              child: const Text('Dismiss'),
+            ),
+          ],
+        );
+      },
+    );
   }
 
   Future<void> _onProtectCallTapped() async {
@@ -760,6 +939,14 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
             _guardianProtectionService.isAutoDisconnected(detail.sessionId)) {
           _autoOpenReportScreen(detail);
         }
+        unawaited(_callBridge.showCallSummaryNotification(
+          sessionId: detail.sessionId,
+          phoneNumber: 'Recent Call',
+          riskLevel: detail.finalRiskLevel,
+          riskScore: detail.finalRiskScore,
+          category: detail.scamCategory,
+          reasoning: detail.riskReasoning,
+        ));
       }
     } catch (_) {
       // Offline / network failure: retain local summary from payload so user still has summary
@@ -795,6 +982,14 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
             _guardianProtectionService.isAutoDisconnected(payload.sessionId)) {
           _autoOpenReportScreen(fallbackDetail);
         }
+        unawaited(_callBridge.showCallSummaryNotification(
+          sessionId: payload.sessionId,
+          phoneNumber: 'Recent Call',
+          riskLevel: payload.finalRiskLevel,
+          riskScore: payload.finalRiskScore,
+          category: payload.scamCategory,
+          reasoning: payload.riskReasoning,
+        ));
       }
     }
   }

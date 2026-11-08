@@ -201,27 +201,35 @@ class CallStateGuardianService : Service() {
             audioProtectionEnabled() &&
             GuardianAudioPipeline.snapshot().state == "IDLE"
         ) {
+            if (autoSpeakerphoneEnabled()) {
+                CallAudioRouter.setSpeakerphone(this, true)
+            }
             GuardianAudioPipeline.start(this, GuardianCallEvents.currentSessionId(this))
         } else if (state != "IN_CALL" &&
             GuardianAudioPipeline.snapshot().state != "IDLE"
         ) {
+            if (autoSpeakerphoneEnabled() || CallAudioRouter.isSpeakerphoneActive(this)) {
+                CallAudioRouter.setSpeakerphone(this, false)
+            }
             GuardianAudioPipeline.stop()
         }
 
         // Synchronize native floating guardian overlay
         try {
-            if (Build.VERSION.SDK_INT < Build.VERSION_CODES.M || android.provider.Settings.canDrawOverlays(this)) {
+            if (floatingButtonEnabled() && (Build.VERSION.SDK_INT < Build.VERSION_CODES.M || android.provider.Settings.canDrawOverlays(this))) {
                 when (state) {
-                    "RINGING" -> FloatingGuardianService.show(this, FloatingGuardianService.STATE_CALL_DETECTED, "Protect Call", null)
+                    "RINGING" -> FloatingGuardianService.show(this, FloatingGuardianService.STATE_CALL_DETECTED, "Incoming Call", null)
                     "IN_CALL" -> {
                         if (audioProtectionEnabled()) {
-                            FloatingGuardianService.show(this, FloatingGuardianService.STATE_MONITORING, "LIVE", null)
+                            FloatingGuardianService.show(this, FloatingGuardianService.STATE_MONITORING, "Monitoring Call", null)
                         } else {
-                            FloatingGuardianService.show(this, FloatingGuardianService.STATE_CALL_DETECTED, "Protect Call", null)
+                            FloatingGuardianService.show(this, FloatingGuardianService.STATE_CALL_DETECTED, "In Call", null)
                         }
                     }
                     "IDLE" -> FloatingGuardianService.hide(this)
                 }
+            } else if (state == "IDLE") {
+                FloatingGuardianService.hide(this)
             }
         } catch (_: Exception) {}
         val callScreeningAvailable: Boolean
@@ -274,6 +282,12 @@ class CallStateGuardianService : Service() {
                 "audioReason" to audio.reason,
                 "audioChunksCreated" to audio.chunksCreated,
                 "audioChunksDropped" to audio.chunksDropped,
+                "isSpeakerphoneActive" to CallAudioRouter.isSpeakerphoneActive(this),
+                "activeAudioRoute" to CallAudioRouter.getCurrentAudioRoute(this),
+                "autoSpeakerphoneSupported" to CallAudioRouter.isAutoSpeakerphoneSupported(this),
+                "autoSpeakerphoneEnabled" to autoSpeakerphoneEnabled(),
+                "lastAudioRms" to audio.lastRms,
+                "audioQuality" to audio.audioQuality,
             ),
         )
         if (isRunning) {
@@ -348,9 +362,11 @@ class CallStateGuardianService : Service() {
     companion object {
         const val ACTION_START = "com.scamshield.guardian.START"
         const val ACTION_STOP = "com.scamshield.guardian.STOP"
-        private const val GUARDIAN_PREFERENCES = "scamshield_guardian"
-        private const val KEY_GUARDIAN_ENABLED = "guardian_enabled"
-        private const val KEY_AUDIO_PROTECTION_ENABLED = "audio_protection_enabled"
+        const val GUARDIAN_PREFERENCES = "scamshield_guardian"
+        const val KEY_GUARDIAN_ENABLED = "guardian_enabled"
+        const val KEY_AUDIO_PROTECTION_ENABLED = "audio_protection_enabled"
+        const val KEY_FLOATING_BUTTON_ENABLED = "floating_button_enabled"
+        const val KEY_AUTO_SPEAKERPHONE_ENABLED = "auto_speakerphone_enabled"
         private const val TAG = "ScamShieldGuardian"
         private const val NOTIFICATION_CHANNEL_ID = "scamshield_guardian_status"
         private const val NOTIFICATION_ID = 902
@@ -377,6 +393,14 @@ class CallStateGuardianService : Service() {
     private fun audioProtectionEnabled(): Boolean =
         getSharedPreferences(GUARDIAN_PREFERENCES, Context.MODE_PRIVATE)
             .getBoolean(KEY_AUDIO_PROTECTION_ENABLED, false)
+
+    private fun floatingButtonEnabled(): Boolean =
+        getSharedPreferences(GUARDIAN_PREFERENCES, Context.MODE_PRIVATE)
+            .getBoolean(KEY_FLOATING_BUTTON_ENABLED, true)
+
+    private fun autoSpeakerphoneEnabled(): Boolean =
+        getSharedPreferences(GUARDIAN_PREFERENCES, Context.MODE_PRIVATE)
+            .getBoolean(KEY_AUTO_SPEAKERPHONE_ENABLED, false)
 
     private fun updateAudioProtection(enabled: Boolean): Boolean {
         if (enabled &&

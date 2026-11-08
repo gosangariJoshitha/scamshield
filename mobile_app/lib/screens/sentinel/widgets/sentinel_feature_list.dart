@@ -6,12 +6,14 @@ class SentinelFeatureList extends StatelessWidget {
     this.onTapRealTimeAlerts,
     this.onTapDatabase,
     this.onTapCommunity,
+    this.onTapAppShield,
     super.key,
   });
 
   final VoidCallback? onTapRealTimeAlerts;
   final VoidCallback? onTapDatabase;
   final VoidCallback? onTapCommunity;
+  final VoidCallback? onTapAppShield;
 
   @override
   Widget build(BuildContext context) {
@@ -22,6 +24,13 @@ class SentinelFeatureList extends StatelessWidget {
           title: 'Real-time Alerts',
           subtitle: 'Get instant warnings for potential scams.',
           onTap: onTapRealTimeAlerts,
+        ),
+        const SizedBox(height: 10),
+        _FeatureRowItem(
+          icon: Icons.screen_share_rounded,
+          title: 'Remote Access & App Shield',
+          subtitle: 'Detect AnyDesk, TeamViewer & screen takeover tools.',
+          onTap: onTapAppShield,
         ),
         const SizedBox(height: 10),
         _FeatureRowItem(

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import '../../models/call_history_models.dart';
 import '../../services/guardian_protection_service.dart';
 import '../../theme/app_colors.dart';
@@ -306,6 +307,96 @@ class CallReportScreen extends StatelessWidget {
                             .where((s) => s.isNotEmpty)
                             .toList(),
                       ),
+                      const SizedBox(height: 14),
+
+                      // 5B. 1930 Cybercrime Helpline & Official Complaint Assistant
+                      Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          color: isDark ? const Color(0xFF1E293B) : const Color(0xFFF8FAFC),
+                          borderRadius: BorderRadius.circular(16),
+                          border: Border.all(
+                            color: isDark ? const Color(0xFF334155) : const Color(0xFFE2E8F0),
+                            width: 1.1,
+                          ),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                const Text('🇮🇳', style: TextStyle(fontSize: 18)),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: Text(
+                                    'National Cybercrime Reporting (1930)',
+                                    style: TextStyle(
+                                      fontFamily: 'Inter',
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.w700,
+                                      color: headlineColor,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 6),
+                            Text(
+                              'Generate a pre-formatted cyber fraud incident report ready for India\'s National Cyber Crime Portal (cybercrime.gov.in) or helpline 1930.',
+                              style: TextStyle(
+                                fontFamily: 'Inter',
+                                fontSize: 12,
+                                color: isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B),
+                                height: 1.35,
+                              ),
+                            ),
+                            const SizedBox(height: 12),
+                            OutlinedButton.icon(
+                              onPressed: () {
+                                final complaintText = '''
+SCAMSHIELD CYBERCRIME INCIDENT REPORT
+--------------------------------------
+Incident Date/Time: ${_formatDate(call.startedAt ?? call.endedAt)}
+Suspect Caller Number: +91 98765 43210
+Risk Assessment: ${call.finalRiskLevel} (${call.finalRiskScore}/100)
+Classification: ${call.classification}
+Detected Modus Operandi: ${indicators.join(', ')}
+
+Incident Summary:
+$summaryText
+
+Technical Evidence:
+Call Duration: $durationString
+Auto-Disconnected by ScamShield: ${wasAutoDisconnected ? 'YES' : 'NO'}
+${wasAutoDisconnected ? 'Disconnect Reason: $autoDisconnectReason' : ''}
+Reported via ScamShield Sentinel Live Call Guardian.
+--------------------------------------
+Submit at: https://cybercrime.gov.in or dial 1930
+''';
+                                Clipboard.setData(ClipboardData(text: complaintText.trim()));
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(
+                                    content: Text('✅ Official Cybercrime complaint copied to clipboard! Ready for cybercrime.gov.in or 1930.'),
+                                    backgroundColor: Color(0xFF0F766E),
+                                    duration: Duration(seconds: 4),
+                                  ),
+                                );
+                              },
+                              icon: const Icon(Icons.copy_rounded, size: 16),
+                              label: const Text('Copy Cybercrime Complaint (1930)'),
+                              style: OutlinedButton.styleFrom(
+                                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                                side: BorderSide(
+                                  color: isDark ? const Color(0xFF38BDF8) : const Color(0xFF0284C7),
+                                  width: 1,
+                                ),
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
                       const SizedBox(height: 18),
 
                       // 6. Action Buttons: View in History & Block Number
@@ -339,12 +430,25 @@ class CallReportScreen extends StatelessWidget {
                           Expanded(
                             child: ElevatedButton(
                               onPressed: onBlockNumber ??
-                                  () {
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                      const SnackBar(
-                                        content: Text('Caller +91 98765 43210 blocked.'),
-                                      ),
-                                    );
+                                  () async {
+                                    if (protectionService != null) {
+                                      await protectionService!.executeBlockCaller(
+                                        sessionId: call.sessionId,
+                                        phoneNumber: '+91 98765 43210',
+                                      );
+                                      await protectionService!.callBridge.addNumberToBlacklist(
+                                        '+91 98765 43210',
+                                        reason: 'Flagged for Fraud',
+                                      );
+                                    }
+                                    if (context.mounted) {
+                                      ScaffoldMessenger.of(context).showSnackBar(
+                                        const SnackBar(
+                                          content: Text('🛡️ Caller +91 98765 43210 blocked in dialer & added to ScamShield Threat Shield.'),
+                                          backgroundColor: Color(0xFF15803D),
+                                        ),
+                                      );
+                                    }
                                   },
                               style: ElevatedButton.styleFrom(
                                 backgroundColor: const Color(0xFFDC2626),

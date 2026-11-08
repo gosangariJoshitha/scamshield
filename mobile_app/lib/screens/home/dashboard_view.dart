@@ -227,10 +227,10 @@ class _HomeDashboardViewState extends State<HomeDashboardView> {
                     _greeting(widget.user.fullName),
                     style: TextStyle(
                       fontFamily: 'Inter',
-                      fontSize: 24,
-                      fontWeight: FontWeight.w700,
+                      fontSize: 26,
+                      fontWeight: FontWeight.w800,
                       color: headlineColor,
-                      letterSpacing: -0.4,
+                      letterSpacing: -0.5,
                     ),
                   ),
                   const SizedBox(height: 3),

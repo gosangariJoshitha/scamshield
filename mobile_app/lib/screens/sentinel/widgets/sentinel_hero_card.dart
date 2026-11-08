@@ -41,24 +41,26 @@ class SentinelHeroCard extends StatelessWidget {
       statusColor = isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B);
     }
 
-    return InkWell(
-      onTap: onTapDetails,
+    return Material(
+      color: cardBg,
       borderRadius: BorderRadius.circular(20),
-      child: Container(
-        width: double.infinity,
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-        decoration: BoxDecoration(
-          color: cardBg,
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: borderColor, width: 1.2),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: isDark ? 0.25 : 0.04),
-              blurRadius: 14,
-              offset: const Offset(0, 4),
-            ),
-          ],
-        ),
+      child: InkWell(
+        onTap: onTapDetails,
+        borderRadius: BorderRadius.circular(20),
+        child: Container(
+          width: double.infinity,
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(color: borderColor, width: 1.2),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: isDark ? 0.25 : 0.04),
+                blurRadius: 14,
+                offset: const Offset(0, 4),
+              ),
+            ],
+          ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -101,36 +103,55 @@ class SentinelHeroCard extends StatelessWidget {
                         'Live Call Sentinel',
                         style: TextStyle(
                           fontFamily: 'Inter',
-                          fontSize: 16.5,
+                          fontSize: 16,
                           fontWeight: FontWeight.w700,
                           color: isDark ? Colors.white : AppColors.navy,
                           letterSpacing: -0.2,
                         ),
                       ),
-                      const SizedBox(height: 3),
+                      const SizedBox(height: 2),
                       Text(
-                        'Detects and warns you about potential scam calls in real-time.',
+                        isRunning
+                            ? 'Armed & ready to detect supported calls.'
+                            : 'Turn on Sentinel to enable supported call monitoring.',
                         style: TextStyle(
                           fontFamily: 'Inter',
                           fontSize: 12,
-                          fontWeight: FontWeight.w400,
                           color: isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B),
-                          height: 1.3,
                         ),
                       ),
                     ],
                   ),
                 ),
-                const SizedBox(width: 8),
-                Switch(
-                  value: isEnabled,
-                  onChanged: (val) => onToggle(val),
-                  activeThumbColor: Colors.white,
-                  activeTrackColor: isDark ? AppColors.darkPrimary : AppColors.primary,
-                  inactiveThumbColor: isDark ? const Color(0xFF64748B) : Colors.white,
-                  inactiveTrackColor: isDark ? const Color(0xFF334155) : const Color(0xFFCBD5E1),
-                ),
               ],
+            ),
+            const SizedBox(height: 8),
+            Divider(
+              height: 1,
+              color: isDark ? const Color(0xFF243447) : const Color(0xFFF1F5F9),
+            ),
+            SwitchListTile(
+              contentPadding: EdgeInsets.zero,
+              value: isEnabled,
+              onChanged: (val) => onToggle(val),
+              activeTrackColor: isDark ? AppColors.darkPrimary : AppColors.primary,
+              title: Text(
+                'Enable Sentinel',
+                style: TextStyle(
+                  fontFamily: 'Inter',
+                  fontSize: 14,
+                  fontWeight: FontWeight.w700,
+                  color: isDark ? Colors.white : AppColors.navy,
+                ),
+              ),
+              subtitle: Text(
+                'Monitor supported call activity in real-time.',
+                style: TextStyle(
+                  fontFamily: 'Inter',
+                  fontSize: 11.5,
+                  color: isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B),
+                ),
+              ),
             ),
             const SizedBox(height: 14),
             Divider(
@@ -177,6 +198,7 @@ class SentinelHeroCard extends StatelessWidget {
           ],
         ),
       ),
-    );
-  }
+    ),
+  );
+}
 }

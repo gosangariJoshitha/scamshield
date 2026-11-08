@@ -161,6 +161,38 @@ class GuardianLiveAnalysisResult {
       timingsMs: timingsMs,
     );
   }
+
+  factory GuardianLiveAnalysisResult.fromHeuristics({
+    required String sessionId,
+    required String riskLevel,
+    required int riskScore,
+    required List<String> detectedIndicators,
+    required String reasoning,
+    required String safeAction,
+    DateTime? timestamp,
+  }) {
+    return GuardianLiveAnalysisResult(
+      riskScore: riskScore,
+      riskLevel: riskLevel,
+      classification: riskLevel == 'CRITICAL' || riskLevel == 'HIGH' ? 'SCAM' : 'SUSPICIOUS',
+      scamCategory: detectedIndicators.isNotEmpty ? detectedIndicators.first : 'Scam Pattern',
+      detectedIndicators: detectedIndicators,
+      reasoning: reasoning,
+      supportingEvidence: const [],
+      mlProbability: riskScore / 100.0,
+      llmConfidence: 0.95,
+      safeAction: safeAction,
+      safeActions: {'action': safeAction},
+      timestamp: timestamp ?? DateTime.now(),
+      sessionId: sessionId,
+      language: 'en',
+      evidenceStatus: 'HEURISTIC_MATCH',
+      processingStatus: 'COMPLETED',
+      modelVersion: 'heuristic-1.0',
+      ragVersion: 'local-1.0',
+      timingsMs: const {'latency_ms': 0.0},
+    );
+  }
 }
 
 @immutable

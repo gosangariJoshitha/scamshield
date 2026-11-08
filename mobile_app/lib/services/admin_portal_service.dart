@@ -44,8 +44,11 @@ class AdminPortalService {
   final ApiService api;
   final Future<String?> Function() tokenProvider;
 
-  Future<Map<String, dynamic>> loadOverview() async =>
-      _asMap(await _get('/admin/overview'));
+  Future<Map<String, dynamic>> loadOverview({int? days}) async =>
+      _asMap(await _get(
+        '/admin/overview',
+        query: days != null ? {'days': '$days'} : null,
+      ));
 
   Future<AdminPage> loadReviewPage({
     int page = 1,
@@ -117,12 +120,18 @@ class AdminPortalService {
     int reportId, {
     required String action,
     String notes = '',
-  }) async => _asMap(
-    await _post('/admin/community/reports/$reportId/action', {
-      'action': action,
-      'notes': notes,
-    }),
-  );
+  }) async {
+    var resolvedAction = action.trim().toUpperCase();
+    if (resolvedAction == 'APPROVE') {
+      resolvedAction = 'VERIFY';
+    }
+    return _asMap(
+      await _post('/admin/community/reports/$reportId/action', {
+        'action': resolvedAction,
+        'notes': notes,
+      }),
+    );
+  }
 
   Future<AdminPage> loadKnowledgePage({
     int page = 1,
@@ -147,7 +156,19 @@ class AdminPortalService {
 
   Future<Map<String, dynamic>> createKnowledge(
     Map<String, dynamic> payload,
-  ) async => _asMap(await _post('/admin/knowledge', payload));
+  ) async {
+    final enriched = Map<String, dynamic>.from(payload);
+    if (!enriched.containsKey('safe_action') ||
+        enriched['safe_action'] == null ||
+        enriched['safe_action'].toString().trim().isEmpty) {
+      enriched['safe_action'] = enriched['safeAction'] ??
+          'Do not share sensitive credentials or OTP. Hang up immediately.';
+    }
+    if (!enriched.containsKey('indicators')) {
+      enriched['indicators'] = <String>[];
+    }
+    return _asMap(await _post('/admin/knowledge', enriched));
+  }
 
   Future<Map<String, dynamic>> updateKnowledge(
     int entryId,
@@ -256,6 +277,28 @@ class AdminPortalService {
 
   Future<Map<String, dynamic>> loadMonitoringOverview() async =>
       _asMap(await _get('/admin/monitoring/overview'));
+
+  Future<Map<String, dynamic>> loadMonitoringDetails() async {
+    try {
+      final health = await loadMonitoringHealth();
+      try {
+        final perf = await loadMonitoringPerformance();
+        if (perf.containsKey('stages')) {
+          health['stages'] = perf['stages'];
+        }
+      } catch (_) {}
+      try {
+        final overview = await loadMonitoringOverview();
+        if (overview.isNotEmpty) {
+          health['system_metrics'] = overview['system'];
+          health['llm_metrics'] = overview['llm'];
+        }
+      } catch (_) {}
+      return health;
+    } catch (_) {
+      return loadMonitoring();
+    }
+  }
 
   Future<AdminPage> loadAuditPage({int page = 1, int pageSize = 20}) async =>
       AdminPage.fromResponse(

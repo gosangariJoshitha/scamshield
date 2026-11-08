@@ -20,6 +20,30 @@ class GuardianLocalHeuristicResult {
   final String engineVersion;
   final bool hasMatches;
 
+  int get riskScore {
+    if (!hasMatches) return 0;
+    if (matchedRules.contains(GuardianLocalHeuristicEngine.ruleGovtImpersonationArrest)) return 95;
+    if (matchedRules.contains(GuardianLocalHeuristicEngine.ruleRemoteAccessTool)) return 92;
+    if (matchedRules.contains(GuardianLocalHeuristicEngine.ruleCredentialDemand)) return 90;
+    if (matchedRules.contains(GuardianLocalHeuristicEngine.ruleUrgentTransfer)) return 85;
+    return 80;
+  }
+
+  String get riskLevel {
+    if (!hasMatches) return 'NORMAL';
+    if (riskScore >= 90) return 'CRITICAL';
+    return 'HIGH';
+  }
+
+  String get categoryLabel {
+    if (!hasMatches) return 'Verified';
+    if (matchedRules.contains(GuardianLocalHeuristicEngine.ruleGovtImpersonationArrest)) return '🚨 Digital Arrest Scam';
+    if (matchedRules.contains(GuardianLocalHeuristicEngine.ruleRemoteAccessTool)) return '🚨 Remote App Installation';
+    if (matchedRules.contains(GuardianLocalHeuristicEngine.ruleCredentialDemand)) return '🚨 OTP / Credential Theft';
+    if (matchedRules.contains(GuardianLocalHeuristicEngine.ruleUrgentTransfer)) return '⚠️ Urgent Transfer Scam';
+    return '⚠️ Suspicious Pattern';
+  }
+
   static const String noMatchNotice =
       'No local rule matched. This does not establish that the conversation is safe.';
 }

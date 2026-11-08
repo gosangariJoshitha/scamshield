@@ -307,13 +307,7 @@ class _AnalyzeScreenState extends State<AnalyzeScreen> {
     );
   }
 
-  void _handleBack() {
-    if (Navigator.of(context).canPop()) {
-      Navigator.of(context).pop();
-    } else if (widget.onBackToDashboard != null) {
-      widget.onBackToDashboard!();
-    }
-  }
+
 
   Future<void> _submit() async {
     // Prevent duplicate parallel submissions
@@ -466,14 +460,8 @@ class _AnalyzeScreenState extends State<AnalyzeScreen> {
         backgroundColor: bgColor,
         elevation: 0,
         scrolledUnderElevation: 0,
-        leading: IconButton(
-          icon: Icon(
-            Icons.arrow_back_rounded,
-            color: titleColor,
-          ),
-          onPressed: _handleBack,
-          tooltip: 'Back',
-        ),
+        automaticallyImplyLeading: false,
+        titleSpacing: 20,
         title: Text(
           'Analyze',
           style: TextStyle(
@@ -887,53 +875,110 @@ class _AnalyzeScreenState extends State<AnalyzeScreen> {
                 ),
                 const SizedBox(height: 12),
 
-                // OCR Language Selector Chips
+                // OCR Language Selector Chips (Responsive layout, zero horizontal overflow)
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                   decoration: BoxDecoration(
                     color: cardBg,
                     borderRadius: BorderRadius.circular(12),
                     border: Border.all(color: borderColor, width: 1),
                   ),
-                  child: Row(
-                    children: [
-                      Icon(
-                        Icons.translate_rounded,
-                        size: 16,
-                        color: isDark ? AppColors.darkPrimary : AppColors.primary,
-                      ),
-                      const SizedBox(width: 8),
-                      Text(
-                        'OCR Language:',
-                        style: TextStyle(
-                          fontFamily: 'Inter',
-                          fontSize: 12.5,
-                          fontWeight: FontWeight.w600,
-                          color: titleColor,
-                        ),
-                      ),
-                      const Spacer(),
-                      Wrap(
-                        spacing: 6,
+                  child: LayoutBuilder(
+                    builder: (context, constraints) {
+                      final isNarrow = constraints.maxWidth < 360;
+                      if (isNarrow) {
+                        return Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                Icon(
+                                  Icons.translate_rounded,
+                                  size: 16,
+                                  color: isDark ? AppColors.darkPrimary : AppColors.primary,
+                                ),
+                                const SizedBox(width: 8),
+                                Text(
+                                  'OCR Language:',
+                                  style: TextStyle(
+                                    fontFamily: 'Inter',
+                                    fontSize: 12.5,
+                                    fontWeight: FontWeight.w600,
+                                    color: titleColor,
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 8),
+                            Wrap(
+                              spacing: 8,
+                              runSpacing: 6,
+                              children: [
+                                _OcrLangChip(
+                                  label: 'English',
+                                  selected: _selectedOcrLanguage == 'en',
+                                  onTap: () => setState(() => _selectedOcrLanguage = 'en'),
+                                ),
+                                _OcrLangChip(
+                                  label: 'हिन्दी',
+                                  selected: _selectedOcrLanguage == 'hi',
+                                  onTap: () => setState(() => _selectedOcrLanguage = 'hi'),
+                                ),
+                                _OcrLangChip(
+                                  label: 'తెలుగు',
+                                  selected: _selectedOcrLanguage == 'te',
+                                  onTap: () => setState(() => _selectedOcrLanguage = 'te'),
+                                ),
+                              ],
+                            ),
+                          ],
+                        );
+                      }
+                      return Row(
                         children: [
-                          _OcrLangChip(
-                            label: 'English',
-                            selected: _selectedOcrLanguage == 'en',
-                            onTap: () => setState(() => _selectedOcrLanguage = 'en'),
+                          Icon(
+                            Icons.translate_rounded,
+                            size: 16,
+                            color: isDark ? AppColors.darkPrimary : AppColors.primary,
                           ),
-                          _OcrLangChip(
-                            label: 'हिन्दी',
-                            selected: _selectedOcrLanguage == 'hi',
-                            onTap: () => setState(() => _selectedOcrLanguage = 'hi'),
+                          const SizedBox(width: 8),
+                          Text(
+                            'OCR Language:',
+                            style: TextStyle(
+                              fontFamily: 'Inter',
+                              fontSize: 12.5,
+                              fontWeight: FontWeight.w600,
+                              color: titleColor,
+                            ),
                           ),
-                          _OcrLangChip(
-                            label: 'తెలుగు',
-                            selected: _selectedOcrLanguage == 'te',
-                            onTap: () => setState(() => _selectedOcrLanguage = 'te'),
+                          const Spacer(),
+                          Flexible(
+                            child: Wrap(
+                              spacing: 6,
+                              runSpacing: 6,
+                              alignment: WrapAlignment.end,
+                              children: [
+                                _OcrLangChip(
+                                  label: 'English',
+                                  selected: _selectedOcrLanguage == 'en',
+                                  onTap: () => setState(() => _selectedOcrLanguage = 'en'),
+                                ),
+                                _OcrLangChip(
+                                  label: 'हिन्दी',
+                                  selected: _selectedOcrLanguage == 'hi',
+                                  onTap: () => setState(() => _selectedOcrLanguage = 'hi'),
+                                ),
+                                _OcrLangChip(
+                                  label: 'తెలుగు',
+                                  selected: _selectedOcrLanguage == 'te',
+                                  onTap: () => setState(() => _selectedOcrLanguage = 'te'),
+                                ),
+                              ],
+                            ),
                           ),
                         ],
-                      ),
-                    ],
+                      );
+                    },
                   ),
                 ),
                 const SizedBox(height: 18),

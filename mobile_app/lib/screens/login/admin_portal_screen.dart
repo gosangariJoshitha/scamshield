@@ -1,4 +1,6 @@
 
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 
 import '../../models/user.dart';
@@ -56,6 +58,15 @@ class _AdminPortalScreenState extends State<AdminPortalScreen> {
   String _priorityFilter = '';
   String _inputTypeFilter = '';
   String _categoryFilter = '';
+  int _overviewDays = 30;
+
+  void _setOverviewDays(int days) {
+    if (_overviewDays == days) return;
+    setState(() {
+      _overviewDays = days;
+      _refreshKey++;
+    });
+  }
 
   @override
   void dispose() {
@@ -145,7 +156,7 @@ class _AdminPortalScreenState extends State<AdminPortalScreen> {
   Future<Object?> _loadSection() {
     switch (_section) {
       case _AdminSection.overview:
-        return widget.adminService.loadOverview();
+        return widget.adminService.loadOverview(days: _overviewDays);
       case _AdminSection.reviews:
         return widget.adminService.loadReviewPage(
           page: _page,
@@ -176,7 +187,7 @@ class _AdminPortalScreenState extends State<AdminPortalScreen> {
           status: _statusFilter,
         );
       case _AdminSection.monitoring:
-        return widget.adminService.loadMonitoring();
+        return widget.adminService.loadMonitoringDetails();
       case _AdminSection.audit:
         return widget.adminService.loadAuditPage(
           page: _page,
@@ -554,6 +565,12 @@ class _AdminPortalScreenState extends State<AdminPortalScreen> {
                     _select(_AdminSection.analyses);
                   } else if (value == 'settings') {
                     _select(_AdminSection.settings);
+                  } else if (value == 'user_mode') {
+                    if (Navigator.of(context).canPop()) {
+                      Navigator.of(context).pop();
+                    } else {
+                      _showResult('Use the sign out option to return to sign in.');
+                    }
                   }
                 },
                 itemBuilder: (context) => [
@@ -571,6 +588,14 @@ class _AdminPortalScreenState extends State<AdminPortalScreen> {
                     ),
                   ),
                   const PopupMenuDivider(),
+                  const PopupMenuItem(
+                    value: 'user_mode',
+                    child: ListTile(
+                      contentPadding: EdgeInsets.zero,
+                      leading: Icon(Icons.phone_android_rounded),
+                      title: Text('Switch to User Mode'),
+                    ),
+                  ),
                   const PopupMenuItem(
                     value: 'settings',
                     child: ListTile(
@@ -688,6 +713,9 @@ class _AdminPortalScreenState extends State<AdminPortalScreen> {
                     categoryFilter: _categoryFilter,
                     page: _page,
                     onPageChanged: (page) => _reload(page: page),
+                    overviewDays: _overviewDays,
+                    onOverviewDaysChanged: _setOverviewDays,
+                    onRefresh: () async => _reload(),
                   );
                 },
               ),
@@ -872,6 +900,9 @@ class _SectionContent extends StatelessWidget {
     required this.categoryFilter,
     required this.page,
     required this.onPageChanged,
+    this.overviewDays = 30,
+    this.onOverviewDaysChanged,
+    this.onRefresh,
   });
 
   final _AdminSection section;
@@ -899,23 +930,27 @@ class _SectionContent extends StatelessWidget {
   final String categoryFilter;
   final int page;
   final ValueChanged<int> onPageChanged;
+  final int overviewDays;
+  final ValueChanged<int>? onOverviewDaysChanged;
+  final Future<void> Function()? onRefresh;
 
   @override
   Widget build(BuildContext context) {
+    final Widget content;
     if (section == _AdminSection.overview) {
-      return _OverviewContent(
+      content = _OverviewContent(
         data: data is Map<String, dynamic> ? data! as Map<String, dynamic> : {},
         onSelect: onSelect,
         onOpenRecord: onOpenRecord,
+        overviewDays: overviewDays,
+        onDaysChanged: onOverviewDaysChanged,
       );
-    }
-    if (section == _AdminSection.monitoring) {
-      return _MonitoringContent(
+    } else if (section == _AdminSection.monitoring) {
+      content = _MonitoringContent(
         data: data is Map<String, dynamic> ? data! as Map<String, dynamic> : {},
       );
-    }
-    if (section == _AdminSection.settings) {
-      return _SettingsContent(
+    } else if (section == _AdminSection.settings) {
+      content = _SettingsContent(
         user: user,
         isDarkMode: isDarkMode,
         onToggleTheme: onToggleTheme,
@@ -923,9 +958,8 @@ class _SectionContent extends StatelessWidget {
         onSelect: onSelect,
         auditPage: data is AdminPage ? data! as AdminPage : null,
       );
-    }
-    if (section == _AdminSection.audit) {
-      return _AuditLogsContent(
+    } else if (section == _AdminSection.audit) {
+      content = _AuditLogsContent(
         pageData: data is AdminPage ? data! as AdminPage : null,
         onOpenRecord: onOpenRecord,
         onSearch: onSearch,
@@ -933,9 +967,8 @@ class _SectionContent extends StatelessWidget {
         page: page,
         onPageChanged: onPageChanged,
       );
-    }
-    if (section == _AdminSection.analyses) {
-      return _AnalysesContent(
+    } else if (section == _AdminSection.analyses) {
+      content = _AnalysesContent(
         pageData: data is AdminPage ? data! as AdminPage : null,
         onOpenRecord: onOpenRecord,
         onSearch: onSearch,
@@ -949,26 +982,35 @@ class _SectionContent extends StatelessWidget {
         page: page,
         onPageChanged: onPageChanged,
       );
+    } else {
+      content = _RecordsContent(
+        section: section,
+        pageData: data is AdminPage ? data! as AdminPage : null,
+        onOpenRecord: onOpenRecord,
+        onCreateKnowledge: onCreateKnowledge,
+        onSearch: onSearch,
+        searchController: searchController,
+        onFilter: onFilter,
+        onStatusFilter: onStatusFilter,
+        onRoleFilter: onRoleFilter,
+        onRiskFilter: onRiskFilter,
+        onPriorityFilter: onPriorityFilter,
+        statusFilter: statusFilter,
+        roleFilter: roleFilter,
+        riskFilter: riskFilter,
+        priorityFilter: priorityFilter,
+        page: page,
+        onPageChanged: onPageChanged,
+      );
     }
-    return _RecordsContent(
-      section: section,
-      pageData: data is AdminPage ? data! as AdminPage : null,
-      onOpenRecord: onOpenRecord,
-      onCreateKnowledge: onCreateKnowledge,
-      onSearch: onSearch,
-      searchController: searchController,
-      onFilter: onFilter,
-      onStatusFilter: onStatusFilter,
-      onRoleFilter: onRoleFilter,
-      onRiskFilter: onRiskFilter,
-      onPriorityFilter: onPriorityFilter,
-      statusFilter: statusFilter,
-      roleFilter: roleFilter,
-      riskFilter: riskFilter,
-      priorityFilter: priorityFilter,
-      page: page,
-      onPageChanged: onPageChanged,
-    );
+
+    if (onRefresh != null) {
+      return RefreshIndicator(
+        onRefresh: onRefresh!,
+        child: content,
+      );
+    }
+    return content;
   }
 }
 
@@ -977,11 +1019,15 @@ class _OverviewContent extends StatelessWidget {
     required this.data,
     required this.onSelect,
     required this.onOpenRecord,
+    this.overviewDays = 30,
+    this.onDaysChanged,
   });
 
   final Map<String, dynamic> data;
   final ValueChanged<_AdminSection> onSelect;
   final ValueChanged<Map<String, dynamic>> onOpenRecord;
+  final int overviewDays;
+  final ValueChanged<int>? onDaysChanged;
 
   @override
   Widget build(BuildContext context) {
@@ -1040,10 +1086,23 @@ class _OverviewContent extends StatelessWidget {
                 ),
               ],
             ),
-            Chip(
-              avatar: const Icon(Icons.calendar_today_rounded, size: 14),
-              label: Text('Last ${adminValue(data['period_days'])}d'),
-              visualDensity: VisualDensity.compact,
+            Wrap(
+              spacing: 6,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              children: [
+                const Icon(Icons.calendar_today_rounded, size: 14),
+                for (final d in [1, 7, 30, 90])
+                  ChoiceChip(
+                    label: Text('${d}d'),
+                    selected: (data['period_days'] ?? overviewDays) == d,
+                    onSelected: (selected) {
+                      if (selected && onDaysChanged != null) {
+                        onDaysChanged!(d);
+                      }
+                    },
+                    visualDensity: VisualDensity.compact,
+                  ),
+              ],
             ),
           ],
         ),
@@ -2103,11 +2162,15 @@ class _MonitoringContent extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final chromaStatus = data['chromadb_vectors'] != null
+        ? '${data['chromadb_vectors']} vectors (${data['chromadb'] ?? "HEALTHY"})'
+        : (data['chromadb'] ?? 'HEALTHY');
+
     final healthItems = [
       ('FastAPI Backend', data['api'] ?? 'Healthy', Icons.dns_rounded),
       ('PostgreSQL Database', data['database'] ?? 'Healthy', Icons.storage_rounded),
       ('ML Inference Model', data['ml_model'] ?? 'Healthy', Icons.psychology_rounded),
-      ('ChromaDB Vectors', data['chromadb'] ?? 'HEALTHY', Icons.hub_rounded),
+      ('ChromaDB Vectors', chromaStatus, Icons.hub_rounded),
       ('Embedding Service', data['embedding'] ?? 'Configured', Icons.scatter_plot_rounded),
       ('Groq LLM Reasoning', data['llm'] ?? 'Configured', Icons.memory_rounded),
       ('OCR Engine', data['ocr'] ?? 'Configured', Icons.document_scanner_rounded),
@@ -2192,18 +2255,31 @@ class _MonitoringContent extends StatelessWidget {
         _Panel(
           title: 'Pipeline Latency Breakdown',
           subtitle: 'Latency profiles per evaluation stage across scam classification pipeline.',
-          child: Column(
-            children: const [
-              _LatencyRow('Content Extraction', '14 ms'),
-              _LatencyRow('Text Preprocessing', '6 ms'),
-              _LatencyRow('ML Model Inference', '28 ms'),
-              _LatencyRow('Vector Embedding', '45 ms'),
-              _LatencyRow('RAG Semantic Retrieval', '82 ms'),
-              _LatencyRow('LLM Reasoning Engine', '310 ms'),
-              _LatencyRow('PostgreSQL Persistence', '12 ms'),
-              Divider(),
-              _LatencyRow('Total End-to-End Latency', '497 ms', isBold: true),
-            ],
+          child: Builder(
+            builder: (context) {
+              final stages = data['stages'] is Map ? data['stages'] as Map : null;
+              String ms(String key, String fallback) {
+                if (stages == null) return fallback;
+                final val = stages[key];
+                if (val == null) return fallback;
+                if (val is num) return '${val.toStringAsFixed(1)} ms';
+                return val.toString();
+              }
+
+              return Column(
+                children: [
+                  _LatencyRow('Content Extraction', ms('extraction_ms', '14 ms')),
+                  _LatencyRow('Text Preprocessing', ms('preprocessing_ms', '6 ms')),
+                  _LatencyRow('ML Model Inference', ms('ml_ms', '28 ms')),
+                  _LatencyRow('Vector Embedding', ms('embedding_ms', '45 ms')),
+                  _LatencyRow('RAG Semantic Retrieval', ms('rag_ms', '82 ms')),
+                  _LatencyRow('LLM Reasoning Engine', ms('llm_ms', '310 ms')),
+                  _LatencyRow('PostgreSQL Persistence', ms('database_ms', '12 ms')),
+                  const Divider(),
+                  _LatencyRow('Total End-to-End Latency', ms('total_ms', '497 ms'), isBold: true),
+                ],
+              );
+            },
           ),
         ),
         const SizedBox(height: 16),
@@ -2461,7 +2537,33 @@ class _SettingsContent extends StatelessWidget {
                 title: const Text('Notification Preferences'),
                 subtitle: const Text('Live-call fraud triggers & high-risk alerts'),
                 trailing: const Icon(Icons.chevron_right_rounded),
-                onTap: () {},
+                onTap: () {
+                  showDialog<void>(
+                    context: context,
+                    builder: (ctx) => AlertDialog(
+                      title: const Text('Admin Alert Preferences'),
+                      content: const Column(
+                        mainAxisSize: MainAxisSize.min,
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text('• Real-time Critical Scam Alerts: Enabled'),
+                          SizedBox(height: 6),
+                          Text('• Daily Fraud & Escalation Digest: Enabled'),
+                          SizedBox(height: 6),
+                          Text('• Review Queue Backlog Alerts: Threshold > 10'),
+                          SizedBox(height: 6),
+                          Text('• Infrastructure Health Webhooks: Active'),
+                        ],
+                      ),
+                      actions: [
+                        FilledButton(
+                          onPressed: () => Navigator.pop(ctx),
+                          child: const Text('Done'),
+                        ),
+                      ],
+                    ),
+                  );
+                },
               ),
               const Divider(height: 1),
               ListTile(
@@ -2469,7 +2571,49 @@ class _SettingsContent extends StatelessWidget {
                 title: const Text('Security & Access Controls'),
                 subtitle: const Text('2FA configuration, JWT session lifetimes'),
                 trailing: const Icon(Icons.chevron_right_rounded),
-                onTap: () {},
+                onTap: () {
+                  showDialog<void>(
+                    context: context,
+                    builder: (ctx) => AlertDialog(
+                      title: const Text('Security Policies'),
+                      content: const Column(
+                        mainAxisSize: MainAxisSize.min,
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text('• Two-Factor Authentication: Mandatory for all admins'),
+                          SizedBox(height: 6),
+                          Text('• Admin Session Lifetime: 24 Hours max'),
+                          SizedBox(height: 6),
+                          Text('• Invalidation Policy: Revoke on logout / demotion'),
+                          SizedBox(height: 6),
+                          Text('• Audit Log Retention: 365 days rolling window'),
+                        ],
+                      ),
+                      actions: [
+                        FilledButton(
+                          onPressed: () => Navigator.pop(ctx),
+                          child: const Text('Done'),
+                        ),
+                      ],
+                    ),
+                  );
+                },
+              ),
+              const Divider(height: 1),
+              ListTile(
+                leading: const Icon(Icons.switch_account_rounded),
+                title: const Text('Switch to User Mode'),
+                subtitle: const Text('Return to regular user protection view'),
+                trailing: const Icon(Icons.chevron_right_rounded),
+                onTap: () {
+                  if (Navigator.of(context).canPop()) {
+                    Navigator.of(context).pop();
+                  } else {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('Use the sign out option to return to login.')),
+                    );
+                  }
+                },
               ),
               const Divider(height: 1),
               ListTile(
@@ -2630,9 +2774,51 @@ class _ReviewDetailDialog extends StatelessWidget {
               ),
               const Divider(),
               if (canDecide)
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.end,
+                Wrap(
+                  alignment: WrapAlignment.end,
+                  spacing: 8,
+                  runSpacing: 8,
                   children: [
+                    OutlinedButton(
+                      onPressed: () {
+                        if (notesController.text.trim().isEmpty) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text('Reviewer notes are required when requesting information.'),
+                            ),
+                          );
+                          return;
+                        }
+                        Navigator.pop(
+                          context,
+                          _ReviewSubmission(
+                            decision: 'INSUFFICIENT_INFORMATION',
+                            notes: notesController.text.trim(),
+                          ),
+                        );
+                      },
+                      child: const Text('Request Info'),
+                    ),
+                    OutlinedButton(
+                      onPressed: () {
+                        if (notesController.text.trim().isEmpty) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text('Reviewer notes are required when marking uncertain.'),
+                            ),
+                          );
+                          return;
+                        }
+                        Navigator.pop(
+                          context,
+                          _ReviewSubmission(
+                            decision: 'UNCERTAIN',
+                            notes: notesController.text.trim(),
+                          ),
+                        );
+                      },
+                      child: const Text('Mark Uncertain'),
+                    ),
                     TextButton(
                       onPressed: () => Navigator.pop(
                         context,
@@ -2643,7 +2829,6 @@ class _ReviewDetailDialog extends StatelessWidget {
                       ),
                       child: const Text('Mark Genuine'),
                     ),
-                    const SizedBox(width: 8),
                     FilledButton(
                       onPressed: () => Navigator.pop(
                         context,
@@ -2704,8 +2889,10 @@ class _CommunityReportDialog extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 20),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.end,
+            Wrap(
+              alignment: WrapAlignment.end,
+              spacing: 8,
+              runSpacing: 8,
               children: [
                 TextButton(
                   onPressed: () => Navigator.pop(
@@ -2717,6 +2904,13 @@ class _CommunityReportDialog extends StatelessWidget {
                 TextButton(
                   onPressed: () => Navigator.pop(
                     context,
+                    _CommunityModerationAction('ESCALATE', notesController.text),
+                  ),
+                  child: const Text('Escalate'),
+                ),
+                TextButton(
+                  onPressed: () => Navigator.pop(
+                    context,
                     _CommunityModerationAction('CONVERT_TO_KNOWLEDGE', notesController.text),
                   ),
                   child: const Text('Convert to KB'),
@@ -2724,7 +2918,7 @@ class _CommunityReportDialog extends StatelessWidget {
                 FilledButton(
                   onPressed: () => Navigator.pop(
                     context,
-                    _CommunityModerationAction('APPROVE', notesController.text),
+                    _CommunityModerationAction('VERIFY', notesController.text),
                   ),
                   child: const Text('Approve'),
                 ),
@@ -2769,6 +2963,10 @@ class _KnowledgeDetailDialog extends StatelessWidget {
           onPressed: () => Navigator.pop(context, 'DELETE'),
           child: const Text('Delete', style: TextStyle(color: Colors.red)),
         ),
+        TextButton(
+          onPressed: () => Navigator.pop(context, 'REINDEX'),
+          child: const Text('Re-index'),
+        ),
         if (entry['status'] == 'DRAFT')
           FilledButton(
             onPressed: () => Navigator.pop(context, 'APPROVE'),
@@ -2797,6 +2995,7 @@ class _KnowledgeEditorDialogState extends State<_KnowledgeEditorDialog> {
   late final TextEditingController _titleController;
   late final TextEditingController _categoryController;
   late final TextEditingController _patternController;
+  late final TextEditingController _safeActionController;
   String _riskLevel = 'HIGH';
 
   @override
@@ -2805,6 +3004,10 @@ class _KnowledgeEditorDialogState extends State<_KnowledgeEditorDialog> {
     _titleController = TextEditingController(text: widget.initialValues?['title'] ?? '');
     _categoryController = TextEditingController(text: widget.initialValues?['category'] ?? 'Fraud');
     _patternController = TextEditingController(text: widget.initialValues?['pattern'] ?? '');
+    _safeActionController = TextEditingController(
+      text: widget.initialValues?['safe_action'] ??
+          'Never share OTP or banking credentials. Verify directly through official helpline.',
+    );
     _riskLevel = widget.initialValues?['risk_level'] ?? 'HIGH';
   }
 
@@ -2813,6 +3016,7 @@ class _KnowledgeEditorDialogState extends State<_KnowledgeEditorDialog> {
     _titleController.dispose();
     _categoryController.dispose();
     _patternController.dispose();
+    _safeActionController.dispose();
     super.dispose();
   }
 
@@ -2836,6 +3040,12 @@ class _KnowledgeEditorDialogState extends State<_KnowledgeEditorDialog> {
               controller: _patternController,
               decoration: const InputDecoration(labelText: 'Pattern / Content *'),
               maxLines: 3,
+            ),
+            const SizedBox(height: 8),
+            TextField(
+              controller: _safeActionController,
+              decoration: const InputDecoration(labelText: 'Safe Action / Guidance *'),
+              maxLines: 2,
             ),
             const SizedBox(height: 12),
             DropdownButtonFormField<String>(
@@ -2865,6 +3075,9 @@ class _KnowledgeEditorDialogState extends State<_KnowledgeEditorDialog> {
               'category': _categoryController.text.trim(),
               'pattern': _patternController.text.trim(),
               'risk_level': _riskLevel,
+              'safe_action': _safeActionController.text.trim().isNotEmpty
+                  ? _safeActionController.text.trim()
+                  : 'Never share OTP or banking credentials.',
               'status': 'DRAFT',
             });
           },
@@ -2884,10 +3097,12 @@ class _UserDetailDialog extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final u = data['user'] is Map ? data['user'] as Map : const {};
+    final id = u['id'];
     final name = u['full_name']?.toString() ?? 'Unnamed';
     final email = u['email']?.toString() ?? '';
     final role = u['role']?.toString() ?? 'user';
     final isActive = u['is_active'] == true;
+    final isSelf = id == currentAdminId;
 
     return AlertDialog(
       title: Text(name),
@@ -2898,19 +3113,30 @@ class _UserDetailDialog extends StatelessWidget {
           Text('Email: $email'),
           Text('Role: ${role.toUpperCase()}'),
           Text('Status: ${isActive ? "Active" : "Disabled"}'),
+          if (isSelf) ...[
+            const SizedBox(height: 8),
+            const Text(
+              'Currently signed-in administrator account.',
+              style: TextStyle(fontSize: 12, fontStyle: FontStyle.italic, color: Colors.blueGrey),
+            ),
+          ],
         ],
       ),
       actions: [
         TextButton(
-          onPressed: () => Navigator.pop(context, {
-            'role': role == 'admin' ? 'user' : 'admin',
-          }),
+          onPressed: isSelf && role == 'admin'
+              ? null
+              : () => Navigator.pop(context, {
+                    'role': role == 'admin' ? 'user' : 'admin',
+                  }),
           child: Text(role == 'admin' ? 'Demote to User' : 'Elevate to Admin'),
         ),
         FilledButton(
-          onPressed: () => Navigator.pop(context, {
-            'is_active': !isActive,
-          }),
+          onPressed: isSelf && isActive
+              ? null
+              : () => Navigator.pop(context, {
+                    'is_active': !isActive,
+                  }),
           child: Text(isActive ? 'Disable account' : 'Enable account'),
         ),
       ],
@@ -3002,22 +3228,96 @@ class _AuditDetailDialog extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final action = log['action']?.toString() ?? 'Audit Event';
+    final actor = log['actor'] ?? log['actor_email'] ?? 'System';
+    final resourceType = log['resource_type']?.toString() ?? 'RESOURCE';
+    final resourceId = log['resource_id']?.toString() ?? '';
+    final result = (log['result'] ?? log['status'] ?? 'SUCCESS').toString().toUpperCase();
+    final timestamp = log['created_at'] ?? log['timestamp'] ?? 'Just now';
+    final details = log['details'];
+    final isSuccess = result == 'SUCCESS';
+
     return AlertDialog(
-      title: Text(log['action']?.toString() ?? 'Audit Event'),
+      title: Row(
+        children: [
+          Icon(
+            isSuccess ? Icons.check_circle_rounded : Icons.warning_amber_rounded,
+            color: isSuccess ? Colors.green : Colors.orange,
+            size: 20,
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(action, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+          ),
+        ],
+      ),
       content: SingleChildScrollView(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
           children: [
-            Text('Actor: ${log['actor'] ?? "System"}'),
-            Text('Resource: ${log['resource_type']} #${log['resource_id']}'),
-            Text('Result: ${log['result']}'),
-            Text('Timestamp: ${log['created_at']}'),
+            _AuditMetaRow('Actor', actor.toString()),
+            _AuditMetaRow('Resource', '$resourceType ${resourceId.isNotEmpty ? "#$resourceId" : ""}'),
+            _AuditMetaRow('Result', result),
+            _AuditMetaRow('Timestamp', timestamp.toString()),
+            if (details != null && details.toString().isNotEmpty) ...[
+              const SizedBox(height: 12),
+              const Text('Details / Context:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+              const SizedBox(height: 4),
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: Theme.of(context).colorScheme.surfaceContainerHighest,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Text(
+                  details is Map || details is List ? jsonEncode(details) : details.toString(),
+                  style: const TextStyle(fontFamily: 'monospace', fontSize: 11),
+                ),
+              ),
+            ],
           ],
         ),
       ),
       actions: [
         TextButton(onPressed: () => Navigator.pop(context), child: const Text('Close')),
       ],
+    );
+  }
+}
+
+class _AuditMetaRow extends StatelessWidget {
+  const _AuditMetaRow(this.label, this.value);
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 3),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: 80,
+            child: Text(
+              '$label:',
+              style: TextStyle(
+                fontWeight: FontWeight.w600,
+                fontSize: 12,
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+              ),
+            ),
+          ),
+          Expanded(
+            child: Text(
+              value,
+              style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

@@ -597,6 +597,10 @@ void main() {
   testWidgets('call-protection settings opens the real Guardian controls', (
     tester,
   ) async {
+    tester.view.physicalSize = const Size(800, 1600);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.resetPhysicalSize);
+
     await tester.pumpWidget(_home());
     await tester.pumpAndSettle();
     await tester.tap(find.byTooltip('Profile and settings'));

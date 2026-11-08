@@ -135,6 +135,10 @@ class GuardianProtectionSettings {
     this.askBeforeProtectiveActions = true,
     this.autoDisconnectHighRisk = true,
     this.autoDisconnectThreshold = 75,
+    this.floatingHudEnabled = true,
+    this.callScreeningAutoReject = true,
+    this.offlineHeuristicsEnabled = true,
+    this.autoSpeakerphoneEnabled = false,
   });
 
   final bool riskAlertsEnabled;
@@ -144,6 +148,10 @@ class GuardianProtectionSettings {
   final bool askBeforeProtectiveActions;
   final bool autoDisconnectHighRisk;
   final int autoDisconnectThreshold;
+  final bool floatingHudEnabled;
+  final bool callScreeningAutoReject;
+  final bool offlineHeuristicsEnabled;
+  final bool autoSpeakerphoneEnabled;
 
   GuardianProtectionSettings copyWith({
     bool? riskAlertsEnabled,
@@ -152,6 +160,10 @@ class GuardianProtectionSettings {
     bool? showProtectionActions,
     bool? autoDisconnectHighRisk,
     int? autoDisconnectThreshold,
+    bool? floatingHudEnabled,
+    bool? callScreeningAutoReject,
+    bool? offlineHeuristicsEnabled,
+    bool? autoSpeakerphoneEnabled,
   }) {
     return GuardianProtectionSettings(
       riskAlertsEnabled: riskAlertsEnabled ?? this.riskAlertsEnabled,
@@ -166,6 +178,13 @@ class GuardianProtectionSettings {
           autoDisconnectHighRisk ?? this.autoDisconnectHighRisk,
       autoDisconnectThreshold:
           autoDisconnectThreshold ?? this.autoDisconnectThreshold,
+      floatingHudEnabled: floatingHudEnabled ?? this.floatingHudEnabled,
+      callScreeningAutoReject:
+          callScreeningAutoReject ?? this.callScreeningAutoReject,
+      offlineHeuristicsEnabled:
+          offlineHeuristicsEnabled ?? this.offlineHeuristicsEnabled,
+      autoSpeakerphoneEnabled:
+          autoSpeakerphoneEnabled ?? this.autoSpeakerphoneEnabled,
     );
   }
 }

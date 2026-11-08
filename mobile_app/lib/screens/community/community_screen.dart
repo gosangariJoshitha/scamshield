@@ -3,6 +3,8 @@ import 'package:flutter/services.dart';
 
 import '../../models/community_report_model.dart';
 import '../../models/user.dart';
+import '../../services/api_service.dart';
+import '../../services/auth_service.dart';
 import '../../services/community_service.dart';
 import '../../theme/app_colors.dart';
 
@@ -41,9 +43,17 @@ class _CommunityScreenState extends State<CommunityScreen> {
     'Courier / Delivery',
   ];
 
+  late final CommunityService _service;
+
   @override
   void initState() {
     super.initState();
+    final auth = AuthService(api: ApiService());
+    _service = widget.communityService ??
+        CommunityService(
+          api: ApiService(),
+          authService: auth,
+        );
     _loadReports();
   }
 
@@ -54,14 +64,13 @@ class _CommunityScreenState extends State<CommunityScreen> {
   }
 
   Future<void> _loadReports() async {
-    if (widget.communityService == null) return;
     setState(() {
       _loading = true;
       _error = null;
     });
 
     try {
-      final list = await widget.communityService!.getCommunityReports();
+      final list = await _service.getCommunityReports();
       if (!mounted) return;
       setState(() {
         _reports = list;
@@ -180,7 +189,7 @@ class _CommunityScreenState extends State<CommunityScreen> {
                     ),
                     const SizedBox(height: 20),
                     FilledButton.icon(
-                      onPressed: submitting || widget.communityService == null
+                      onPressed: submitting
                           ? null
                           : () async {
                               if (contentCtrl.text.trim().isEmpty) {
@@ -193,7 +202,7 @@ class _CommunityScreenState extends State<CommunityScreen> {
                               }
                               setSheetState(() => submitting = true);
                               try {
-                                final newReport = await widget.communityService!
+                                final newReport = await _service
                                     .submitReport(
                                   content: contentCtrl.text.trim(),
                                   category: reportCategory,
@@ -250,7 +259,7 @@ class _CommunityScreenState extends State<CommunityScreen> {
       MaterialPageRoute<void>(
         builder: (_) => CommunityPostDetailScreen(
           report: report,
-          communityService: widget.communityService,
+          communityService: _service,
         ),
       ),
     );
@@ -304,7 +313,16 @@ class _CommunityScreenState extends State<CommunityScreen> {
       backgroundColor:
           isDark ? AppColors.darkBackground : AppColors.lightBackground,
       appBar: AppBar(
-        title: const Text('Community'),
+        title: Text(
+          'Community',
+          style: TextStyle(
+            fontFamily: 'Inter',
+            fontSize: 24,
+            fontWeight: FontWeight.w800,
+            letterSpacing: -0.5,
+            color: isDark ? AppColors.textMainDark : const Color(0xFF0F172A),
+          ),
+        ),
         actions: [
           IconButton(
             tooltip: 'Refresh',
@@ -849,22 +867,52 @@ class _ReportCard extends StatelessWidget {
                       color: statusColor.withValues(alpha: 0.15),
                       borderRadius: BorderRadius.circular(8),
                     ),
-                    child: Text(
-                      report.status.toUpperCase(),
-                      style: TextStyle(
-                        fontSize: 10.5,
-                        fontWeight: FontWeight.w800,
-                        color: statusColor,
-                      ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        if (report.status.toUpperCase() == 'VERIFIED') ...[
+                          Icon(Icons.verified_rounded, size: 12, color: statusColor),
+                          const SizedBox(width: 4),
+                        ],
+                        Text(
+                          report.status.toUpperCase(),
+                          style: TextStyle(
+                            fontSize: 10.5,
+                            fontWeight: FontWeight.w800,
+                            color: statusColor,
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                   const Spacer(),
-                  Text(
-                    report.reporterName,
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: colors.onSurfaceVariant,
-                    ),
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      CircleAvatar(
+                        radius: 10,
+                        backgroundColor: colors.primary.withValues(alpha: 0.15),
+                        child: Text(
+                          report.reporterName.isNotEmpty
+                              ? report.reporterName[0].toUpperCase()
+                              : '?',
+                          style: TextStyle(
+                            fontSize: 9.5,
+                            fontWeight: FontWeight.bold,
+                            color: colors.primary,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 6),
+                      Text(
+                        report.reporterName,
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w500,
+                          color: colors.onSurfaceVariant,
+                        ),
+                      ),
+                    ],
                   ),
                 ],
               ),
@@ -1036,17 +1084,14 @@ class CommunityPostDetailScreen extends StatelessWidget {
     if (result == null || result.trim().isEmpty) return;
     if (!context.mounted) return;
 
-    if (communityService == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Moderation service is currently unavailable.'),
-        ),
-      );
-      return;
-    }
+    final service = communityService ??
+        CommunityService(
+          api: ApiService(),
+          authService: AuthService(api: ApiService()),
+        );
 
     try {
-      final success = await communityService!.flagReport(
+      final success = await service.flagReport(
         reportId: report.id,
         reason: result,
       );

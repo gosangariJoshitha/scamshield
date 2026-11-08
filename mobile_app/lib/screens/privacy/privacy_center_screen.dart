@@ -111,6 +111,7 @@ class _PrivacyCenterScreenState extends State<PrivacyCenterScreen> {
                   onPressed: () async {
                     Navigator.of(context).pop();
                     await _callBridge.openAppSettings();
+                    await _loadDevicePermissions();
                   },
                   icon: const Icon(Icons.settings_outlined),
                   label: const Text('Open System App Settings'),
@@ -321,7 +322,16 @@ class _PrivacyCenterScreenState extends State<PrivacyCenterScreen> {
     return Scaffold(
       backgroundColor: isDark ? AppColors.darkBackground : AppColors.lightBackground,
       appBar: AppBar(
-        title: const Text('Privacy & Security'),
+        title: Text(
+          'Privacy & Security',
+          style: TextStyle(
+            fontFamily: 'Inter',
+            fontSize: 24,
+            fontWeight: FontWeight.w800,
+            letterSpacing: -0.5,
+            color: isDark ? AppColors.textMainDark : const Color(0xFF0F172A),
+          ),
+        ),
       ),
       body: SafeArea(
         child: ListView(

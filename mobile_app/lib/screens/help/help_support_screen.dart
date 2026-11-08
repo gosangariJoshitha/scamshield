@@ -57,7 +57,7 @@ class HelpSupportScreen extends StatelessWidget {
                 const _FaqTile(
                   question: 'Can ScamShield hang up calls automatically?',
                   answer:
-                      'No. ScamShield operates on explicit user consent. We provide real-time alerts and recommendations, but you retain complete control over answering, muting, or ending calls.',
+                      'Yes, if you enable Autonomous Disconnect in Sentinel settings. When enabled, calls detected with Critical fraud risk are automatically terminated to protect you from financial harm. Otherwise, ScamShield alerts you in real time and you retain full manual control.',
                 ),
                 const _FaqTile(
                   question: 'How do multilingual recommendations work?',
@@ -368,7 +368,16 @@ class HelpSupportScreen extends StatelessWidget {
     return Scaffold(
       backgroundColor: isDark ? AppColors.darkBackground : AppColors.lightBackground,
       appBar: AppBar(
-        title: const Text('Help & Support'),
+        title: Text(
+          'Help & Support',
+          style: TextStyle(
+            fontFamily: 'Inter',
+            fontSize: 24,
+            fontWeight: FontWeight.w800,
+            letterSpacing: -0.5,
+            color: isDark ? AppColors.textMainDark : const Color(0xFF0F172A),
+          ),
+        ),
       ),
       body: SafeArea(
         child: ListView(
